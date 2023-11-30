@@ -1,0 +1,99 @@
+// Copyright 2024 Goldman Sachs
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import meta::pure::changetoken::*;
+import meta::pure::constraints::functions::*;
+import meta::pure::changetoken::cast_generation::*;
+import meta::pure::changetoken::diff_generation::*;
+import meta::json::*;
+
+Class meta::pure::changetoken::tests::new::entities::vX_X_X::SampleClass
+{
+    abc : String[1] = 'UNKNOWN';
+    def : meta::pure::changetoken::tests::new::dependencies::vX_X_X::NestedClass[1] = ^meta::pure::changetoken::tests::new::dependencies::vX_X_X::NestedClass(one='TWO', three=4.5);
+}
+
+Class meta::pure::changetoken::tests::new::dependencies::vX_X_X::NestedClass
+{
+    one : String[1];
+    three : Float[1];
+}
+
+Class meta::pure::changetoken::tests::new::entities::vX_X_X::OldSampleClass
+{
+    xyz : String[1];
+}
+
+Class meta::pure::changetoken::tests::old::entities::vX_X_X::OldSampleClass
+{
+    xyz : String[1];
+}
+
+function
+<<test.Test>>
+meta::pure::changetoken::tests::testAddField():Boolean[1]
+{
+    let oldVersions = ^Versions(versions=[^Version(version='da39a3ee5e6b4b0d3255bfef95601890afd80709')]);
+    let newVersions = $oldVersions->generateDiffFromVersionsAndScopes('meta::pure::changetoken::tests::new::entities::vX_X_X', 'meta::pure::changetoken::tests::old::entities::vX_X_X', [], [], []);
+    let versions = $newVersions.versions;
+    assertEquals(2, $versions->size());
+    let oldVersion = $versions->at(0);
+    assertEmpty($oldVersion.prevVersion);
+    assertEmpty($oldVersion.changeTokens);
+    assertEquals('da39a3ee5e6b4b0d3255bfef95601890afd80709', $oldVersion.version);
+    let newVersion = $versions->at(1);
+    assertEquals('da39a3ee5e6b4b0d3255bfef95601890afd80709', $newVersion.prevVersion);
+    assertEquals('238fce828d5b42b5239ec71661fbde91ca382a39', $newVersion.version);
+    let changeTokens = $newVersion.changeTokens;
+    assertEquals(3, $changeTokens->size());
+    let addedClass = $changeTokens->at(0)->cast(@AddedClass);
+    assertEquals('meta::pure::changetoken::tests::SampleClass', $addedClass.class);
+    let addField = $changeTokens->at(1)->cast(@AddField);
+    assertEquals('meta::pure::changetoken::tests::SampleClass', $addField.class);
+    assertEquals('abc', $addField.fieldName);
+    assertEquals('String[1]', $addField.fieldType);
+    assertEquals(true, $addField.safeCast);
+    let defaultValue = $addField.defaultValue->cast(@ConstValue);
+    assertEquals(^JSONString(value='UNKNOWN'), $defaultValue.value);
+    let addFieldTwo = $changeTokens->at(2)->cast(@AddField);
+    assertEquals('meta::pure::changetoken::tests::SampleClass', $addFieldTwo.class);
+    assertEquals('def', $addFieldTwo.fieldName);
+    assertEquals('meta::pure::changetoken::tests::NestedClass[1]', $addFieldTwo.fieldType);
+    assertEquals(true, $addFieldTwo.safeCast);
+    let defaultValueTwo = $addFieldTwo.defaultValue->cast(@ConstValue);
+    assert(jsonEquivalent(newJSONObject([newJSONKeyValue('one', ^JSONString(value='TWO')), newJSONKeyValue('@type', ^JSONString(value='meta::pure::changetoken::tests::NestedClass')), newJSONKeyValue('three', ^JSONNumber(value=4.5))]), $defaultValueTwo.value->cast(@JSONElement)));
+}
+
+function
+<<test.Test>>
+meta::pure::changetoken::tests::testStripVersionQualifier():Boolean[1]
+{
+    assertEquals('aa::bb::cc::ABC', 'aa::bb::cc::zz::yy::vX_X_X::ABC'->stripVersionQualifier());
+    assertEquals('aa::ABC', 'aa::zz::yy::vX_X_X::ABC'->stripVersionQualifier());
+    assertEquals('ABC', 'zz::yy::vX_X_X::ABC'->stripVersionQualifier());
+    assertEquals('yy::vX_X_X::ABC', 'yy::vX_X_X::ABC'->stripVersionQualifier());
+    assertEquals('', 'zz:yy::vX_X_X'->stripVersionQualifier());
+    assertEquals('nn', 'nn:zz:yy::vX_X_X'->stripVersionQualifier());
+    assertEquals('aa::ABC', 'aa::bb::cc::vX_X_X::zz::yy::vX_X_X::ABC'->stripVersionQualifier());
+    assertEquals('aa::nn::ABC', 'aa::bb::cc::vX_X_X::nn:zz::yy::vX_X_X::ABC'->stripVersionQualifier());
+}
+
+function
+<<test.Test>>
+meta::pure::changetoken::tests::testGetTokens():Boolean[1]
+{
+    let classes = [meta::pure::changetoken::tests::old::entities::vX_X_X]->packageClassesRecursive();
+    let tokens = getHashTokens($classes);
+    assertEquals(['meta::pure::changetoken::tests::OldSampleClass', 'xyz', 'String[1]'], $tokens);
+}

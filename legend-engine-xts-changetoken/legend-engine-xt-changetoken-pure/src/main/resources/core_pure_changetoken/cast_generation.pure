@@ -46,7 +46,58 @@ function meta::pure::changetoken::cast_generation::generateCastFromJson(jsonStri
 
 function meta::pure::changetoken::cast_generation::versionsToJson(versions:Versions[1]):String[1]
 {
-  $versions->toJSON([], 100, config(true, true, true, true, '@type', true));
+  let raw = $versions->toJSONElement([], 100, config(true, true, true, true, '@type', true));
+  let output = $raw->unzap();
+  $output->toCompactJSONString();
+}
+
+function meta::pure::changetoken::cast_generation::unzap(input:JSONElement[1]):JSONElement[1]
+{
+  let o = $input->cast(@JSONObject);
+  newJSONObject($o.keyValuePairs->filter(kv|$kv.key.value != 'versions')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value))->concatenate($o.keyValuePairs->filter(kv|$kv.key.value == 'versions')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value->unzap_versions()))));
+}
+
+function meta::pure::changetoken::cast_generation::unzap_versions(input:JSONElement[1]):JSONElement[1]
+{
+  let a = $input->cast(@JSONArray);
+  ^JSONArray(values=$a.values->map(o|$o->unzap_version()));
+}
+
+function meta::pure::changetoken::cast_generation::unzap_version(input:JSONElement[1]):JSONElement[1]
+{
+  let o = $input->cast(@JSONObject);
+  newJSONObject($o.keyValuePairs->filter(kv|$kv.key.value != 'changeTokens')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value))->concatenate($o.keyValuePairs->filter(kv|$kv.key.value == 'changeTokens')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value->unzap_changeTokens()))));
+}
+
+function meta::pure::changetoken::cast_generation::unzap_changeTokens(input:JSONElement[1]):JSONElement[1]
+{
+  let a = $input->cast(@JSONArray);
+  ^JSONArray(values=$a.values->map(o|$o->unzap_changeToken()));
+}
+
+function meta::pure::changetoken::cast_generation::unzap_changeToken(input:JSONElement[1]):JSONElement[1]
+{
+  let o = $input->cast(@JSONObject);
+  newJSONObject($o.keyValuePairs->filter(kv|$kv.key.value != 'defaultValue')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value))->concatenate($o.keyValuePairs->filter(kv|$kv.key.value == 'defaultValue')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value->unzap_defaultValue()))));
+}
+
+function meta::pure::changetoken::cast_generation::unzap_defaultValue(input:JSONElement[1]):JSONElement[1]
+{
+  let o = $input->cast(@JSONObject);
+  newJSONObject($o.keyValuePairs->filter(kv|$kv.key.value != 'value')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value))->concatenate($o.keyValuePairs->filter(kv|$kv.key.value == 'value')->map(kv | ^JSONKeyValue(key = $kv.key, value = $kv.value->unzap_value()))));
+}
+
+function meta::pure::changetoken::cast_generation::unzap_value(input:JSONElement[1]):JSONElement[1]
+{
+  $input->match([
+    o:JSONObject[1] | if(is_nested_JSONObject($o), | unzap_value($o->fromJSON(JSONElement, ^JSONDeserializationConfig(typeKeyName='@type', failOnUnknownProperties=true))->cast(@JSONElement)->toOne()), | $o),
+    e:JSONElement[1] | $e
+  ])
+}
+
+function meta::pure::changetoken::cast_generation::is_nested_JSONObject(o:JSONObject[1]): Boolean[1]
+{
+  $o.keyValuePairs->map(v | if($v.key.value == '@type' && $v.value->cast(@JSONString).value->startsWith('meta::json::JSON'), | true, | false))->fold({b,r | $b || $r }, false);
 }
 
 function meta::pure::changetoken::cast_generation::jsonToVersions(jsonString:String[1]):Versions[1]

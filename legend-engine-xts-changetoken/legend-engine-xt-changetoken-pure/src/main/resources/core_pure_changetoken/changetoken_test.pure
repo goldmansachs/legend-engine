@@ -35,6 +35,16 @@ function <<test.Test>> meta::pure::changetoken::tests::testConstraint():Boolean[
   assertInvalidConstraint(Versions, [^KeyValue(key='versions', value=[^Version(version='1'), ^Version(version='2')])], 'linearVersions');
 }
 
+function <<test.Test>> meta::pure::changetoken::tests::testParse():Boolean[1]
+{
+    let jsonString = '{"@type":"meta::pure::changetoken::Versions","versions":[{"@type":"meta::pure::changetoken::Version","version":"ftdm:abcdefg123"}]}';
+    let versions = $jsonString->jsonToVersions();
+    assertEquals($versions.versions->at(0).version, 'ftdm:abcdefg123');
+    let jsonOutput = $versions->versionsToJson();
+    let jsonCheck = $jsonOutput->jsonToVersions();
+    assertEquals($jsonCheck.versions->at(0).version, 'ftdm:abcdefg123');
+}
+
 Class meta::pure::changetoken::tests::SampleClass
 {
   abc : Integer[1];  
