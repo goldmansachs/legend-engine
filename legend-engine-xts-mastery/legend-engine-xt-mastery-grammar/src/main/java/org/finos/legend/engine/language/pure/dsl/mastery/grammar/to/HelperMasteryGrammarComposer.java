@@ -248,11 +248,11 @@ public class HelperMasteryGrammarComposer
         StringBuilder nonSourcePrecedenceRulesBuilder = new StringBuilder()
                 .append(getTabString(indentLevel)).append("precedenceRules: [");
 
-        ListIterate.forEachWithIndex(precedenceRules, (precedenceRule, i) ->
+        ListIterate.forEach(precedenceRules, (precedenceRule) ->
         {
             String precedenceRuleString = precedenceRule.accept(new PrecedenceRuleComposer(indentLevel + 1, context, uniqueSourcePrecedenceRules));
             nonSourcePrecedenceRulesBuilder.append(precedenceRuleString);
-            nonSourcePrecedenceRulesBuilder.append(i < precedenceRules.size() - 1 && !precedenceRuleString.equals("") ? "," : "");
+            nonSourcePrecedenceRulesBuilder.append(!precedenceRuleString.equals("") ? "," : "");
         });
         return combinePrecedenceRules(uniqueSourcePrecedenceRules, nonSourcePrecedenceRulesBuilder.toString(), indentLevel);
     }
@@ -262,6 +262,7 @@ public class HelperMasteryGrammarComposer
         StringBuilder allPrecedenceRules = new StringBuilder();
         if (uniqueSourcePrecedenceRules.isEmpty())
         {
+            nonSourcePrecedenceRules = StringUtils.chop(nonSourcePrecedenceRules);
             nonSourcePrecedenceRules = StringUtils.chomp(nonSourcePrecedenceRules);
         }
         allPrecedenceRules.append(nonSourcePrecedenceRules);
