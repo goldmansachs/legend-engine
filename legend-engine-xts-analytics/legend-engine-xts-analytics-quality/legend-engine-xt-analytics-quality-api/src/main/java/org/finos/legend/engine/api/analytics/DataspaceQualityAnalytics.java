@@ -14,7 +14,6 @@
 
 package org.finos.legend.engine.api.analytics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.eclipse.collections.api.RichIterable;
@@ -22,8 +21,8 @@ import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.PackageableElement;
-import org.finos.legend.engine.shared.core.ObjectMapperFactory;
 import org.finos.legend.pure.generated.Root_meta_analytics_quality_model_CheckResult;
+import org.finos.legend.pure.generated.Root_meta_analytics_quality_model_Rule;
 import org.finos.legend.pure.generated.Root_meta_pure_functions_collection_List_Impl;
 import org.finos.legend.pure.generated.core_analytics_quality_associationChecks;
 import org.finos.legend.pure.generated.core_analytics_quality_classChecks;
@@ -52,10 +51,16 @@ public class DataspaceQualityAnalytics
 {
     private final ModelManager modelManager;
     private List<String> messages;
+    private List<Root_meta_analytics_quality_model_Rule<?>> rules;
 
     public DataspaceQualityAnalytics(ModelManager modelManager)
     {
         this.modelManager = modelManager;
+    }
+
+    public List<Root_meta_analytics_quality_model_Rule<?>> getDataspaceRules()
+    {
+        return rules;
     }
 
     @POST
@@ -65,6 +70,7 @@ public class DataspaceQualityAnalytics
     public Response checkDataSpaceConstraints(PureModelContextData pureModelContextData)
     {
         messages = new ArrayList<>();
+        rules = new ArrayList<>();
         PureModel pureModel = this.modelManager.loadModel(pureModelContextData, null, null, null);
 
         List<PackageableElement> classes = pureModelContextData.getElements().stream().filter(e -> e instanceof org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.Class).collect(Collectors.toList());
@@ -93,7 +99,7 @@ public class DataspaceQualityAnalytics
             Class<?> _class = pureModel.getContext().resolveClass(pe.getPath(), pe.sourceInformation);
             allPropertiesInClassAreValid = propertyChecks(_class, es);
             //create rules
-            core_analytics_quality_classChecks.Root_meta_analytics_quality_model_domain_classRules__Rule_MANY_(es);
+            core_analytics_quality_classChecks.Root_meta_analytics_quality_model_domain_classRules__Rule_MANY_(es).forEach(rules::add);
 
             //run checks
             RichIterable<? extends Root_meta_analytics_quality_model_CheckResult> upperCase_class_1__checkResult_many_ = core_analytics_quality_classChecks.Root_meta_analytics_quality_model_domain_classNameShouldStartWithUpperCase_Class_1__CheckResult_MANY_(_class, es);
@@ -118,7 +124,7 @@ public class DataspaceQualityAnalytics
             org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.relationship.Association _association = pureModel.getContext().resolveAssociation(pe.getPath(), pe.sourceInformation);
 
             //create rules
-            core_analytics_quality_associationChecks.Root_meta_analytics_quality_model_domain_associationRules__Rule_MANY_(es);
+            core_analytics_quality_associationChecks.Root_meta_analytics_quality_model_domain_associationRules__Rule_MANY_(es).forEach(rules::add);
 
             //run checks
             RichIterable<? extends Root_meta_analytics_quality_model_CheckResult> associationNameShouldStartWithUpperCase_association_1__checkResult_many_ = core_analytics_quality_associationChecks.Root_meta_analytics_quality_model_domain_associationNameShouldStartWithUpperCase_Association_1__CheckResult_MANY_(_association, es);
@@ -135,7 +141,7 @@ public class DataspaceQualityAnalytics
             Enumeration<Enum> _enumeration = pureModel.getContext().resolveEnumeration(pe.getPath(), pe.sourceInformation);
 
             //create rules
-            core_analytics_quality_enumerationChecks.Root_meta_analytics_quality_model_domain_enumerationRules__Rule_MANY_(es);
+            core_analytics_quality_enumerationChecks.Root_meta_analytics_quality_model_domain_enumerationRules__Rule_MANY_(es).forEach(rules::add);
 
             //run checks
             RichIterable<? extends Root_meta_analytics_quality_model_CheckResult> enumerationName_enumeration_1__checkResult_many_ = core_analytics_quality_enumerationChecks.Root_meta_analytics_quality_model_domain_enumerationName_Enumeration_1__CheckResult_MANY_(_enumeration, es);
@@ -152,7 +158,7 @@ public class DataspaceQualityAnalytics
         List<Root_meta_analytics_quality_model_CheckResult> functionCheckResults = new ArrayList<>();
 
         //create rules
-        core_analytics_quality_functionChecks.Root_meta_analytics_quality_model_domain_functionRules__Rule_MANY_(es);
+        core_analytics_quality_functionChecks.Root_meta_analytics_quality_model_domain_functionRules__Rule_MANY_(es).forEach(rules::add);
 
         org.finos.legend.pure.m3.coreinstance.meta.pure.functions.collection.List<ConcreteFunctionDefinition<?>> functionDefinitions = resolveConcreteFunctionDefinitions(functions, pureModel);
 
@@ -193,7 +199,7 @@ public class DataspaceQualityAnalytics
         for (Property<?, ?> property : properties)
         {
             //create rules
-            core_analytics_quality_propertyChecks.Root_meta_analytics_quality_model_domain_propertyRules__Rule_MANY_(es);
+            core_analytics_quality_propertyChecks.Root_meta_analytics_quality_model_domain_propertyRules__Rule_MANY_(es).forEach(rules::add);
 
             //run checks
             RichIterable<? extends Root_meta_analytics_quality_model_CheckResult> classPropertyShouldStartWithLowerLetter_abstractProperty_1__checkResult_many_ = core_analytics_quality_propertyChecks.Root_meta_analytics_quality_model_domain_classPropertyShouldStartWithLowerLetter_AbstractProperty_1__CheckResult_MANY_(property, es);
