@@ -50,7 +50,7 @@ public class ModelStoreTestConnectionFactory implements ConnectionFactoryExtensi
     private static XmlModelConnection xmlModelConnection = new XmlModelConnection();
 
 
-    private Pair<Connection, List<Closeable>> resolveExternalFormatData(ExternalFormatData externalFormatData, String _class)
+    public static Pair<Connection, List<Closeable>> resolveExternalFormatData(ExternalFormatData externalFormatData, String _class)
     {
         Closeable closeable = new Closeable()
         {
