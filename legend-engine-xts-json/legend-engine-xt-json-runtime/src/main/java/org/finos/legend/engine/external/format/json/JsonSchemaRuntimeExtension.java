@@ -14,7 +14,6 @@
 
 package org.finos.legend.engine.external.format.json;
 
-import org.eclipse.collections.api.list.MutableList;
 import org.finos.legend.engine.external.format.json.read.IJsonDeserializeExecutionNodeSpecifics;
 import org.finos.legend.engine.external.format.json.read.IJsonInternalizeExecutionNodeSpecifics;
 import org.finos.legend.engine.external.format.json.write.IJsonExternalizeExecutionNodeSpecifics;
@@ -34,7 +33,7 @@ import org.finos.legend.engine.plan.execution.stores.inMemory.plugin.StoreStream
 import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.nodes.JavaPlatformImplementation;
 import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.nodes.externalFormat.ExternalFormatExternalizeExecutionNode;
 import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.nodes.externalFormat.ExternalFormatInternalizeExecutionNode;
-import org.pac4j.core.profile.CommonProfile;
+import org.finos.legend.engine.shared.core.identity.Identity;
 
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -57,12 +56,12 @@ public class JsonSchemaRuntimeExtension implements ExternalFormatRuntimeExtensio
     }
 
     @Override
-    public StreamingObjectResult<?> executeInternalizeExecutionNode(ExternalFormatInternalizeExecutionNode node, InputStream inputStream, MutableList<CommonProfile> profiles, ExecutionState executionState)
+    public StreamingObjectResult<?> executeInternalizeExecutionNode(ExternalFormatInternalizeExecutionNode node, InputStream inputStream, Identity identity, ExecutionState executionState)
     {
         try
         {
             String specificsClassName = JavaHelper.getExecutionClassFullName((JavaPlatformImplementation) node.implementation);
-            Class<?> specificsClass = ExecutionNodeJavaPlatformHelper.getClassToExecute(node, specificsClassName, executionState, profiles);
+            Class<?> specificsClass = ExecutionNodeJavaPlatformHelper.getClassToExecute(node, specificsClassName, executionState, identity);
 
             Stream<?> objectStream;
             if (Arrays.asList(specificsClass.getInterfaces()).contains(IJsonInternalizeExecutionNodeSpecifics.class))
@@ -87,7 +86,7 @@ public class JsonSchemaRuntimeExtension implements ExternalFormatRuntimeExtensio
     }
 
     @Override
-    public Result executeExternalizeExecutionNode(ExternalFormatExternalizeExecutionNode node, Result result, MutableList<CommonProfile> profiles, ExecutionState executionState)
+    public Result executeExternalizeExecutionNode(ExternalFormatExternalizeExecutionNode node, Result result, Identity identity, ExecutionState executionState)
     {
         try
         {
@@ -97,7 +96,7 @@ public class JsonSchemaRuntimeExtension implements ExternalFormatRuntimeExtensio
             }
 
             String executionClassName = JavaHelper.getExecutionClassFullName((JavaPlatformImplementation) node.implementation);
-            Class<?> specificsClass = ExecutionNodeJavaPlatformHelper.getClassToExecute(node, executionClassName, executionState, profiles);
+            Class<?> specificsClass = ExecutionNodeJavaPlatformHelper.getClassToExecute(node, executionClassName, executionState, identity);
 
             IExecutionNodeContext context = new DefaultExecutionNodeContext(executionState, result);
             if (Arrays.asList(specificsClass.getInterfaces()).contains(IJsonExternalizeExecutionNodeSpecifics.class))
