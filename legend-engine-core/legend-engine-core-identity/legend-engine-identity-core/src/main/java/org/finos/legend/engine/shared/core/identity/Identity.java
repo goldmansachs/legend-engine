@@ -16,14 +16,10 @@ package org.finos.legend.engine.shared.core.identity;
 
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.ImmutableList;
-import org.eclipse.collections.impl.utility.LazyIterate;
 import org.finos.legend.engine.shared.core.identity.credential.AnonymousCredential;
-import org.finos.legend.engine.shared.core.identity.credential.LegendKerberosCredential;
 
-import javax.security.auth.Subject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -102,13 +98,5 @@ public class Identity
     public boolean hasValidCredentials()
     {
         return credentials.isEmpty() || credentials.stream().allMatch(c -> c.isValid());
-    }
-
-    public Subject getSubjectFromIdentity()
-    {
-        return LazyIterate.selectInstancesOf(getCredentials(), LegendKerberosCredential.class)
-                .select(Objects::nonNull)
-                .collect(LegendKerberosCredential::getSubject)
-                .getFirst();
     }
 }
