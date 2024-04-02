@@ -17,16 +17,23 @@ package org.finos.legend.engine.repl.relational;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
 import org.finos.legend.engine.plan.execution.result.Result;
+import org.finos.legend.engine.plan.execution.result.serialization.SerializationFormat;
 import org.finos.legend.engine.plan.execution.stores.StoreType;
 import org.finos.legend.engine.plan.execution.stores.relational.plugin.RelationalStoreExecutor;
 import org.finos.legend.engine.plan.execution.stores.relational.result.RelationalResult;
+import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
 import org.finos.legend.engine.repl.client.Client;
 import org.finos.legend.engine.repl.core.Command;
 import org.finos.legend.engine.repl.core.ReplExtension;
 import org.finos.legend.engine.repl.core.commands.Execute;
 import org.finos.legend.engine.repl.relational.commands.DB;
 import org.finos.legend.engine.repl.relational.commands.Load;
+import org.finos.legend.engine.repl.relational.commands.Show;
+import org.finos.legend.engine.repl.relational.httpServer.ReplGridServer;
 
+import java.awt.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.sql.Connection;
 
 import static org.finos.legend.engine.repl.relational.grid.Grid.prettyGridPrint;
@@ -35,6 +42,7 @@ import static org.finos.legend.engine.repl.relational.schema.MetadataReader.getT
 public class RelationalReplExtension implements ReplExtension
 {
     private Client client;
+    public ReplGridServer replGridServer;
 
     static
     {
@@ -52,10 +60,16 @@ public class RelationalReplExtension implements ReplExtension
         this.client = client;
     }
 
+    public void initialize() throws Exception
+    {
+        this.replGridServer = new ReplGridServer(this.client);
+        this.replGridServer.initializeServer();
+    }
+
     @Override
     public MutableList<Command> getExtraCommands()
     {
-        return Lists.mutable.with(new DB(this.client, this), new Load(this.client, this));
+        return Lists.mutable.with(new DB(this.client, this), new Load(this.client, this), new Show(this.client, this.replGridServer));
     }
 
     @Override
@@ -104,10 +118,20 @@ public class RelationalReplExtension implements ReplExtension
     }
 
     @Override
-    public String print(Result res)
+    public String print(PureModelContextData d, Result res) throws IOException
     {
-        return prettyGridPrint((RelationalResult) res, 60);
+        if (Desktop.isDesktopSupported())
+        {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ((RelationalResult) res).getSerializer(SerializationFormat.DEFAULT).stream(byteArrayOutputStream);
+            replGridServer.updateGridState(d, byteArrayOutputStream.toString());
+            return "";
+        }
+       else
+        {
+            return prettyGridPrint((RelationalResult) res, 60);
 //            Serializer s = new RelationalResultToCSVSerializer((RelationalResult) res);
 //            return s.flush().toString();
+        }
     }
 }

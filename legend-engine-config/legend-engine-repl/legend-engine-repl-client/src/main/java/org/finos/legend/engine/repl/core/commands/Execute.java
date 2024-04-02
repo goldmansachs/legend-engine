@@ -39,6 +39,8 @@ import org.jline.reader.ParsedLine;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 
+import java.io.IOException;
+
 public class Execute implements Command
 {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -100,7 +102,7 @@ public class Execute implements Command
     }
 
 
-    public String execute(String txt)
+    public String execute(String txt) throws IOException
     {
         String code = "###Pure\n" +
                 "function a::b::c::d():Any[*]\n{\n" + txt + ";\n}";
@@ -145,7 +147,7 @@ public class Execute implements Command
             ReplExtension extension = this.client.getReplExtensions().detect(x -> x.supports(res));
             if (extension != null)
             {
-                return extension.print(res);
+                return extension.print(d, res);
             }
             else
             {

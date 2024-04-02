@@ -58,6 +58,18 @@ public class Client
 
         this.terminal = TerminalBuilder.terminal();
 
+        replExtensions.forEach(c ->
+        {
+            try
+            {
+                c.initialize();
+            }
+            catch (Exception e)
+            {
+                this.terminal.writer().println(e.getMessage());
+            }
+        });
+
         this.terminal.writer().println("\n" + Logos.logos.get((int) (Logos.logos.size() * Math.random())) + "\n");
 
         this.commands = replExtensions.flatCollect(ReplExtension::getExtraCommands).withAll(Lists.mutable.with(new Ext(this), new Debug(this), new Graph(this), new Execute(this)));
@@ -74,6 +86,7 @@ public class Client
         this.terminal.flush();
         ((Execute) this.commands.getLast()).execute("1+1");
         this.terminal.writer().println("Ready!\n");
+
     }
 
     public void loop()
