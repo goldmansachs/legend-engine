@@ -15,8 +15,10 @@
 package org.finos.legend.engine.repl.relational.commands;
 
 import org.eclipse.collections.api.list.MutableList;
+import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
 import org.finos.legend.engine.repl.client.Client;
 import org.finos.legend.engine.repl.core.Command;
+import org.finos.legend.engine.repl.core.commands.Execute;
 import org.finos.legend.engine.repl.relational.httpServer.ReplGridServer;
 import org.jline.reader.Candidate;
 import org.jline.reader.LineReader;
@@ -44,11 +46,12 @@ public class Show implements Command
     }
 
     @Override
-    public boolean process(String line) throws Exception
+    public boolean process(String line)
     {
         if (line.startsWith("show"))
         {
-            if (this.replGridServer.canShowGrid())
+            PureModelContextData currentPMCD = ((Execute) this.client.commands.getLast()).getCurrentPMCD();
+            if (currentPMCD == null)
             {
                 System.out.println("Unable to show repl grid, no query has been executed");
             }
@@ -56,9 +59,10 @@ public class Show implements Command
             {
                 try
                 {
+                    this.replGridServer.updateGridState(currentPMCD);
                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE))
                    {
-                       Desktop.getDesktop().browse(URI.create("http://localhost:8080/repl/grid"));
+                       Desktop.getDesktop().browse(URI.create(replGridServer.getGridUrl()));
                    }
                    else
                    {

@@ -53,22 +53,11 @@ public class Client
     public Client(MutableList<ReplExtension> replExtensions, MutableList<CompleterExtension> completerExtensions) throws Exception
     {
         replExtensions.forEach(c -> c.setClient(this));
+        replExtensions.forEach(e -> e.initialize());
         this.replExtensions = replExtensions;
         this.completerExtensions = completerExtensions;
 
         this.terminal = TerminalBuilder.terminal();
-
-        replExtensions.forEach(c ->
-        {
-            try
-            {
-                c.initialize();
-            }
-            catch (Exception e)
-            {
-                this.terminal.writer().println(e.getMessage());
-            }
-        });
 
         this.terminal.writer().println("\n" + Logos.logos.get((int) (Logos.logos.size() * Math.random())) + "\n");
 

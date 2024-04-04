@@ -17,11 +17,8 @@ package org.finos.legend.engine.repl.core;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
 import org.finos.legend.engine.plan.execution.result.Result;
-import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
 import org.finos.legend.engine.repl.client.Client;
 import org.finos.legend.engine.shared.core.extension.LegendExtension;
-
-import java.io.IOException;
 
 public interface ReplExtension extends LegendExtension
 {
@@ -49,9 +46,9 @@ public interface ReplExtension extends LegendExtension
 
     boolean supports(Result res);
 
-    String print(PureModelContextData d, Result res) throws IOException;
+    String print(Result res);
 
     void setClient(Client client);
 
-    void initialize() throws Exception;
+    void initialize();
 }

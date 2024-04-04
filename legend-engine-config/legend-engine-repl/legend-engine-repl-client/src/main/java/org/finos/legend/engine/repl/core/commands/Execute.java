@@ -39,8 +39,6 @@ import org.jline.reader.ParsedLine;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 
-import java.io.IOException;
-
 public class Execute implements Command
 {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -48,10 +46,17 @@ public class Execute implements Command
 
     private final PlanExecutor planExecutor;
 
+    private PureModelContextData currentPMCD;
+
     public Execute(Client client)
     {
         this.client = client;
         this.planExecutor = PlanExecutor.newPlanExecutorBuilder().withAvailableStoreExecutors().build();
+    }
+
+    public PureModelContextData getCurrentPMCD()
+    {
+        return currentPMCD;
     }
 
     @Override
@@ -102,12 +107,13 @@ public class Execute implements Command
     }
 
 
-    public String execute(String txt) throws IOException
+    public String execute(String txt)
     {
         String code = "###Pure\n" +
                 "function a::b::c::d():Any[*]\n{\n" + txt + ";\n}";
 
         PureModelContextData d = this.client.getLegendInterface().parse(this.client.buildState().makeString("\n") + code);
+        this.currentPMCD = d;
         if (this.client.isDebug())
         {
             try
@@ -147,7 +153,7 @@ public class Execute implements Command
             ReplExtension extension = this.client.getReplExtensions().detect(x -> x.supports(res));
             if (extension != null)
             {
-                return extension.print(d, res);
+                return extension.print(res);
             }
             else
             {

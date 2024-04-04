@@ -14,6 +14,9 @@
 
 package org.finos.legend.engine.repl.relational.httpServer;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.collections.api.RichIterable;
 import com.sun.net.httpserver.HttpExchange;
@@ -29,11 +32,14 @@ import org.finos.legend.engine.plan.execution.stores.relational.result.Relationa
 import org.finos.legend.engine.plan.generation.PlanGenerator;
 import org.finos.legend.engine.plan.generation.transformers.LegendPlanTransformers;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
+import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.Multiplicity;
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.ValueSpecification;
+import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.application.AppliedFunction;
+import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.raw.CInteger;
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.raw.Lambda;
 import org.finos.legend.engine.pure.code.core.PureCoreExtensionLoader;
 import org.finos.legend.engine.repl.client.Client;
-import org.finos.legend.engine.repl.core.commands.Execute;
+import org.finos.legend.engine.repl.core.legend.LegendInterface;
 import org.finos.legend.engine.shared.core.api.grammar.RenderStyle;
 import org.finos.legend.pure.generated.Root_meta_pure_executionPlan_ExecutionPlan;
 import org.finos.legend.pure.generated.Root_meta_pure_extension_Extension;
@@ -54,23 +60,27 @@ import java.util.stream.Collectors;
 public class ReplGridServer
 {
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private final PlanExecutor planExecutor;
+    private static final PlanExecutor planExecutor = PlanExecutor.newPlanExecutorBuilder().withAvailableStoreExecutors().build();
     private PureModelContextData currentPMCD;
-    private String initialResult;
     private Client client;
+    private InetSocketAddress serverPortAddress = new InetSocketAddress(0);
 
     public ReplGridServer(Client client)
     {
         this.client = client;
-        this.planExecutor = PlanExecutor.newPlanExecutorBuilder().withAvailableStoreExecutors().build();
     }
-    
-    private static class GridServerResult
+
+    public String getGridUrl()
+    {
+        return "http://localhost:" + serverPortAddress.getPort() + "/repl/grid";
+    }
+
+    public static class GridServerResult
     {
         private final String currentQuery;
         private final String result;
 
-        GridServerResult(String currentQuery, String result)
+        public GridServerResult(@JsonProperty("currentQuery") String currentQuery, @JsonProperty("result") String result)
         {
             this.currentQuery = currentQuery;
             this.result = result;
@@ -87,20 +97,14 @@ public class ReplGridServer
         }
     }
 
-    public boolean canShowGrid()
-    {
-        return this.initialResult != null;
-    }
-
-    public void updateGridState(PureModelContextData pmcd, String result)
+    public void updateGridState(PureModelContextData pmcd)
     {
         this.currentPMCD = pmcd;
-        this.initialResult = result;
     }
 
     public void initializeServer() throws Exception
     {
-        HttpServer server = HttpServer.create(new InetSocketAddress((8080)), 0);
+        HttpServer server = HttpServer.create(serverPortAddress, 0);
 
         server.createContext("/licenseKey", new HttpHandler()
         {
@@ -130,7 +134,7 @@ public class ReplGridServer
         server.createContext("/repl/", new HttpHandler()
         {
             @Override
-            public void handle(HttpExchange exchange) throws IOException
+            public void handle(HttpExchange exchange)
             {
                 if ("GET".equals(exchange.getRequestMethod()))
                 {
@@ -156,7 +160,7 @@ public class ReplGridServer
         server.createContext("/initialLambda", new HttpHandler()
         {
             @Override
-            public void handle(HttpExchange exchange) throws IOException
+            public void handle(HttpExchange exchange)
             {
                 if ("GET".equals(exchange.getRequestMethod()))
                 {
@@ -179,22 +183,35 @@ public class ReplGridServer
         server.createContext("/gridResult", new HttpHandler()
         {
             @Override
-            public void handle(HttpExchange exchange) throws IOException
+            public void handle(HttpExchange exchange)
             {
                 if ("GET".equals(exchange.getRequestMethod()))
                 {
+                    ValueSpecification funcBody = null;
+                    Function func = null;
                     try
                     {
-                        Function func = (Function) currentPMCD.getElements().stream().filter(e -> e.getPath().equals("a::b::c::d__Any_MANY_")).collect(Collectors.toList()).get(0);
-                        Lambda lambda = new Lambda();
-                        lambda.body = func.body;
-                        String lambdaString = lambda.accept(DEPRECATED_PureGrammarComposerCore.Builder.newInstance().withRenderStyle(RenderStyle.PRETTY).build());
-                        GridServerResult result = new GridServerResult(lambdaString, initialResult);
-                        String response = objectMapper.writeValueAsString(result);
+                        func = (Function) currentPMCD.getElements().stream().filter(e -> e.getPath().equals("a::b::c::d__Any_MANY_")).collect(Collectors.toList()).get(0);
+                        funcBody = func.body.get(0);
+
+                        AppliedFunction sliceFunction = new AppliedFunction();
+                        sliceFunction.function = "slice";
+                        sliceFunction.parameters = Lists.mutable.of(funcBody);
+                        sliceFunction.multiplicity = Multiplicity.PURE_MANY;
+                        sliceFunction.parameters.add(new CInteger(0));
+                        sliceFunction.parameters.add(new CInteger(100));
+                        func.body = Lists.mutable.of(sliceFunction);
+
+                        String response = executeLambda(client.getLegendInterface(), currentPMCD, func, funcBody);
                         handleResponse(exchange, 200, response);
                     }
                     catch (Exception e)
                     {
+                        System.out.println(e.getMessage());
+                        if (func != null)
+                        {
+                            func.body = Lists.mutable.of(funcBody);
+                        }
                         handleResponse(exchange, 500, e.getMessage());
                     }
 
@@ -212,37 +229,8 @@ public class ReplGridServer
                         func = (Function) currentPMCD.getElements().stream().filter(e -> e.getPath().equals("a::b::c::d__Any_MANY_")).collect(Collectors.toList()).get(0);
                         funcBody = func.body.get(0);
                         func.body = request.body;
-                        Lambda lambda = new Lambda();
-                        lambda.body = Lists.mutable.of(funcBody);
-                        String lambdaString = request.accept(DEPRECATED_PureGrammarComposerCore.Builder.newInstance().withRenderStyle(RenderStyle.PRETTY).build());
-
-                        PureModel pureModel = client.getLegendInterface().compile(currentPMCD);
-                        RichIterable<? extends Root_meta_pure_extension_Extension> extensions = PureCoreExtensionLoader.extensions().flatCollect(e -> e.extraPureCoreExtensions(pureModel.getExecutionSupport()));
-                        if (client.isDebug())
-                        {
-                            client.getTerminal().writer().println(">> " + extensions.collect(Root_meta_pure_extension_Extension::_type).makeString(", "));
-                        }
-
-                        // Plan
-                        Root_meta_pure_executionPlan_ExecutionPlan plan = client.getLegendInterface().generatePlan(pureModel, false);
-                        String planStr = PlanGenerator.serializeToJSON(plan, "vX_X_X", pureModel, extensions, LegendPlanTransformers.transformers);
-                        if (client.isDebug())
-                        {
-                            client.getTerminal().writer().println(planStr);
-                        }
-
-                        // Execute
-                        Result res =  planExecutor.execute(planStr);
-                        func.body = Lists.mutable.of(funcBody);
-                        if (res instanceof RelationalResult)
-                        {
-                            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                            ((RelationalResult) res).getSerializer(SerializationFormat.DEFAULT).stream(byteArrayOutputStream);
-                            OutputStream os = exchange.getResponseBody();
-                            GridServerResult result = new GridServerResult(lambdaString, byteArrayOutputStream.toString());
-                            String response = objectMapper.writeValueAsString(result);
-                            handleResponse(exchange, 200, response);
-                        }
+                        String response = executeLambda(client.getLegendInterface(), currentPMCD, func, funcBody);
+                        handleResponse(exchange, 200, response);
                     }
                     catch (Exception e)
                     {
@@ -253,7 +241,6 @@ public class ReplGridServer
                         }
                         handleResponse(exchange, 500, e.getMessage());
                     }
-
                 }
             }
         });
@@ -263,12 +250,44 @@ public class ReplGridServer
         System.out.println("REPL Grid Server has started");
     }
 
-    private void handleResponse(HttpExchange exchange, int responseCode, String response) throws IOException
+    public static String executeLambda(LegendInterface legendInterface, PureModelContextData currentRequestPMCD, Function func, ValueSpecification funcBody) throws IOException
     {
-        OutputStream os = exchange.getResponseBody();
-        byte[] byteResponse = response.getBytes(StandardCharsets.UTF_8);
-        exchange.sendResponseHeaders(responseCode, byteResponse.length);
-        os.write(byteResponse);
-        os.close();
+        Lambda lambda = new Lambda();
+        lambda.body = func.body;
+        String lambdaString = lambda.accept(DEPRECATED_PureGrammarComposerCore.Builder.newInstance().withRenderStyle(RenderStyle.PRETTY).build());
+        PureModel pureModel = legendInterface.compile(currentRequestPMCD);
+        RichIterable<? extends Root_meta_pure_extension_Extension> extensions = PureCoreExtensionLoader.extensions().flatCollect(e -> e.extraPureCoreExtensions(pureModel.getExecutionSupport()));
+
+        // Plan
+        Root_meta_pure_executionPlan_ExecutionPlan plan = legendInterface.generatePlan(pureModel, false);
+        String planStr = PlanGenerator.serializeToJSON(plan, "vX_X_X", pureModel, extensions, LegendPlanTransformers.transformers);
+
+        // Execute
+        Result res =  planExecutor.execute(planStr);
+        func.body = Lists.mutable.of(funcBody);
+        if (res instanceof RelationalResult)
+        {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ((RelationalResult) res).getSerializer(SerializationFormat.DEFAULT).stream(byteArrayOutputStream);
+            GridServerResult result = new GridServerResult(lambdaString, byteArrayOutputStream.toString());
+            return objectMapper.writeValueAsString(result);
+        }
+        throw new RuntimeException("Expected return type of Lambda execution is RelationalResult, but returned " + res.getClass().getName());
+    }
+
+    private void handleResponse(HttpExchange exchange, int responseCode, String response)
+    {
+        try
+        {
+            OutputStream os = exchange.getResponseBody();
+            byte[] byteResponse = response.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(responseCode, byteResponse.length);
+            os.write(byteResponse);
+            os.close();
+        }
+        catch (IOException e)
+        {
+            System.out.println(e.getMessage());
+        }
     }
 }
