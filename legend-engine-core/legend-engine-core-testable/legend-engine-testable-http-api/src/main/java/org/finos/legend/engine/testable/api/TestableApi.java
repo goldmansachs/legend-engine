@@ -99,4 +99,26 @@ public class TestableApi
             return ExceptionTool.exceptionManager(e, LoggingEventType.TESTABLE_DO_TESTS_ERROR, identity.getName());
         }
     }
+
+    @POST
+    @Path("debugTests")
+    @ApiOperation(value = "Run tests on testables")
+    @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
+    public Response debugTests(RunTestsInput input, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> profileManager)
+    {
+        MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(profileManager);
+        Identity identity = IdentityFactoryProvider.getInstance().makeIdentity(profiles);
+        try
+        {
+            LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.TESTABLE_DO_TESTS_START, "").toString());
+            Pair<PureModelContextData, PureModel> modelAndData = this.modelManager.loadModelAndData(input.model, input.model instanceof PureModelContextPointer ? ((PureModelContextPointer) input.model).serializer.version : null, identity, null);
+            RunTestsResult runTestsResult = testableRunner.doTests(input.testables, modelAndData.getTwo(), modelAndData.getOne());
+            LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.TESTABLE_DO_TESTS_STOP, "").toString());
+            return ManageConstantResult.manageResult(identity.getName(), runTestsResult, objectMapper);
+        }
+        catch (Exception e)
+        {
+            return ExceptionTool.exceptionManager(e, LoggingEventType.TESTABLE_DO_TESTS_ERROR, identity.getName());
+        }
+    }
 }

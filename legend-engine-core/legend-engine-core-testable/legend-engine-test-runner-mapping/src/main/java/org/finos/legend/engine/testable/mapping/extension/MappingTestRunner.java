@@ -25,6 +25,7 @@ import org.finos.legend.engine.plan.execution.PlanExecutor;
 import org.finos.legend.engine.plan.execution.result.Result;
 import org.finos.legend.engine.plan.execution.result.serialization.SerializationFormat;
 import org.finos.legend.engine.plan.generation.PlanGenerator;
+import org.finos.legend.engine.plan.generation.PlanWithDebug;
 import org.finos.legend.engine.plan.generation.extension.PlanGeneratorExtension;
 import org.finos.legend.engine.plan.platform.PlanPlatform;
 import org.finos.legend.engine.protocol.pure.v1.extension.ConnectionFactoryExtension;
@@ -38,6 +39,7 @@ import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.S
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.modelToModel.ModelStore;
 import org.finos.legend.engine.protocol.pure.v1.model.test.assertion.TestAssertion;
 import org.finos.legend.engine.protocol.pure.v1.model.test.assertion.status.AssertionStatus;
+import org.finos.legend.engine.protocol.pure.v1.model.test.result.TestDebug;
 import org.finos.legend.engine.protocol.pure.v1.model.test.result.TestError;
 import org.finos.legend.engine.protocol.pure.v1.model.test.result.TestExecuted;
 import org.finos.legend.engine.protocol.pure.v1.model.test.result.TestResult;
@@ -80,6 +82,18 @@ public class MappingTestRunner implements TestRunner
     public TestResult executeAtomicTest(Root_meta_pure_test_AtomicTest atomicTest, PureModel pureModel, PureModelContextData pmcd)
     {
         throw new UnsupportedOperationException("Mapping Test should be executed in context of Mapping Test Suite only");
+    }
+
+    @Override
+    public TestDebug debugAtomicTest(Root_meta_pure_test_AtomicTest atomicTest, PureModel pureModel, PureModelContextData pmcd)
+    {
+        throw new UnsupportedOperationException("Mapping Test should be executed in context of Mapping Test Suite only");
+    }
+
+    @Override
+    public List<TestDebug> debugTestSuite(Root_meta_pure_test_TestSuite testSuite, List<String> atomicTestIds, PureModel pureModel, PureModelContextData data)
+    {
+        return Collections.emptyList();
     }
 
     @Override
@@ -146,7 +160,7 @@ public class MappingTestRunner implements TestRunner
                                 ._element(element);
                 runtime._connectionStoresAdd(connectionStore);
             });
-            handleGenerationOfPlan(connections.stream().map(Pair::getOne).collect(Collectors.toList()), runtime, context);
+            handleGenerationOfPlan(connections.stream().map(Pair::getOne).collect(Collectors.toList()), runtime, context, false);
             // execute assertion
             TestAssertion assertion = mappingTest.assertions.get(0);
             PlanExecutor.ExecuteArgs executeArgs = context.getExecuteBuilder().build();
@@ -169,7 +183,8 @@ public class MappingTestRunner implements TestRunner
         }
     }
 
-    private void handleGenerationOfPlan(List<Connection> incomingConnections, Root_meta_core_runtime_Runtime_Impl runtime, MappingTestRunnerContext context)
+
+    private void handleGenerationOfPlan(List<Connection> incomingConnections, Root_meta_core_runtime_Runtime_Impl runtime, MappingTestRunnerContext context, boolean debug)
     {
         SingleExecutionPlan executionPlan = context.getPlan();
         boolean reusePlan = false;
@@ -183,8 +198,17 @@ public class MappingTestRunner implements TestRunner
         }
         if (executionPlan == null || !reusePlan)
         {
-            executionPlan = PlanGenerator.generateExecutionPlan(context.getMetamodelTestSuite()._query(), pureMapping, runtime, null, context.getPureModel(), this.pureVersion, PlanPlatform.JAVA, null, context.getRouterExtensions(), context.getExecutionPlanTransformers());
-            context.withPlan(executionPlan);
+            List<String> debugger = null;
+            if(debug)
+            {
+                PlanWithDebug plan = PlanGenerator.generateExecutionPlanDebug(context.getMetamodelTestSuite()._query(), pureMapping, runtime, null, context.getPureModel(), this.pureVersion, PlanPlatform.JAVA, null, context.getRouterExtensions(), context.getExecutionPlanTransformers());
+                executionPlan = plan.plan;
+                debugger = Arrays.asList(plan.debug);
+            } else
+            {
+                executionPlan = PlanGenerator.generateExecutionPlan(context.getMetamodelTestSuite()._query(), pureMapping, runtime, null, context.getPureModel(), this.pureVersion, PlanPlatform.JAVA, null, context.getRouterExtensions(), context.getExecutionPlanTransformers());
+            }
+            context.withPlan(executionPlan, debugger);
         }
         // set new connections
         context.withConnections(incomingConnections);

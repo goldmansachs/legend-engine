@@ -45,7 +45,9 @@ class MappingTestRunnerContext
     private final PlanExecutor.ExecuteArgsBuilder executeBuilder;
     private final Map<String, DataElement> dataElementIndex;
     private SingleExecutionPlan plan;
+    private List<String> debug;
     private List<Connection> connections;
+
 
     public MappingTestRunnerContext(Root_meta_pure_mapping_metamodel_MappingTestSuite metamodelTestSuite, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping mapping, PureModel pureModel, PureModelContextData pureModelContextData, MutableList<PlanTransformer> executionPlanTransformers,
                                     ConnectionVisitor<Root_meta_core_runtime_Connection> connectionVisitor, RichIterable<? extends Root_meta_pure_extension_Extension> routerExtensions)
@@ -108,9 +110,11 @@ class MappingTestRunnerContext
         return plan;
     }
 
-    public void withPlan(SingleExecutionPlan plan)
+
+    public void withPlan(SingleExecutionPlan plan, List<String> debug)
     {
         this.executeBuilder.withPlan(plan);
+        this.debug = debug;
         this.plan = plan;
     }
 

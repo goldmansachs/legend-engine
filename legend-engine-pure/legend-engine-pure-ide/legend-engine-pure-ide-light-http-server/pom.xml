@@ -27,7 +27,7 @@
     <name>Legend Engine - Pure IDE Light - HTTP - Server</name>
 
     <properties>
-        <skip.yarn>false</skip.yarn>
+        <skip.yarn>true</skip.yarn>
         <pure-ide.web-application.version>9.0.0</pure-ide.web-application.version>
         <pure-ide.web-application.url>${npm.registry.url}/@finos/legend-application-pure-ide-deployment/-/legend-application-pure-ide-deployment-${pure-ide.web-application.version}.tgz</pure-ide.web-application.url>
     </properties>
