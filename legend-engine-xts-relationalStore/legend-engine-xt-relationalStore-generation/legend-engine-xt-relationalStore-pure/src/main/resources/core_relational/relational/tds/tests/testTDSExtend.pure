@@ -277,7 +277,7 @@ function <<test.Test>> meta::relational::tests::tds::tdsExtend::testParseDate():
 
 function <<test.Test>> meta::relational::tests::tds::tdsExtend::testDecimal():Boolean[1]
 {
-   let result = meta::relational::functions::sqlstring::toSQLStringPretty(
+   let resultSQL = meta::relational::functions::sqlstring::toSQLStringPretty(
       |Person.all()
          ->project(p|1d,'decimal')
          ->extend([
@@ -286,7 +286,7 @@ function <<test.Test>> meta::relational::tests::tds::tdsExtend::testDecimal():Bo
       simpleRelationalMapping,
       meta::external::store::relational::tests::testRuntime(), meta::relational::extension::relationalExtensions());
 
-  assertSameSQL('select 1 as "decimal", (1 + 1) as "plus" from personTable as "root"', $result);
+  assertSameSQL('select 1 as "decimal", (1 + 1) as "plus" from personTable as "root"', $resultSQL->sqlRemoveFormatting());
 }
 
 
@@ -367,11 +367,10 @@ function <<test.Test>> meta::relational::tests::tds::tdsExtend::testStringConcat
    let mapping = meta::relational::tests::simpleRelationalMapping;
 
    let sqlResultH2 = meta::relational::functions::sqlstring::toSQLString($func, $mapping, meta::relational::runtime::DatabaseType.H2, meta::relational::extension::relationalExtensions());
-   assertEquals($sqlResultH2, 'select "root".FIRSTNAME as "firstName", "root".LASTNAME as "lastName", "root".AGE as "age", concat("root".FIRSTNAME, "root".LASTNAME) as "exprString3" from personTable as "root"');
+   assertSameSQL($sqlResultH2, 'select "root".FIRSTNAME as "firstName", "root".LASTNAME as "lastName", "root".AGE as "age", concat("root".FIRSTNAME, "root".LASTNAME) as "exprString3" from personTable as "root"');
 
    let sqlResultDB2 = meta::relational::functions::sqlstring::toSQLString($func, $mapping, meta::relational::runtime::DatabaseType.DB2, meta::relational::extension::relationalExtensions());
-   assertEquals($sqlResultDB2, 'select "root".FIRSTNAME as "firstName", "root".LASTNAME as "lastName", "root".AGE as "age", ("root".FIRSTNAME concat "root".LASTNAME) as "exprString3" from personTable as "root"'
-);
+   assertSameSQL($sqlResultDB2, 'select "root".FIRSTNAME as "firstName", "root".LASTNAME as "lastName", "root".AGE as "age", ("root".FIRSTNAME concat "root".LASTNAME) as "exprString3" from personTable as "root"');
 }
 
 
