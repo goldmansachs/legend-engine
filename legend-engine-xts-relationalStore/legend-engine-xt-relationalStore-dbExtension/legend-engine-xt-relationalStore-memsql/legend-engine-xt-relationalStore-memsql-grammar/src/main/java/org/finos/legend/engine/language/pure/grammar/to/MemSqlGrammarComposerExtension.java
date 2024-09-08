@@ -41,6 +41,7 @@ public class MemSqlGrammarComposerExtension implements IRelationalGrammarCompose
                         context.getIndentationString() + getTabString(baseIndentation + 1) + "port: " + convertString(String.valueOf(spec.port), true) + ";\n" +
                         context.getIndentationString() + getTabString(baseIndentation + 1) + "databaseName: " + convertString(spec.databaseName, true) + ";\n" +
                         context.getIndentationString() + getTabString(baseIndentation + 1) + "useSsl: " + convertString(String.valueOf(spec.useSsl), true) + ";\n" +
+                        context.getIndentationString() + getTabString(baseIndentation + 1) + "cloudAvailability: " + convertString(String.valueOf(spec.cloudAvailability), true) + ";\n" +
                         context.getIndentationString() + getTabString(baseIndentation) + "}";
             }
             return null;

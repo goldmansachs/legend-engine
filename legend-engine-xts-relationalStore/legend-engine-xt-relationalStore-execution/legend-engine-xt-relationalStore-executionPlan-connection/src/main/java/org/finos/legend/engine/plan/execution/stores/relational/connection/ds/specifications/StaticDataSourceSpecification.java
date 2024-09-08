@@ -21,8 +21,12 @@ import org.finos.legend.engine.plan.execution.stores.relational.connection.ds.sp
 
 import java.util.Properties;
 
+import static java.util.Optional.ofNullable;
+
 public class StaticDataSourceSpecification extends DataSourceSpecification
 {
+    public static String CLOUD_AVAILABILITY = "cloudAvailability";
+
     public StaticDataSourceSpecification(StaticDataSourceSpecificationKey key, DatabaseManager driver, AuthenticationStrategy authenticationStrategy)
     {
         this(key, driver, authenticationStrategy, new Properties());
@@ -36,11 +40,21 @@ public class StaticDataSourceSpecification extends DataSourceSpecification
     public StaticDataSourceSpecification(StaticDataSourceSpecificationKey key, DatabaseManager driver, AuthenticationStrategy authenticationStrategy, Properties extraUserDataSourceProperties, int maxPoolSize, int minPoolSize)
     {
         super(key, driver, authenticationStrategy, extraUserDataSourceProperties, maxPoolSize, minPoolSize);
+        this.extraDatasourceProperties.putAll(getProperties());
     }
 
     public StaticDataSourceSpecification(StaticDataSourceSpecificationKey key, DatabaseManager driver, AuthenticationStrategy authenticationStrategy, Properties extraUserDataSourceProperties)
     {
         super(key, driver, authenticationStrategy, extraUserDataSourceProperties);
+        this.extraDatasourceProperties.putAll(getProperties());
+    }
+
+    private Properties getProperties()
+    {
+        Properties properties = new Properties();
+        StaticDataSourceSpecificationKey key = (StaticDataSourceSpecificationKey) this.datasourceKey;
+        ofNullable(key.isCloudAvailability()).ifPresent(x -> properties.setProperty(CLOUD_AVAILABILITY, String.valueOf(key.isCloudAvailability())));
+        return properties;
     }
 
     @Override

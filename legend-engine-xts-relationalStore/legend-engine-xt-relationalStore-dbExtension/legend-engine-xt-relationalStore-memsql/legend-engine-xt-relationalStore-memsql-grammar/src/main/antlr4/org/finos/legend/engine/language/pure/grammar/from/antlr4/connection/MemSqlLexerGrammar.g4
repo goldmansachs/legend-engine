@@ -7,3 +7,4 @@ HOST:                                       'host';
 PORT:                                       'port';
 DATABASENAME:                               'databaseName';
 USESSL:                                     'useSsl';
+CLOUD_AVAILABILITY:                         'cloudAvailability';

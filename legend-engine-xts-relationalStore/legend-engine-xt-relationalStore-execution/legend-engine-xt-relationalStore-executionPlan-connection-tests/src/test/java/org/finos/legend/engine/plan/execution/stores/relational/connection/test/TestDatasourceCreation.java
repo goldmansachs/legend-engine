@@ -158,7 +158,7 @@ public class TestDatasourceCreation
 
         this.connectionManagerSelector.getDatabaseConnection(identity1, database1);
 
-        DataSourceSpecification ds = builStaticDataSourceSpecification("127.0.0.1", server.getPort(), "db4");
+        DataSourceSpecification ds = builStaticDataSourceSpecification("127.0.0.1", server.getPort(), "db4", false);
         assertEquals(ds.getConnectionKey(), connectionKey);
 
         // We have a single data source
@@ -203,10 +203,10 @@ public class TestDatasourceCreation
         return ConnectionStateManager.getInstance().get(pool);
     }
 
-    public StaticDataSourceSpecification builStaticDataSourceSpecification(String host, int port, String databaseName)
+    public StaticDataSourceSpecification builStaticDataSourceSpecification(String host, int port, String databaseName, boolean cloudAvailability)
     {
         return new StaticDataSourceSpecification(
-                new StaticDataSourceSpecificationKey(host, port, databaseName),
+                new StaticDataSourceSpecificationKey(host, port, databaseName, cloudAvailability),
                 new H2Manager(),
                 new org.finos.legend.engine.plan.execution.stores.relational.connection.authentication.strategy.TestDatabaseAuthenticationStrategy());
     }

@@ -32,6 +32,7 @@ staticDatasourceSpecification:              STATIC_DSP
                                                         dbName
                                                         | dbHost
                                                         | dbPort
+                                                        | cloudAvailability
                                                     )*
                                                 BRACE_CLOSE
 ;
@@ -62,4 +63,6 @@ dbPort:                                     PORT COLON INTEGER SEMI_COLON
 dbHost:                                     HOST COLON STRING SEMI_COLON
 ;
 dbName:                                     NAME COLON STRING SEMI_COLON
+;
+cloudAvailability:                          CLOUD_AVAILABILITY COLON BOOLEAN SEMI_COLON
 ;

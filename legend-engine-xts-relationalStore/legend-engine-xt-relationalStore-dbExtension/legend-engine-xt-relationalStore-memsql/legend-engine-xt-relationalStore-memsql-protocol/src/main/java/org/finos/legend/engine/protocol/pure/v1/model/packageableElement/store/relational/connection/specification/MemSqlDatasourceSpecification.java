@@ -21,6 +21,7 @@ public class MemSqlDatasourceSpecification extends DatasourceSpecification
     public int port;
     public String databaseName;
     public Boolean useSsl;
+    public Boolean cloudAvailability;
 
     @Override
     public <T> T accept(DatasourceSpecificationVisitor<T> datasourceSpecificationVisitor)

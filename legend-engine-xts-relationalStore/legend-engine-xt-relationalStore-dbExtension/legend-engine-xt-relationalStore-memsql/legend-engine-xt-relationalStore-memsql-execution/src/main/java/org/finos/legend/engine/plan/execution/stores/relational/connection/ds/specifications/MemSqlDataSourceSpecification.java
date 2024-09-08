@@ -30,6 +30,7 @@ public class MemSqlDataSourceSpecification extends DataSourceSpecification
     public static String MEMSQL_PORT = "port";
     public static String MEMSQL_DATABASE_NAME = "databaseName";
     public static String MEMSQL_USE_SSL = "useSsl";
+    public static String MEMSQL_CLOUD_AVAILABILITY = "cloudAvailability";
 
     private final MemSqlDatasourceSpecificationKey key;
 
@@ -53,6 +54,7 @@ public class MemSqlDataSourceSpecification extends DataSourceSpecification
 
         ofNullable(key.getDatabaseName()).ifPresent(x -> properties.setProperty(MEMSQL_DATABASE_NAME, x));
         ofNullable(key.isUseSsl()).ifPresent(x -> properties.setProperty(MEMSQL_USE_SSL, String.valueOf(key.useSsl)));
+        ofNullable(key.isCloudAvailability()).ifPresent(x -> properties.setProperty(MEMSQL_CLOUD_AVAILABILITY, String.valueOf(key.cloudAvailability)));
 
         return properties;
     }

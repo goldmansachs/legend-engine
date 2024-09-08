@@ -93,7 +93,8 @@ public class MemSQLConnectionExtension implements RelationalConnectionExtension,
                         memsqlDatasourceSpecification.host,
                         memsqlDatasourceSpecification.port,
                         memsqlDatasourceSpecification.databaseName,
-                        memsqlDatasourceSpecification.useSsl
+                        memsqlDatasourceSpecification.useSsl,
+                        memsqlDatasourceSpecification.cloudAvailability
                 );
             }
             return null;

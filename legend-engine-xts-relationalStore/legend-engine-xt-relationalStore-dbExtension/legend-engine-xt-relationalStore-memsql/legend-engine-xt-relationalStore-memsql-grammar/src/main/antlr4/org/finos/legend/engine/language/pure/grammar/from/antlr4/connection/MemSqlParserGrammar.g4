@@ -17,6 +17,7 @@ memSqlDatasourceSpecification:                  MEMSQL
                                                         | port
                                                         | databaseName
                                                         | useSsl
+                                                        | cloudAvailability
                                                     )*
                                             BRACE_CLOSE
 ;
@@ -27,4 +28,6 @@ port:                                  PORT COLON STRING SEMI_COLON
 databaseName:                          DATABASENAME COLON STRING SEMI_COLON
 ;
 useSsl:                                USESSL COLON STRING SEMI_COLON
+;
+cloudAvailability:                     CLOUD_AVAILABILITY COLON BOOLEAN SEMI_COLON
 ;

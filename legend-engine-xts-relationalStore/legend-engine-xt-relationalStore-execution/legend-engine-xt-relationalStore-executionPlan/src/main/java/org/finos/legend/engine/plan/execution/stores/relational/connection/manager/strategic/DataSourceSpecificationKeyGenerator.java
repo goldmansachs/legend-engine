@@ -58,7 +58,7 @@ public class DataSourceSpecificationKeyGenerator implements DatasourceSpecificat
             {
                 return new LocalH2DataSourceSpecificationKey(localH2DatasourceSpecification.testDataSetupSqls);
             }
-            return new StaticDataSourceSpecificationKey(LOCAL_HOST, testDbPort, TEST_DB);
+            return new StaticDataSourceSpecificationKey(LOCAL_HOST, testDbPort, TEST_DB, false);
         }
         else if (datasourceSpecification instanceof StaticDatasourceSpecification)
         {
@@ -66,7 +66,8 @@ public class DataSourceSpecificationKeyGenerator implements DatasourceSpecificat
             return new StaticDataSourceSpecificationKey(
                     staticDatasourceSpecification.host,
                     staticDatasourceSpecification.port,
-                    staticDatasourceSpecification.databaseName);
+                    staticDatasourceSpecification.databaseName,
+                    staticDatasourceSpecification.cloudAvailability);
         }
         return null;
     }

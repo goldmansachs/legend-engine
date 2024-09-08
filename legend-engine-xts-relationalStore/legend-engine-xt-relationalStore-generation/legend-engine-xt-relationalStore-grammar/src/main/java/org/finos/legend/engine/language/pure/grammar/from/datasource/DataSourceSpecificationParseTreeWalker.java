@@ -71,6 +71,9 @@ public class DataSourceSpecificationParseTreeWalker
         // database name
         DataSourceSpecificationParserGrammar.DbNameContext nameCtx = PureGrammarParserUtility.validateAndExtractRequiredField(dbSpecCtx.dbName(), "name", dsSpec.sourceInformation);
         dsSpec.databaseName = PureGrammarParserUtility.fromGrammarString(nameCtx.STRING().getText(), true);
+
+        DataSourceSpecificationParserGrammar.CloudAvailabilityContext cloudAvailabilityCtx = PureGrammarParserUtility.validateAndExtractOptionalField(dbSpecCtx.cloudAvailability(), "cloudAvailability", dsSpec.sourceInformation);
+        dsSpec.cloudAvailability = Boolean.parseBoolean(cloudAvailabilityCtx.BOOLEAN().getText());
         return dsSpec;
     }
 }

@@ -10,6 +10,7 @@ LOCAL_H2_DSP_TEST_DATA_SETUP_CSV:           'testDataSetupCSV';
 LOCAL_H2_DSP_TEST_DATA_SETUP_SQLS:          'testDataSetupSqls';
 HOST:                                       'host';
 PORT:                                       'port';
+CLOUD_AVAILABILITY:                         'cloudAvailability';
 DIRECTORY:                                  'directory';
 NAME:                                       'name';
 BRACKET_OPEN:                               '[';

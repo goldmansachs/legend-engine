@@ -34,7 +34,7 @@ public class LocalH2DataSourceSpecificationKey extends StaticDataSourceSpecifica
 
     public LocalH2DataSourceSpecificationKey(List<String> testDataSetupSqls)
     {
-        super(LOCAL_HOST, H2LocalServer.getInstance().getPort(), LOCAL_H2_DB_NAME);
+        super(LOCAL_HOST, H2LocalServer.getInstance().getPort(), LOCAL_H2_DB_NAME, false);
         this.testDataSetupSqls = testDataSetupSqls;
         this.port = H2LocalServer.getInstance().getPort();
         byte[] bytes = this.testDataSetupSqls.stream().collect(Collectors.joining(";")).getBytes();

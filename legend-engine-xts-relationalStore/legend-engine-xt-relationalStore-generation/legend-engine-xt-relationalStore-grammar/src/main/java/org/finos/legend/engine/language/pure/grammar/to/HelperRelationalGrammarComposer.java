@@ -667,6 +667,7 @@ public class HelperRelationalGrammarComposer
                     context.getIndentationString() + getTabString(baseIndentation + 1) + "name: " + convertString(spec.databaseName, true) + ";\n" +
                     context.getIndentationString() + getTabString(baseIndentation + 1) + "host: " + convertString(spec.host, true) + ";\n" +
                     context.getIndentationString() + getTabString(baseIndentation + 1) + "port: " + spec.port + ";\n" +
+                    context.getIndentationString() + getTabString(baseIndentation + 1) + "cloudAvailability: " + spec.cloudAvailability + ";\n" +
                     context.getIndentationString() + getTabString(baseIndentation) + "}";
         }
 

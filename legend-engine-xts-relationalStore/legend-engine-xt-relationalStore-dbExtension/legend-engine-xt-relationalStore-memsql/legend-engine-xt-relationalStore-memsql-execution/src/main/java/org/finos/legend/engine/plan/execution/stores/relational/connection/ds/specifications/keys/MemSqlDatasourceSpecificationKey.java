@@ -25,6 +25,7 @@ public class MemSqlDatasourceSpecificationKey
     public int port;
     public String databaseName;
     public boolean useSsl;
+    public boolean cloudAvailability;
 
     @Override
     public String shortId()
@@ -33,7 +34,8 @@ public class MemSqlDatasourceSpecificationKey
                 "host:" + host + "_" +
                 "port:" + port + "_" +
                 "databaseName:" + databaseName + "_" +
-                "useSsl:" + useSsl + "_";
+                "useSsl:" + useSsl + "_" +
+                "cloudAvailability:" + cloudAvailability;
     }
 
     @Override
@@ -44,6 +46,7 @@ public class MemSqlDatasourceSpecificationKey
                 ", port=" + port +
                 ", databaseName='" + databaseName + '\'' +
                 ", useSsl='" + useSsl + '\'' +
+                ", cloudAvailability='" + cloudAvailability + '\'' +
                 '}';
     }
 
@@ -59,21 +62,22 @@ public class MemSqlDatasourceSpecificationKey
             return false;
         }
         MemSqlDatasourceSpecificationKey that = (MemSqlDatasourceSpecificationKey) o;
-        return port == that.port && Objects.equals(host, that.host) && Objects.equals(databaseName, that.databaseName) && Objects.equals(useSsl, that.useSsl);
+        return port == that.port && Objects.equals(host, that.host) && Objects.equals(databaseName, that.databaseName) && Objects.equals(useSsl, that.useSsl) && Objects.equals(cloudAvailability, that.cloudAvailability);
     }
 
-    public MemSqlDatasourceSpecificationKey(String host, int port, String databaseName, boolean useSsl)
+    public MemSqlDatasourceSpecificationKey(String host, int port, String databaseName, boolean useSsl, boolean cloudAvailability)
     {
         this.host = host;
         this.port = port;
         this.databaseName = databaseName;
         this.useSsl = useSsl;
+        this.cloudAvailability = cloudAvailability;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(host, port, databaseName, useSsl);
+        return Objects.hash(host, port, databaseName, useSsl, cloudAvailability);
     }
 
     public String getHost()
@@ -94,5 +98,10 @@ public class MemSqlDatasourceSpecificationKey
     public boolean isUseSsl()
     {
         return useSsl;
+    }
+
+    public boolean isCloudAvailability()
+    {
+        return cloudAvailability;
     }
 }

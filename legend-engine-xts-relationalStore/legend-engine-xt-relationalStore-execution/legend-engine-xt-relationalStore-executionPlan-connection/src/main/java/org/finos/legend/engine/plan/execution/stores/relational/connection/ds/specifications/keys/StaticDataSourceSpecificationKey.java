@@ -23,12 +23,19 @@ public class StaticDataSourceSpecificationKey implements DataSourceSpecification
     private final String host;
     private final int port;
     private final String databaseName;
+    private final boolean cloudAvailability;
 
     public StaticDataSourceSpecificationKey(String host, int port, String databaseName)
+    {
+        this(host, port, databaseName, false);
+    }
+
+    public StaticDataSourceSpecificationKey(String host, int port, String databaseName, boolean cloudAvailability)
     {
         this.host = host;
         this.port = port;
         this.databaseName = databaseName;
+        this.cloudAvailability = cloudAvailability;
     }
 
     public String getHost()
@@ -46,6 +53,11 @@ public class StaticDataSourceSpecificationKey implements DataSourceSpecification
         return databaseName;
     }
 
+    public boolean isCloudAvailability()
+    {
+        return cloudAvailability;
+    }
+
     @Override
     public String toString()
     {
@@ -53,6 +65,7 @@ public class StaticDataSourceSpecificationKey implements DataSourceSpecification
                 "host='" + host + '\'' +
                 ", port=" + port +
                 ", databaseName='" + databaseName + '\'' +
+                ", cloudAvailability='" + cloudAvailability + '\'' +
                 '}';
     }
 
@@ -62,7 +75,8 @@ public class StaticDataSourceSpecificationKey implements DataSourceSpecification
         return "Static_" +
                 "host:" + host + "_" +
                 "port:" + port + "_" +
-                "db:" + databaseName;
+                "db:" + databaseName + "-" +
+                "cloudAvailability:" + cloudAvailability;
     }
 
     @Override
@@ -79,13 +93,14 @@ public class StaticDataSourceSpecificationKey implements DataSourceSpecification
         StaticDataSourceSpecificationKey that = (StaticDataSourceSpecificationKey) o;
         return port == that.port &&
                 Objects.equals(host, that.host) &&
-                Objects.equals(databaseName, that.databaseName);
+                Objects.equals(databaseName, that.databaseName) &&
+                Objects.equals(cloudAvailability, that.cloudAvailability);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(host, port, databaseName);
+        return Objects.hash(host, port, databaseName, cloudAvailability);
     }
 
 }

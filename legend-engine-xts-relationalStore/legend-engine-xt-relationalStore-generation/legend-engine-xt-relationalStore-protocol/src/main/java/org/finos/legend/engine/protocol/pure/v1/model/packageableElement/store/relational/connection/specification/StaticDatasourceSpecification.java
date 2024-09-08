@@ -19,6 +19,7 @@ public class StaticDatasourceSpecification extends DatasourceSpecification
     public String host;
     public int port;
     public String databaseName;
+    public boolean cloudAvailability;
 
     @Override
     public <T> T accept(DatasourceSpecificationVisitor<T> datasourceSpecificationVisitor)

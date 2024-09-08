@@ -104,6 +104,25 @@ public class TestRelationalConnectionGrammarRoundtrip extends TestGrammarRoundtr
     }
 
     @Test
+    public void testDataSourceSpecWithCloudAvailabilityConfigurations()
+    {
+        test("###Connection\n" +
+                "RelationalDatabaseConnection meta::mySimpleConnection\n" +
+                "{\n" +
+                "  store: meta::VendorStore;\n" +
+                "  type: MemSQL;\n" +
+                "  specification: Static\n" +
+                "  {\n" +
+                "    name: 'name';\n" +
+                "    host: 'host';\n" +
+                "    port: 1234;\n" +
+                "    cloudAvailability: true;\n" +
+                "  };\n" +
+                "  auth: DefaultH2;\n" +
+                "}\n");
+    }
+
+    @Test
     public void testDataSourceSpecConfigurationsWithSqls()
     {
         test("###Connection\n" +
