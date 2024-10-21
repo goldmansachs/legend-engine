@@ -52,7 +52,7 @@ Class meta::external::dataquality::DataQualityRule
 
 Class meta::external::dataquality::DataQualityRelationValidation extends PackageableElement
 {
-  query: LambdaFunction<Any>[1]; //returns a relation, we will enforce in compiler
+  query: LambdaFunction<Any>[1]; // should return a relation store accessor - enforced in compiler
   validations: meta::external::dataquality::RelationValidation[*];
 }
 
