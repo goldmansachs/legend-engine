@@ -19,13 +19,16 @@ import org.eclipse.collections.api.list.ListIterable;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.utility.ListIterate;
+import org.finos.legend.engine.language.pure.compiler.Compiler;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.extension.CompilerExtension;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.extension.Processor;
 import org.finos.legend.engine.protocol.dataquality.metamodel.DataQuality;
 import org.finos.legend.engine.protocol.dataquality.metamodel.DataQualityPropertyGraphFetchTree;
 import org.finos.legend.engine.protocol.dataquality.metamodel.DataQualityRootGraphFetchTree;
 import org.finos.legend.engine.protocol.dataquality.metamodel.DataSpaceDataQualityExecutionContext;
+import org.finos.legend.engine.protocol.dataquality.metamodel.DataqualityRelationValidation;
 import org.finos.legend.engine.protocol.dataquality.metamodel.MappingAndRuntimeDataQualityExecutionContext;
+import org.finos.legend.engine.protocol.dataquality.metamodel.RelationValidation;
 import org.finos.legend.engine.protocol.pure.v1.model.context.EngineErrorType;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpace;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.Multiplicity;
@@ -34,11 +37,13 @@ import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.ValueSp
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.Variable;
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.raw.classInstance.graph.PropertyGraphFetchTree;
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.raw.classInstance.graph.SubTypeGraphFetchTree;
+import org.finos.legend.engine.shared.core.operational.Assert;
 import org.finos.legend.engine.shared.core.operational.errorManagement.EngineException;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQuality;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityExecutionContext;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityPropertyGraphFetchTree;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityPropertyGraphFetchTree_Impl;
+import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityRelationValidation_Impl;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityRootGraphFetchTree;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityRootGraphFetchTree_Impl;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQuality_Impl;
@@ -46,18 +51,23 @@ import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataSpaceD
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataSpaceDataQualityExecutionContext_Impl;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_MappingAndRuntimeDataQualityExecutionContext;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_MappingAndRuntimeDataQualityExecutionContext_Impl;
+import org.finos.legend.pure.generated.Root_meta_external_dataquality_RelationValidation;
+import org.finos.legend.pure.generated.Root_meta_external_dataquality_RelationValidation_Impl;
 import org.finos.legend.pure.generated.Root_meta_pure_metamodel_constraint_Constraint_Impl;
 import org.finos.legend.pure.generated.Root_meta_pure_metamodel_type_Class_Impl;
 import org.finos.legend.pure.generated.Root_meta_pure_metamodel_type_generics_GenericType_Impl;
+import org.finos.legend.pure.m2.dsl.store.M2StorePaths;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.graphFetch.GraphFetchTree;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.constraint.Constraint;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.property.AbstractProperty;
+import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.relation.RelationType;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Class;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Type;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.generics.GenericType;
 import org.finos.legend.pure.m3.navigation._class._Class;
 import org.finos.legend.pure.m4.coreinstance.CoreInstance;
+import org.finos.legend.pure.m4.coreinstance.SourceInformation;
 
 import java.util.HashSet;
 import java.util.List;
@@ -83,34 +93,113 @@ public class DataQualityCompilerExtension implements CompilerExtension
     public Iterable<? extends Processor<?>> getExtraProcessors()
     {
         return Lists.fixedSize.of(
-                Processor.newProcessor(
-                        DataQuality.class,
-                        org.eclipse.collections.impl.factory.Lists.fixedSize.with(PackageableRuntime.class, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping.class, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.Class.class, DataSpace.class),
-                        (dataquality, compileContext) ->
-                        {
-                            Root_meta_external_dataquality_DataQuality_Impl<Object> metamodel = new Root_meta_external_dataquality_DataQuality_Impl<>(
-                                    dataquality.name,
-                                    SourceInformationHelper.toM3SourceInformation(dataquality.sourceInformation),
-                                    compileContext.pureModel.getClass("meta::external::dataquality::DataQuality")
-                            );
-                            return metamodel;
-                        },
-                        (dataquality, compileContext) ->
-                        {
-
-                        },
-                        (dataquality, compileContext) ->
-                        {
-                            Root_meta_external_dataquality_DataQuality<Object> metamodel = (Root_meta_external_dataquality_DataQuality<Object>) compileContext.pureModel.getPackageableElement(compileContext.pureModel.buildPackageString(dataquality._package, dataquality.name));
-                            metamodel._context(buildDataQualityExecutionContext(dataquality, compileContext))
-                                    ._filter(getFilterLambda(dataquality, compileContext))
-                                    ._validationTree(buildRootGraphFetchTree(dataquality.dataQualityRootGraphFetchTree, compileContext, compileContext.pureModel.getClass(dataquality.dataQualityRootGraphFetchTree._class), null, new ProcessingContext("DataQuality")));
-                            metamodel._validate(true, SourceInformationHelper.toM3SourceInformation(dataquality.sourceInformation), compileContext.getExecutionSupport());
-                        }
-                )
+                getDataQualityModelContraintProcessor(),
+                getDataQualityRelationValidationProcessor()
         );
     }
 
+    private Processor<DataQuality> getDataQualityModelContraintProcessor()
+    {
+        return Processor.newProcessor(
+                DataQuality.class,
+                org.eclipse.collections.impl.factory.Lists.fixedSize.with(PackageableRuntime.class, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping.class, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.Class.class, DataSpace.class),
+                (dataquality, compileContext) ->
+                {
+                    Root_meta_external_dataquality_DataQuality_Impl<Object> metamodel = new Root_meta_external_dataquality_DataQuality_Impl<>(
+                            dataquality.name,
+                            SourceInformationHelper.toM3SourceInformation(dataquality.sourceInformation),
+                            compileContext.pureModel.getClass("meta::external::dataquality::DataQuality")
+                    );
+                    return metamodel;
+                },
+                (dataquality, compileContext) ->
+                {
+
+                },
+                (dataquality, compileContext) ->
+                {
+                    Root_meta_external_dataquality_DataQuality<Object> metamodel = (Root_meta_external_dataquality_DataQuality<Object>) compileContext.pureModel.getPackageableElement(compileContext.pureModel.buildPackageString(dataquality._package, dataquality.name));
+                    metamodel._context(buildDataQualityExecutionContext(dataquality, compileContext))
+                            ._filter(getFilterLambda(dataquality, compileContext))
+                            ._validationTree(buildRootGraphFetchTree(dataquality.dataQualityRootGraphFetchTree, compileContext, compileContext.pureModel.getClass(dataquality.dataQualityRootGraphFetchTree._class), null, new ProcessingContext("DataQuality")));
+                    metamodel._validate(true, SourceInformationHelper.toM3SourceInformation(dataquality.sourceInformation), compileContext.getExecutionSupport());
+                }
+        );
+    }
+
+    private Processor<DataqualityRelationValidation> getDataQualityRelationValidationProcessor()
+    {
+        return Processor.newProcessor(
+                DataqualityRelationValidation.class,
+                org.eclipse.collections.impl.factory.Lists.fixedSize.with(PackageableRuntime.class, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping.class, org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.Class.class, DataSpace.class),
+                (dataqualityRelationValidation, compileContext) ->
+                {
+                    Root_meta_external_dataquality_DataQualityRelationValidation_Impl metamodel = new Root_meta_external_dataquality_DataQualityRelationValidation_Impl(
+                            dataqualityRelationValidation.name,
+                            SourceInformationHelper.toM3SourceInformation(dataqualityRelationValidation.sourceInformation),
+                            compileContext.pureModel.getClass("meta::external::dataquality::DataQualityRelationValidation")
+                    );
+                    return metamodel;
+                },
+                (dataqualityRelationValidation, compileContext) ->
+                {
+
+                },
+                (dataqualityRelationValidation, compileContext) ->
+                {
+
+                },
+                (dataqualityRelationValidation, compileContext) ->
+                {
+
+                },
+                (dataqualityRelationValidation, compileContext) ->
+                {
+                    Root_meta_external_dataquality_DataQualityRelationValidation_Impl metamodel = (Root_meta_external_dataquality_DataQualityRelationValidation_Impl) compileContext.pureModel.getPackageableElement(compileContext.pureModel.buildPackageString(dataqualityRelationValidation._package, dataqualityRelationValidation.name));
+                    LambdaFunction<?> relationValidationQuery = buildDataqualityRelationValidationQuery(dataqualityRelationValidation, compileContext);
+                    metamodel._validations(buildDataQualityRelationValidations(dataqualityRelationValidation.validations, relationValidationQuery, SourceInformationHelper.toM3SourceInformation(dataqualityRelationValidation.sourceInformation), compileContext));
+                    metamodel._validate(true, SourceInformationHelper.toM3SourceInformation(dataqualityRelationValidation.sourceInformation), compileContext.getExecutionSupport());
+                }
+        );
+    }
+
+    private LambdaFunction<?> buildDataqualityRelationValidationQuery(DataqualityRelationValidation dataqualityRelationValidation, CompileContext compileContext)
+    {
+        LambdaFunction<?> relationQuery = HelperValueSpecificationBuilder.buildLambda(dataqualityRelationValidation.query, compileContext);
+        String relationQueryReturnType = Compiler.getLambdaReturnType(dataqualityRelationValidation.query, compileContext.pureModel);
+        Assert.assertTrue(M2StorePaths.RelationStoreAccessor.equals(relationQueryReturnType), () -> "RelationStoreAccessor expected from lambda");
+        return relationQuery;
+    }
+
+    private FastList<Root_meta_external_dataquality_RelationValidation> buildDataQualityRelationValidations(List<RelationValidation> relationValidations, LambdaFunction<?> relationQuery, SourceInformation sourceInformation, CompileContext compileContext)
+    {
+        FastList<Root_meta_external_dataquality_RelationValidation> root_meta_external_dataquality_relationValidations = FastList.newList();
+        for (RelationValidation relationValidation : relationValidations)
+        {
+            root_meta_external_dataquality_relationValidations.add(buildRelationValidation(relationValidation, relationQuery, sourceInformation, compileContext));
+        }
+        return root_meta_external_dataquality_relationValidations;
+    }
+
+    private Root_meta_external_dataquality_RelationValidation_Impl buildRelationValidation(RelationValidation relationalValidation, LambdaFunction<?> relationQuery, SourceInformation sourceInformation, CompileContext compileContext)
+    {
+        Assert.assertTrue(relationalValidation.assertion.parameters.size() == 1, () -> "Assertion should have one input param!");
+        Root_meta_external_dataquality_RelationValidation_Impl root_meta_external_dataquality_relationValidation_ = new Root_meta_external_dataquality_RelationValidation_Impl("", sourceInformation, compileContext.pureModel.getClass("meta::external::dataquality::RelationValidation"));
+        root_meta_external_dataquality_relationValidation_._name(relationalValidation.name);
+        root_meta_external_dataquality_relationValidation_._description(relationalValidation.description);
+        Variable assertionInputParam = relationalValidation.assertion.parameters.get(0);
+        assertionInputParam.multiplicity = Multiplicity.PURE_ONE;
+        assertionInputParam.relationType = RelationTypeHelper.convert(fetchQueryRelationType(relationQuery));
+
+        LambdaFunction<?> assertion = HelperValueSpecificationBuilder.buildLambda(relationalValidation.assertion, compileContext);
+        root_meta_external_dataquality_relationValidation_._assertion(assertion);
+        return root_meta_external_dataquality_relationValidation_;
+    }
+
+    private RelationType<?> fetchQueryRelationType(LambdaFunction<?> relationQuery)
+    {
+        return (RelationType<?>) relationQuery._expressionSequence().getLast()._genericType()._typeArguments().getLast()._rawType();
+    }
 
     private LambdaFunction<?> getFilterLambda(DataQuality app, CompileContext compileContext)
     {

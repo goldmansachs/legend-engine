@@ -126,7 +126,41 @@ public class TestDataQualityCompilationFromGrammar extends TestCompilationFromGr
     }
 
 
+    @Test
+    public void testRelationValidation()
+    {
+        TestCompilationFromGrammar.TestCompilationFromGrammarTestSuite.test(RELATION_COMPILATION_PREREQUISITE_CODE +
+                "###DataQualityValidation\n" +
+                "DataQualityRelationValidation meta::external::dataquality::testvalidation\n" +
+                "{\n" +
+                "    query: #>{my::Store.myTable}#;\n" +
+                "    validations: [\n" +
+                "      {\n" +
+                "         name: 'testValidation';\n" +
+                "         description: 'test validation';\n" +
+                "         assertion: row|$row.name != 'error';\n" +
+                "      }\n" +
+                "    ];\n" +
+                "}");
+    }
 
+    @Test
+    public void testRelationValidation_assertion_relation_type_inference()
+    {
+        TestCompilationFromGrammar.TestCompilationFromGrammarTestSuite.test(RELATION_COMPILATION_PREREQUISITE_CODE +
+                "###DataQualityValidation\n" +
+                "DataQualityRelationValidation meta::external::dataquality::testvalidation\n" +
+                "{\n" +
+                "    query: #>{my::Store.myTable}#;\n" +
+                "    validations: [\n" +
+                "      {\n" +
+                "         name: 'testValidation';\n" +
+                "         description: 'test validation';\n" +
+                "         assertion: row|$row.name2 != 'error';\n" +
+                "      }\n" +
+                "    ];\n" +
+                "}", "COMPILATION error at [11:30-34]: The column 'name2' can't be found in the relation (id:Integer, name:String)");
+    }
 
     private static final String COMPILATION_PREREQUISITE_CODE = "###Connection\n" +
             "RelationalDatabaseConnection meta::dataquality::H2\n" +
@@ -230,5 +264,15 @@ public class TestDataQualityCompilationFromGrammar extends TestCompilationFromGr
             "  ];\n" +
             "  defaultExecutionContext: 'default';\n" +
             "}\n";
+
+    private static final String RELATION_COMPILATION_PREREQUISITE_CODE = "###Relational\n" +
+            "Database my::Store" +
+            "(" +
+            "   Table myTable" +
+            "   (" +
+            "       id INT," +
+            "       name VARCHAR(200)" +
+            "   )" +
+            ")\n";
 
 }
