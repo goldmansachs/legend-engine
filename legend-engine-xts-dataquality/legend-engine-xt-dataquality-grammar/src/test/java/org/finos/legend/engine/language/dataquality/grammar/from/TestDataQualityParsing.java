@@ -18,7 +18,6 @@ import org.antlr.v4.runtime.Vocabulary;
 import org.eclipse.collections.impl.list.mutable.ListAdapter;
 import org.finos.legend.engine.language.pure.grammar.from.antlr4.DataQualityParserGrammar;
 import org.finos.legend.engine.language.pure.grammar.test.TestGrammarParser;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;
@@ -138,7 +137,6 @@ public class TestDataQualityParsing extends TestGrammarParser.TestGrammarParserT
 
     }
 
-    @Ignore
     @Test
     public void testEdgeScenarios()
     {
