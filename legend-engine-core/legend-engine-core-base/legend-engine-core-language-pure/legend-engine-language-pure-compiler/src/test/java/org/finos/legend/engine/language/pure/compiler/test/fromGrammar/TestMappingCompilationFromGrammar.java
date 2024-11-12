@@ -152,6 +152,23 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
     }
 
     @Test
+    public void testPrimitiveTypeMapping()
+    {
+        test("Class test::A\n" +
+                "{\n" +
+                "  d : StrictDate[1];\n" +
+                "}\n" +
+                "###Mapping\n" +
+                "Mapping test::PrimitiveMapping (\n" +
+                "  test::A : Pure\n" +
+                "  {\n" +
+                "     ~src StrictDate\n" +
+                "  }\n" +
+                ")\n"
+                );
+    }
+
+    @Test
     public void testFaultyMappingInclude()
     {
         test("###Mapping\n" +
@@ -830,7 +847,7 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "     date: $src.anotherDate,\n" +
                 "     number: $src.oneNumber\n" +
                 "    }\n" +
-                ")\n", "COMPILATION error at [4:4-10:5]: Can't find class 'model::domain::Target'");
+                ")\n", "COMPILATION error at [4:4-10:5]: Can't find type 'model::domain::Target'");
         // check source class
         test("Class ui::Person\n" +
                 "{\n" +
