@@ -12,8 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import meta::pure::functions::doc::*;
 import meta::analytics::mapping::modelCoverage::utility::*;
+import  meta::analytics::mapping::modelCoverage::*;
 
+Enum meta::analytics::mapping::modelCoverage::utility::DataSetRelativeDateStart
+{
+   Now,
+   Today,
+   StartOfWeek,
+   StartOfMonth,
+   StartOfYear,
+   PreviousFriday,
+   StartOfQuarter,
+   BusinessDate,
+   ProcessingDate
+}
+
+Enum meta::analytics::mapping::modelCoverage::utility::DataSetRelativeDateUnit
+{
+   Days, Weeks, Months, Years
+}
+
+Class <<typemodifiers.abstract>> meta::analytics::mapping::modelCoverage::utility::DeserializableValue {}
+
+Class <<typemodifiers.abstract>> meta::analytics::mapping::modelCoverage::utility::DataSetFilterValueObject extends DeserializableValue{}
+ 
+Class meta::analytics::mapping::modelCoverage::utility::DataSetRelativeDate extends DataSetFilterValueObject
+{
+   <<equality.Key>> adjustment: Integer[0..1];
+   <<equality.Key>> start: DataSetRelativeDateStart[1];
+   <<equality.Key>> unit: DataSetRelativeDateUnit[0..1];
+}
+ 
 function meta::analytics::mapping::modelCoverage::utility::isMilestoned(type:Type[1]):Boolean[1]
 {
    $type->isBiTemporal() || $type->meta::analytics::mapping::modelCoverage::utility::isProcessingTemporal() || $type->meta::analytics::mapping::modelCoverage::utility::isBusinessTemporal();
@@ -98,4 +129,121 @@ function meta::analytics::mapping::modelCoverage::utility::convertToPure(str:Str
    assert($compile.succeeded, | $compile.failure.message->toOne());
 
    $compile.result->toOne()->reactivate()->cast(@LambdaFunction<Any>)->toOne();
+}
+
+
+
+function meta::analytics::mapping::modelCoverage::utility::isElementMeasure(element:AnnotatedElement[1]):Boolean[1]
+{
+   $element->match([
+      ap : AbstractProperty<Any>[1] |
+         $ap.genericType.rawType->in([Float, Integer, Decimal, Number]),
+      ot : Any[1] | false
+   ])
+}
+
+function meta::analytics::mapping::modelCoverage::utility::isElementDeprecated(element:AnnotatedElement[1]):Boolean[1]
+{
+   $element->match([
+      p:AbstractProperty<Any>[1] | $p->isDeprecated() || $p.owner->isDeprecated() || $p.genericType.rawType->toOne()->cast(@AnnotatedElement)->isDeprecated(),
+      e:Class<Any>[1] | $e->isDeprecated(),
+      a:Any[1] | false
+   ])
+}
+
+function  meta::analytics::mapping::modelCoverage::utility::isKerberosProperty(element:AnnotatedElement[1]):Boolean[1]
+{  
+   $element->match([
+      ap : AbstractProperty<Any>[1] | $ap.name->toOne()->toLower()->contains('kerberos'),
+      ot : Any[1] | false
+   ]);
+}
+
+function meta::analytics::mapping::modelCoverage::utility::getMilestoningStereotypes(element:AnnotatedElement[1]):String[*]
+{
+   $element->match([
+      c:Class<Any>[1] | 
+         let isBusinessTemporal = $c->generalizations()->exists(c | $c->hasStereotype('businesstemporal', temporal));
+         let isProcessingTemporal = $c->generalizations()->exists(c | $c->hasStereotype('processingtemporal', temporal));
+         let isBiTemporal = $c->generalizations()->exists(c | $c->hasStereotype('bitemporal', temporal));
+
+         let bt = if ($isBusinessTemporal || $isBiTemporal, | 'businessTemporal', | []);
+         let pt = if ($isProcessingTemporal || $isBiTemporal, | 'processingTemporal', | []);
+         let bit = if ($isBiTemporal, | 'biTemporal', | []);
+         
+         $bt->concatenate($pt)->concatenate($bit);,
+      a:Any[1] | []
+   ]);
+}
+
+function meta::analytics::mapping::modelCoverage::utility::buildQualifiers(property : AbstractProperty<Any>[1]) : meta::analytics::mapping::modelCoverage::MappedPropertyQualifier[*]
+{
+   let isAutoMilestonedProperty = $property->meta::pure::milestoning::hasGeneratedMilestoningPropertyStereotype();
+   let isBiTemporal = $isAutoMilestonedProperty && $property.genericType.rawType->toOne()->meta::analytics::mapping::modelCoverage::utility::isBiTemporal();
+   let isProcessingTemporal = $isAutoMilestonedProperty && $property.genericType.rawType->toOne()->meta::analytics::mapping::modelCoverage::utility::isProcessingTemporal();
+   let isBusinessTemporal = $isAutoMilestonedProperty && $property.genericType.rawType->toOne()->meta::analytics::mapping::modelCoverage::utility::isBusinessTemporal();
+
+   $property->match([
+      {qp:QualifiedProperty<Any>[1] |
+         let parameters = $qp->functionType().parameters->drop(1)->evaluateAndDeactivate();
+         
+         let parameterNameValues = [
+            pair($isBusinessTemporal, 
+                 list(pair('businessDate', list(^DataSetRelativeDate(start = DataSetRelativeDateStart.BusinessDate))))),
+            pair($isProcessingTemporal, 
+                 list(pair('processingDate', list(^DataSetRelativeDate(start = DataSetRelativeDateStart.ProcessingDate))))),
+            pair($isBiTemporal, 
+                 list([
+                     pair('processingDate', list(^DataSetRelativeDate(start = DataSetRelativeDateStart.ProcessingDate))),
+                     pair('businessDate', list(^DataSetRelativeDate(start = DataSetRelativeDateStart.BusinessDate)))
+                  ])
+           )
+         ]->getValue(true, list($parameters->map(p | pair($p.name, list([])))));
+   
+         assert($parameters->size() == $parameterNameValues.values->size(), 'incorrect number of qualifier property arguments');
+         
+         let qualifiers = $parameters->zip($parameterNameValues.values);
+         
+         $qualifiers->map(q |
+            let p = $q.first;
+            let nameValues = $q.second;
+            
+            let name = $nameValues.first;
+            let defaultValue = if ($nameValues.second.values->isEmpty(), | [], | $nameValues.second.values->at(0));
+                          
+            let displayName = $name;
+            let paramType = $p.genericType.rawType->toOne();
+                                                            
+            let multiplicity = if ($isAutoMilestonedProperty, | ZeroOne, | $p.multiplicity);
+            let stereotypes = [
+              pair($isAutoMilestonedProperty && $isBusinessTemporal, 'businessTemporal'),
+              pair($isAutoMilestonedProperty && $isProcessingTemporal, 'processingTemporal'),
+              pair($isAutoMilestonedProperty && ($isBiTemporal && $name == 'businessDate'), 'businessTemporal'),
+              pair($isAutoMilestonedProperty && ($isBiTemporal && $name == 'processingDate'), 'processingTemporal')
+            ]->findValues(true);
+            
+            $paramType->match([
+				pt:PrimitiveType[1] |  
+					 let type = $paramType->mapType();
+					 ^MappedPropertyQualifier(
+						 name=$name,
+						 type=$type,
+						 multiplicity = $multiplicity,
+             defaultValue = $defaultValue,
+             stereotypes = $stereotypes
+					  );,
+				et:Enumeration<Any>[1] |  
+					 ^MappedPropertyEnumQualifier(
+              name=$name,
+              type= MappedPropertyType.Enumeration, 
+              multiplicity = $multiplicity,
+              enumName = $et->elementToPath(),
+              defaultValue = $defaultValue,
+              stereotypes = $stereotypes
+            );            
+          ]);
+         );
+      }, 
+      {ap:AbstractProperty<Any>[1]|[]}
+      ]);
 }

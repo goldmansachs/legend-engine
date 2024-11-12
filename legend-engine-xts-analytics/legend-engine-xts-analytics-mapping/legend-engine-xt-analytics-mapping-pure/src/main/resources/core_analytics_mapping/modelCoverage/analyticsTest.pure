@@ -306,7 +306,7 @@ Class meta::analytics::mapping::modelCoverage::test::LegalEntity
 
 Class meta::analytics::mapping::modelCoverage::test::Firm extends meta::analytics::mapping::modelCoverage::test::LegalEntity
 {
-  id: Decimal[1];
+  <<meta::pure::profiles::doc.deprecated>> {meta::pure::profiles::doc.todo = 'dsfsdfsdf'}  id: Decimal[1];
   employees: meta::analytics::mapping::modelCoverage::test::Person[1..*];
   incType: meta::analytics::mapping::modelCoverage::test::IncType[1];
   employeeSize() {$this.employees->count()}: Number[1];
