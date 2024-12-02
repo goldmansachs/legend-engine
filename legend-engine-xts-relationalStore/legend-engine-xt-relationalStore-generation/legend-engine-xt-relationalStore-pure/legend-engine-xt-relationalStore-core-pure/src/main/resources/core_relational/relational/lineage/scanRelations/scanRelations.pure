@@ -192,7 +192,11 @@ function <<access.private>> meta::pure::lineage::scanRelations::scanRelations(p:
                                | [],
                                | if($source->isNotEmpty(),
                                     | $source,
-                                    | $m->rootClassMappingByClass($cl)->toOne()->resolveOperation($m)->removeDuplicatesBy(x | $x.id)->filter(s | $s->instanceOf(RootRelationalInstanceSetImplementation))->cast(@RootRelationalInstanceSetImplementation);
+                                    | let rootMappings = $m->rootClassMappingByClass($cl);
+                                      if($rootMappings->isEmpty(),
+                                        | [],
+                                        | $rootMappings->toOne()->resolveOperation($m)->removeDuplicatesBy(x | $x.id)->filter(s | $s->instanceOf(RootRelationalInstanceSetImplementation))->cast(@RootRelationalInstanceSetImplementation)
+                                      );
                                  );
                             );
          print(if($debug.debug,|$debug.space+'Process Class: '+$cl.name->toOne()+', Sets: '+$finalSources.id->joinStrings('[',',',']')+'\n',|''));
@@ -331,7 +335,7 @@ function <<access.private>> meta::pure::lineage::scanRelations::reOrderAndMergeR
 
    ^$tt
    (
-      children = $newChildren->sortBy(x:RelationTree[1] | if($x.join->isEmpty(), | $x.relation->cast(@NamedRelation).name->toOne() + '->' + $x.columns.name->joinStrings('[',',',']'), | $x.join.name->toOne() + '->' + $x.relation->cast(@NamedRelation).name->toOne() + '->' + $x.columns.name->joinStrings('[',',',']')))->map(x | $x->reOrderAndMergeRelationTree()),
+      children = $newChildren->sortBy(x:RelationTree[1] | if($x.join->isEmpty(), | if($x.relation->isEmpty(), | 'unknown->' + $x.columns.name->joinStrings('[',',',']'), | $x.relation->cast(@NamedRelation).name->toOne() + '->' + $x.columns.name->joinStrings('[',',',']')), | $x.join.name->toOne() + '->' + $x.relation->cast(@NamedRelation).name->toOne() + '->' + $x.columns.name->joinStrings('[',',',']')))->map(x | $x->reOrderAndMergeRelationTree()),
       nestedViewTree = $tt.nestedViewTree->map(x | $x->reOrderAndMergeRelationTree())
    );
 }

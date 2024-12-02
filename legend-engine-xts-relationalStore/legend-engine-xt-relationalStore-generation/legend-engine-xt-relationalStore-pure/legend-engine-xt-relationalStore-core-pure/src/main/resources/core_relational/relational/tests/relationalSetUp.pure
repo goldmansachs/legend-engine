@@ -365,6 +365,19 @@ import meta::relational::tests::model::simple::*;
 import meta::relational::tests::*;
 import meta::external::store::relational::tests::*;
 
+Mapping meta::relational::tests::mapping::simpleModelToModelMapping
+(
+  *TargetPerson: Pure
+	{
+    		~src Person
+    		name: $src.firstName + $src.lastName,
+    		age: $src.age,
+        firmName: $src.firm.legalName,
+        addressName: $src.address.name,
+        addressType: $src.address.type
+  }
+)
+
 Mapping meta::relational::tests::simpleRelationalMappingWithChainedUnions
 (
    *Firm[firm1] : Operation

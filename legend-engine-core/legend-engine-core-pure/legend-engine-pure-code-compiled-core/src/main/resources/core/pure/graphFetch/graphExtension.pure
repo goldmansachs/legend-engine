@@ -253,8 +253,9 @@ function meta::pure::graphFetch::nodePathName(tree:GraphFetchTree[1]): String[1]
 function meta::pure::graphFetch::typeFromGraphFetchTree(g: GraphFetchTree[1]):Type[1]
 {
    $g->match([
-      r : RootGraphFetchTree<Any>[1] | $r.class,
-      p : PropertyGraphFetchTree[1]  | if($p.subType->isNotEmpty(), | $p.subType->toOne(), | $p.property->functionReturnType().rawType->toOne())
+      rr: RoutedRootGraphFetchTree<Any>[1] | $rr.sets->at(0)->match([pisi: PureInstanceSetImplementation[1] | $pisi.srcClass->toOne(), a: Any[1] | $rr.class]),
+      r : RootGraphFetchTree<Any>[1]       | $r.class,
+      p : PropertyGraphFetchTree[1]        | if($p.subType->isNotEmpty(), | $p.subType->toOne(), | $p.property->functionReturnType().rawType->toOne())
    ])
 }
 

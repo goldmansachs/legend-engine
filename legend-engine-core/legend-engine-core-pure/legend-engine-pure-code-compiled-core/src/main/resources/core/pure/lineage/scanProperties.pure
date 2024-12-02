@@ -21,6 +21,7 @@ import meta::pure::metamodel::path::*;
 import meta::pure::lineage::scanProperties::*;
 import meta::pure::graphFetch::*;
 import meta::pure::router::metamodel::*;
+import meta::pure::graphFetch::routing::*;
 
 
 Class meta::pure::lineage::scanProperties::PropertyPathNode
@@ -401,6 +402,8 @@ function <<access.private>> meta::pure::lineage::scanProperties::internal_scanPr
                                           a: String[1]                                                         | makeScanPropertiesState(emptyPath(), [], $visitedFunctions),
                                           p: Path<Nil,Any|*>[1]                                                | makeScanPropertiesState(emptyPath(), $p->scanPath(emptyPath(), $processed, $vars, $config, $visitedFunctions, $debug), $visitedFunctions),
                                           r: RootGraphFetchTree<Any>[1]                                        | makeScanPropertiesState(emptyPath(), $r->scanGraphFetchTree($r->typeFromGraphFetchTree()->cast(@Class<Any>), emptyPath(), $processed, $vars, $config, $visitedFunctions, $debug), $visitedFunctions),
+                                          r: StoreMappingClusteredGraphFetchTree[1]                            | let byPassedTree = $r->byPassClusteringInfo()->cast(@RoutedRootGraphFetchTree<Any>);
+                                                                                                                 makeScanPropertiesState(emptyPath(), $byPassedTree->calculateSourceTree($r.mapping->toOne(), [])->scanGraphFetchTree($byPassedTree->typeFromGraphFetchTree()->cast(@Class<Any>), emptyPath(), $processed, $vars, $config, $visitedFunctions, $debug), $visitedFunctions);,
                                           c: Class<Any>[1]                                                      | if($config.scanClasses->toOne(),
                                                                                                                     |   print(if($debug.debug,|$debug.space+'  Class : '+ $c.name->toOne()+ '\n',|''));
                                                                                                                         let v=  list(meta::pure::lineage::scanProperties::dummyNodeForClass($c));
