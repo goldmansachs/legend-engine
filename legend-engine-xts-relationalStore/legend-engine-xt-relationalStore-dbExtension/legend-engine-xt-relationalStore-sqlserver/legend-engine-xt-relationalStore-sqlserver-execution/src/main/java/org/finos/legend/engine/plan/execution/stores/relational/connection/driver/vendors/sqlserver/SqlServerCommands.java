@@ -24,13 +24,13 @@ import java.util.List;
 public class SqlServerCommands extends RelationalDatabaseCommands
 {
     @Override
-    public String dropTempTable(String tableName)
+    public String dropTempTable(String tableName, Boolean quoteIdentifiers)
     {
         return "Drop table if exists " + tableName;
     }
 
     @Override
-    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation)
+    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation, Boolean quoteIdentifiers)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

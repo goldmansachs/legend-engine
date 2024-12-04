@@ -25,13 +25,13 @@ import java.util.stream.Collectors;
 public class DuckDBCommands extends RelationalDatabaseCommands
 {
     @Override
-    public String dropTempTable(String tableName)
+    public String dropTempTable(String tableName, Boolean quoteIdentifiers)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
-    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation)
+    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation, Boolean quoteIdentifiers)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -43,22 +43,22 @@ public class DuckDBCommands extends RelationalDatabaseCommands
     }
 
     @Override
-    public String load(String tableName, String location)
+    public String load(String tableName, String location, Boolean quoteIdentifiers)
     {
-        return "CREATE TABLE " + tableName + " AS SELECT * FROM read_csv('" + location + "', header=true);";
+        return "CREATE TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " AS SELECT * FROM read_csv('" + location + "', header=true);";
     }
 
     @Override
-    public String load(String tableName, String location, List<Column> columns)
+    public String load(String tableName, String location, List<Column> columns, Boolean quoteIdentifiers)
     {
-        String columnTypesString = columns.stream().map(c -> String.format("'%s': '%s'", c.name, c.type)).collect(Collectors.joining(", ", "{", "}"));
-        return "CREATE TABLE " + tableName + " AS SELECT * FROM read_csv('" + location + "', header = true, columns = " + columnTypesString + ");";
+        String columnTypesString = columns.stream().map(c -> String.format("'%s': '%s'", mayQuoteIdentifier(c.name, quoteIdentifiers), c.type)).collect(Collectors.joining(", ", "{", "}"));
+        return "CREATE TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " AS SELECT * FROM read_csv('" + location + "', header = true, columns = " + columnTypesString + ");";
     }
 
     @Override
-    public String dropTable(String tableName)
+    public String dropTable(String tableName, Boolean quoteIdentifiers)
     {
-        return "DROP TABLE " + tableName + ";";
+        return "DROP TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + ";";
     }
 
     @Override

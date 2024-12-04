@@ -80,6 +80,8 @@ public class SnowflakeConnectionExtension implements RelationalConnectionExtensi
     @Override
     public Boolean visit(StreamResultToTempTableVisitor visitor, RelationalDatabaseCommands databaseCommands)
     {
+        Boolean quoteIdentifiers = visitor.quoteIdentifiers;
+        
         if (databaseCommands instanceof SnowflakeCommands)
         {
             SnowflakeCommands snowflakeCommands = (SnowflakeCommands) databaseCommands;
@@ -100,17 +102,17 @@ public class SnowflakeConnectionExtension implements RelationalConnectionExtensi
                         tempFile.writeFile(csvSerializer);
                         try (Statement statement = visitor.connection.createStatement())
                         {
-                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName));
+                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName, quoteIdentifiers));
 
                             RelationalResult relationalResult = (RelationalResult) visitor.result;
 
                             if (visitor.result.getResultBuilder() instanceof TDSBuilder)
                             {
-                                snowflakeCommands.createAndLoadTempTable(visitor.tableName, relationalResult.getTdsColumns().stream().map(c -> new Column(c.name, c.relationalType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
+                                snowflakeCommands.createAndLoadTempTable(visitor.tableName, relationalResult.getTdsColumns().stream().map(c -> new Column(c.name, c.relationalType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
                             }
                             else
                             {
-                                snowflakeCommands.createAndLoadTempTable(visitor.tableName, relationalResult.getSQLResultColumns().stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
+                                snowflakeCommands.createAndLoadTempTable(visitor.tableName, relationalResult.getSQLResultColumns().stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
                             }
                         }
                     }
@@ -121,8 +123,8 @@ public class SnowflakeConnectionExtension implements RelationalConnectionExtensi
                         tempFile.writeFile(csvSerializer);
                         try (Statement statement = visitor.connection.createStatement())
                         {
-                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName));
-                            snowflakeCommands.createAndLoadTempTable(visitor.tableName, realizedRelationalResult.columns.stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
+                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName, quoteIdentifiers));
+                            snowflakeCommands.createAndLoadTempTable(visitor.tableName, realizedRelationalResult.columns.stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
                         }
                     }
                     else if (visitor.result instanceof StreamingObjectResult)
@@ -131,8 +133,8 @@ public class SnowflakeConnectionExtension implements RelationalConnectionExtensi
                         tempFile.writeFile(csvSerializer);
                         try (Statement statement = visitor.connection.createStatement())
                         {
-                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName));
-                            snowflakeCommands.createAndLoadTempTable(visitor.tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
+                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName, quoteIdentifiers));
+                            snowflakeCommands.createAndLoadTempTable(visitor.tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
                         }
                     }
                     else if (visitor.result instanceof TempTableStreamingResult)
@@ -141,8 +143,8 @@ public class SnowflakeConnectionExtension implements RelationalConnectionExtensi
                         tempFile.writeFile(csvSerializer);
                         try (Statement statement = visitor.connection.createStatement())
                         {
-                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName));
-                            snowflakeCommands.createAndLoadTempTable(visitor.tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
+                            statement.execute(snowflakeCommands.dropTempTable(visitor.tableName, quoteIdentifiers));
+                            snowflakeCommands.createAndLoadTempTable(visitor.tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> StreamResultToTempTableVisitor.checkedExecute(statement, x));
                         }
                     }
                     else

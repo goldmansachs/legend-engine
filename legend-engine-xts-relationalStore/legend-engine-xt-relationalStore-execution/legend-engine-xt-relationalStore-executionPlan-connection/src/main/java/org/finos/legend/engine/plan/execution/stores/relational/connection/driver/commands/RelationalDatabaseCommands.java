@@ -18,38 +18,46 @@ import java.util.List;
 
 public abstract class RelationalDatabaseCommands
 {
-    public String processTempTableName(String tempTableName)
+    public String getQuoteCharacter()
     {
-        return tempTableName;
+        return "\"";
+    }
+    
+    public String processTempTableName(String tempTableName, Boolean quoteIdentifiers)
+    {
+        return mayQuoteIdentifier(tempTableName, quoteIdentifiers);
     }
 
-    public abstract String dropTempTable(String tableName);
+    public String mayQuoteIdentifier(String identifier, Boolean quoteIdentifiers)
+    {
+        if (quoteIdentifiers == null || !quoteIdentifiers || identifier.startsWith(getQuoteCharacter()))
+        {
+            return identifier;
+        }
+        return getQuoteCharacter() + identifier + getQuoteCharacter();
+    }
 
-    public abstract List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation);
+    public abstract String dropTempTable(String tableName, Boolean quoteIdentifiers);
+    
+    public abstract List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation, Boolean quoteIdentifiers);
 
     public abstract <T> T accept(RelationalDatabaseCommandsVisitor<T> visitor);
 
-    public String load(String tableName, String location)
+    public String load(String tableName, String location, Boolean quoteIdentifiers)
     {
         throw new RuntimeException("Load not implemented for " + this.getClass().getSimpleName());
     }
 
-    public String load(String tableName, String location, List<Column> columns)
+    public String load(String tableName, String location, List<Column> columns, Boolean quoteIdentifiers)
     {
         throw new RuntimeException("Load not implemented for " + this.getClass().getSimpleName());
     }
 
-    public String dropTable(String tableName)
+    public String dropTable(String tableName, Boolean quoteIdentifiers)
     {
         throw new RuntimeException("Drop table not implemented for " + this.getClass().getSimpleName());
     }
 
     public abstract IngestionMethod getDefaultIngestionMethod();
 
-//    public void buildTempTableFromResult(RelationalExecutionConfiguration config, Connection connection, StreamingResult result, String tableName)
-//    {
-//        buildTempTableFromResult(config, connection, result, tableName, this.getDefaultIngestionMethod());
-//    }
-//
-//    protected abstract void buildTempTableFromResult(RelationalExecutionConfiguration config, Connection connection, StreamingResult result, String tableName, IngestionMethod ingestionMethod);
 }

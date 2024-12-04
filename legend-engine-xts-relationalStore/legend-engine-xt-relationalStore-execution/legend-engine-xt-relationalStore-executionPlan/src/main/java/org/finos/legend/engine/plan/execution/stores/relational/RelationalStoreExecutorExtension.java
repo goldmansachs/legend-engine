@@ -23,5 +23,5 @@ import java.sql.Connection;
 
 public interface RelationalStoreExecutorExtension extends LegendModuleSpecificExtension
 {
-    Function5<RelationalExecutionConfiguration, Connection, StreamingResult, String, String, RelationalDatabaseCommandsVisitor<Boolean>> getStreamResultToTempTableVisitor();
+    Function6<RelationalExecutionConfiguration, Connection, StreamingResult, String, String, Boolean, RelationalDatabaseCommandsVisitor<Boolean>> getStreamResultToTempTableVisitor();
 }

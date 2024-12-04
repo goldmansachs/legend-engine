@@ -30,9 +30,9 @@ public class SnowflakeCommands extends RelationalDatabaseCommands
     private static final ImmutableMap<String, String> columnTypeToSqlTextMap = Maps.immutable.of("BIT", "BOOLEAN");
 
     @Override
-    public String processTempTableName(String tempTableName)
+    public String processTempTableName(String tempTableName, Boolean quoteIdentifiers)
     {
-        return "LEGEND_TEMP_DB.LEGEND_TEMP_SCHEMA." + tempTableName;
+        return mayQuoteIdentifier("LEGEND_TEMP_DB", quoteIdentifiers) + "." + mayQuoteIdentifier("LEGEND_TEMP_SCHEMA", quoteIdentifiers) + "." + mayQuoteIdentifier(tempTableName, quoteIdentifiers);
     }
 
     public String tempStageName()
@@ -41,26 +41,25 @@ public class SnowflakeCommands extends RelationalDatabaseCommands
     }
 
     @Override
-    public String dropTempTable(String tableName)
+    public String dropTempTable(String tableName, Boolean quoteIdentifiers)
     {
-        return "Drop table if exists " + tableName;
+        return "Drop table if exists " + mayQuoteIdentifier(tableName, quoteIdentifiers);
     }
 
     @Override
-    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation)
+    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation, Boolean quoteIdentifiers)
     {
         if (optionalCSVFileLocation.startsWith("/"))
         {
             optionalCSVFileLocation = optionalCSVFileLocation.substring(1);
         }
-        List<String> strings = Arrays.asList(
-                "CREATE TEMPORARY TABLE " + tableName + " " + columns.stream().map(c -> c.name + " " + columnTypeToSqlTextMap.getIfAbsentValue(c.type, c.type)).collect(Collectors.joining(",", "(", ")")),
+        return Arrays.asList(
+                "CREATE TEMPORARY TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " " + columns.stream().map(c -> mayQuoteIdentifier(c.name, quoteIdentifiers) + " " + columnTypeToSqlTextMap.getIfAbsentValue(c.type, c.type)).collect(Collectors.joining(",", "(", ")")),
                 "CREATE OR REPLACE TEMPORARY STAGE " + tempStageName(),
                 "PUT file:///" + optionalCSVFileLocation + " @" + tempStageName() + "/" + optionalCSVFileLocation + " PARALLEL = 16 AUTO_COMPRESS = TRUE",
-                "COPY INTO " + tableName + " FROM @" + tempStageName() + "/" + optionalCSVFileLocation + " file_format = (type = CSV field_optionally_enclosed_by= '\"')",
+                "COPY INTO " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " FROM @" + tempStageName() + "/" + optionalCSVFileLocation + " file_format = (type = CSV field_optionally_enclosed_by= '\"')",
                 "DROP STAGE " + tempStageName()
         );
-        return strings;
     }
 
     @Override

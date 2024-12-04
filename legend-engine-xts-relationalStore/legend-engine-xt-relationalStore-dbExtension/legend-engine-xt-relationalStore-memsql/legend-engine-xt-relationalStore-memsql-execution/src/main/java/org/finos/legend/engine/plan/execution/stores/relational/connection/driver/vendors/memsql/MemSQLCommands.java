@@ -26,9 +26,15 @@ import java.util.stream.Collectors;
 public class MemSQLCommands extends RelationalDatabaseCommands
 {
     @Override
-    public String dropTempTable(String tableName)
+    public String getQuoteCharacter()
     {
-        return "DROP TEMPORARY TABLE IF EXISTS " + tableName;
+        return "`";
+    }
+
+    @Override
+    public String dropTempTable(String tableName, Boolean quoteIdentifiers)
+    {
+        return "DROP TEMPORARY TABLE IF EXISTS " + mayQuoteIdentifier(tableName, quoteIdentifiers);
     }
 
     @Override
@@ -39,12 +45,12 @@ public class MemSQLCommands extends RelationalDatabaseCommands
         https://www.mysqltutorial.org/import-csv-file-mysql-table/
 
     */
-    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String clientFileName)
+    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String clientFileName, Boolean quoteIdentifiers)
     {
         return Lists.mutable.with(
-                "CREATE TEMPORARY TABLE " + tableName + " (" + columns.stream().map(c -> c.name + " " + c.type).collect(Collectors.joining(", ")) + ")",
+                "CREATE TEMPORARY TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " (" + columns.stream().map(c -> mayQuoteIdentifier(c.name, quoteIdentifiers) + " " + c.type).collect(Collectors.joining(", ")) + ")",
                 "LOAD DATA LOCAL INFILE '" + clientFileName.replace("\\", "/") + "' \n" +
-                        "INTO TABLE `" + tableName + "` \n" +
+                        "INTO TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " \n" +
                         "IGNORE 1 LINES;"
         );
     }

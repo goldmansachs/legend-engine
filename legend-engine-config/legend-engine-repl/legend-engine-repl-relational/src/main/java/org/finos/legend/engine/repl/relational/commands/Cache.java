@@ -117,7 +117,7 @@ public class Cache implements Command
                                 String tableName = specifiedTableName != null ? specifiedTableName : "test" + (getTables(connection).size() + 1);
                                 try (Statement statement = connection.createStatement())
                                 {
-                                    statement.executeUpdate(DatabaseManager.fromString(databaseConnection.type.name()).relationalDatabaseSupport().load(tableName, tempFile.getTemporaryPathForFile(), relationalResultColumns));
+                                    statement.executeUpdate(DatabaseManager.fromString(databaseConnection.type.name()).relationalDatabaseSupport().load(tableName, tempFile.getTemporaryPathForFile(), relationalResultColumns, databaseConnection.quoteIdentifiers));
                                     this.client.println("Cached into table: '" + tableName + "'");
                                     this.client.printDebug(printExecutionTime(startTime));
                                 }

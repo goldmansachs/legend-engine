@@ -130,7 +130,7 @@ Class meta::relational::functions::sqlQueryToString::DbConfig
      if($this.dbExtension.tableNameToIdentifier->isEmpty(), |$s, |$this.dbExtension.tableNameToIdentifier->toOne()->eval($s, $this));
    }: String[1];
 
-   procesTempTableName(s:String[1], dc:meta::external::store::relational::runtime::DatabaseConnection[1])
+   processTempTableName(s:String[1], dc:meta::external::store::relational::runtime::DatabaseConnection[1])
    {
      if($this.dbExtension.processTempTableName->isEmpty(), |$s, |$this.dbExtension.processTempTableName->toOne()->eval($s, $dc));
    }: String[1];

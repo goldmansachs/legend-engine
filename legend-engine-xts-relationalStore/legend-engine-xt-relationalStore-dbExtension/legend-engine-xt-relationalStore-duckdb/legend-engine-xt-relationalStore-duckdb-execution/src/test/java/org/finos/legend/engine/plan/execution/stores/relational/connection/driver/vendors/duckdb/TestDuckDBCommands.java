@@ -66,7 +66,7 @@ public class TestDuckDBCommands
                 Statement statement = connection.createStatement()
         )
         {
-            String loadSql = DUCK_DB_COMMANDS.load("load_command_test_table", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile());
+            String loadSql = DUCK_DB_COMMANDS.load("load_command_test_table", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile(), false);
             statement.execute(loadSql);
             try (ResultSet rs = statement.executeQuery("select * from load_command_test_table"))
             {
@@ -86,6 +86,33 @@ public class TestDuckDBCommands
     }
 
     @Test
+    public void testLoadCommandWithQuoteIdentifiers() throws Exception
+    {
+        try (
+                Connection connection = CONNECTION_MANAGER_SELECTOR.getDatabaseConnection((Subject) null, this.testDuckDBConnection());
+                Statement statement = connection.createStatement()
+        )
+        {
+            String loadSql = DUCK_DB_COMMANDS.load("load_command_test_table", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile(), true);
+            statement.execute(loadSql);
+            try (ResultSet rs = statement.executeQuery("select * from \"load_command_test_table\""))
+            {
+                assertOnColumnCountAndColumnTypes(rs.getMetaData(), 4, "(id:BIGINT)|(firstName:VARCHAR)|(lastName:VARCHAR)|(age:BIGINT)");
+                assertOnResultSetCSV(
+                        rs,
+                        "1,Peter,Smith,23\r\n" +
+                                "2,John,Johnson,22\r\n" +
+                                "3,John,Hill,12\r\n" +
+                                "4,Anthony,Allen,22\r\n" +
+                                "5,Fabrice,Roberts,34\r\n" +
+                                "6,Oliver,Hill,32\r\n" +
+                                "7,David,Harris,35\r\n"
+                );
+            }
+        }
+    }
+
+    @Test
     public void testLoadCommandWithProvidedTypes() throws Exception
     {
         try (
@@ -99,7 +126,7 @@ public class TestDuckDBCommands
                     new Column("lastName", "VARCHAR(32)"),
                     new Column("age", "DOUBLE")
             );
-            String loadSql = DUCK_DB_COMMANDS.load("load_command_with_types_test_table", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile(), columns);
+            String loadSql = DUCK_DB_COMMANDS.load("load_command_with_types_test_table", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile(), columns, false);
             statement.execute(loadSql);
             try (ResultSet rs = statement.executeQuery("select * from load_command_with_types_test_table"))
             {
@@ -130,7 +157,7 @@ public class TestDuckDBCommands
                     Statement statement = connection.createStatement()
             )
             {
-                statement.execute(DUCK_DB_COMMANDS.load("load_command_with_types_test_table_1", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile()));
+                statement.execute(DUCK_DB_COMMANDS.load("load_command_with_types_test_table_1", Objects.requireNonNull(TestDuckDBCommands.class.getClassLoader().getResource("personTable.csv")).getFile(), false));
                 SQLExecutionNode sqlExecutionNode = new SQLExecutionNode();
                 sqlExecutionNode.isResultColumnsDynamic = true;
                 sqlExecutionNode.connection = duckDbConnection;
@@ -157,7 +184,7 @@ public class TestDuckDBCommands
                     Statement statement = connection.createStatement()
             )
             {
-                String loadSql = DUCK_DB_COMMANDS.load("load_command_with_types_test_table_2", tempFile.path.toString(), relationalResult.getResultSetColumns());
+                String loadSql = DUCK_DB_COMMANDS.load("load_command_with_types_test_table_2", tempFile.path.toString(), relationalResult.getResultSetColumns(), false);
                 statement.execute(loadSql);
                 try (ResultSet rs = statement.executeQuery("select * from load_command_with_types_test_table_2 order by \"Average Age\""))
                 {

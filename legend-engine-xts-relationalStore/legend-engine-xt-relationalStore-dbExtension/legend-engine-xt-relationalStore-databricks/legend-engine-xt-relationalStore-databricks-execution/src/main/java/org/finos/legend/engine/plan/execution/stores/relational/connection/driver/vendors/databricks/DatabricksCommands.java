@@ -24,13 +24,19 @@ import java.util.List;
 public class DatabricksCommands extends RelationalDatabaseCommands
 {
     @Override
-    public String dropTempTable(String tableName)
+    public String getQuoteCharacter()
     {
-        return "Drop table if exists " + tableName;
+        return "`";
+    }
+    
+    @Override
+    public String dropTempTable(String tableName, Boolean quoteIdentifiers)
+    {
+        return "Drop table if exists " + mayQuoteIdentifier(tableName, quoteIdentifiers);
     }
 
     @Override
-    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation)
+    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation, Boolean quoteIdentifiers)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

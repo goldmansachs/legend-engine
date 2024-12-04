@@ -43,6 +43,7 @@ public abstract class SQLResult extends Result implements StoreExecutable
     private final List<String> temporaryTables;
     private final Connection connection;
     private final Statement statement;
+    private final Boolean quoteIdentifiers;
 
     private final RequestContext requestContext;
 
@@ -54,6 +55,7 @@ public abstract class SQLResult extends Result implements StoreExecutable
         this.temporaryTables = temporaryTables;
         this.requestContext = requestContext;
         this.connection = connection;
+        this.quoteIdentifiers = protocolConnection.quoteIdentifiers;
         
         try
         {
@@ -125,7 +127,7 @@ public abstract class SQLResult extends Result implements StoreExecutable
             {
                 try
                 {
-                    this.getStatement().execute(databaseManager.relationalDatabaseSupport().dropTempTable(table));
+                    this.getStatement().execute(databaseManager.relationalDatabaseSupport().dropTempTable(table, quoteIdentifiers));
                 }
                 catch (Exception ignored)
                 {

@@ -58,6 +58,12 @@ public class RelationalSaveNode extends ExecutionNode
         return this.connection.timeZone;
     }
     
+    @JsonIgnore
+    public Boolean getQuoteIdentifiers()
+    {
+        return this.connection.quoteIdentifiers;
+    }
+    
     public String getGeneratedVariableName()
     {
         return this.generatedVariableName;

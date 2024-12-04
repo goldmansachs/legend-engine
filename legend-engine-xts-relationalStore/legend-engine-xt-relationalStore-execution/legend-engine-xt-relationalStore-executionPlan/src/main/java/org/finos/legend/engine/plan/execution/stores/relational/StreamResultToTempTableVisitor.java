@@ -14,10 +14,8 @@
 
 package org.finos.legend.engine.plan.execution.stores.relational;
 
-import com.google.common.collect.Iterators;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import org.finos.legend.engine.plan.execution.result.ResultNormalizer;
 import org.finos.legend.engine.plan.execution.result.StreamingResult;
 import org.finos.legend.engine.plan.execution.result.builder.tds.TDSBuilder;
 import org.finos.legend.engine.plan.execution.result.object.StreamingObjectResult;
@@ -37,7 +35,6 @@ import org.finos.legend.engine.plan.execution.stores.relational.serialization.Re
 import org.finos.legend.engine.plan.execution.stores.relational.serialization.RelationalResultToCSVSerializer;
 import org.finos.legend.engine.plan.execution.stores.relational.serialization.StreamingTempTableResultCSVSerializer;
 import org.finos.legend.engine.shared.core.identity.Identity;
-import org.finos.legend.engine.shared.core.identity.factory.*;
 import org.finos.legend.engine.shared.core.operational.logs.LogInfo;
 import org.finos.legend.engine.shared.core.operational.logs.LoggingEventType;
 import org.slf4j.Logger;
@@ -47,10 +44,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Iterator;
-import java.util.List;
 import java.util.ServiceLoader;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class StreamResultToTempTableVisitor implements RelationalDatabaseCommandsVisitor<Boolean>
@@ -62,15 +56,17 @@ public class StreamResultToTempTableVisitor implements RelationalDatabaseCommand
     public StreamingResult result;
     public String tableName;
     public String databaseTimeZone;
+    public Boolean quoteIdentifiers;
     public IngestionMethod ingestionMethod;
 
-    public StreamResultToTempTableVisitor(RelationalExecutionConfiguration config, Connection connection, StreamingResult result, String tableName, String databaseTimeZone)
+    public StreamResultToTempTableVisitor(RelationalExecutionConfiguration config, Connection connection, StreamingResult result, String tableName, String databaseTimeZone, Boolean quoteIdentifiers)
     {
         this.config = config;
         this.connection = connection;
         this.result = result;
         this.tableName = tableName;
         this.databaseTimeZone = databaseTimeZone;
+        this.quoteIdentifiers = quoteIdentifiers;
         this.ingestionMethod = null;
     }
 
@@ -110,17 +106,17 @@ public class StreamResultToTempTableVisitor implements RelationalDatabaseCommand
                     tempFile.writeFile(csvSerializer);
                     try (Statement statement = connection.createStatement())
                     {
-                        statement.execute(h2Commands.dropTempTable(tableName));
+                        statement.execute(h2Commands.dropTempTable(tableName, quoteIdentifiers));
 
                         RelationalResult relationalResult = (RelationalResult) result;
 
                         if (result.getResultBuilder() instanceof TDSBuilder)
                         {
-                            h2Commands.createAndLoadTempTable(tableName, relationalResult.getTdsColumns().stream().map(c -> new Column(c.name, c.relationalType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> checkedExecute(statement, x));
+                            h2Commands.createAndLoadTempTable(tableName, relationalResult.getTdsColumns().stream().map(c -> new Column(c.name, c.relationalType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> checkedExecute(statement, x));
                         }
                         else
                         {
-                            h2Commands.createAndLoadTempTable(tableName, relationalResult.getSQLResultColumns().stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> checkedExecute(statement, x));
+                            h2Commands.createAndLoadTempTable(tableName, relationalResult.getSQLResultColumns().stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> checkedExecute(statement, x));
                         }
                     }
                 }
@@ -130,9 +126,9 @@ public class StreamResultToTempTableVisitor implements RelationalDatabaseCommand
                     tempFile.writeFile(csvSerializer);
                     try (Statement statement = connection.createStatement())
                     {
-                        statement.execute(h2Commands.dropTempTable(tableName));
+                        statement.execute(h2Commands.dropTempTable(tableName, quoteIdentifiers));
                         RealizedRelationalResult realizedRelationalResult = (RealizedRelationalResult) result;
-                        h2Commands.createAndLoadTempTable(tableName, realizedRelationalResult.columns.stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> checkedExecute(statement, x));
+                        h2Commands.createAndLoadTempTable(tableName, realizedRelationalResult.columns.stream().map(c -> new Column(c.label, c.dataType)).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> checkedExecute(statement, x));
                     }
                 }
                 else if (result instanceof StreamingObjectResult)
@@ -141,8 +137,8 @@ public class StreamResultToTempTableVisitor implements RelationalDatabaseCommand
                     tempFile.writeFile(csvSerializer);
                     try (Statement statement = connection.createStatement())
                     {
-                        statement.execute(h2Commands.dropTempTable(tableName));
-                        h2Commands.createAndLoadTempTable(tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> checkedExecute(statement, x));
+                        statement.execute(h2Commands.dropTempTable(tableName, quoteIdentifiers));
+                        h2Commands.createAndLoadTempTable(tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> checkedExecute(statement, x));
                     }
                 }
                 else if (result instanceof TempTableStreamingResult)
@@ -151,8 +147,8 @@ public class StreamResultToTempTableVisitor implements RelationalDatabaseCommand
                     tempFile.writeFile(csvSerializer);
                     try (Statement statement = connection.createStatement())
                     {
-                        statement.execute(h2Commands.dropTempTable(tableName));
-                        h2Commands.createAndLoadTempTable(tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile()).forEach(x -> checkedExecute(statement, x));
+                        statement.execute(h2Commands.dropTempTable(tableName, quoteIdentifiers));
+                        h2Commands.createAndLoadTempTable(tableName, csvSerializer.getHeaderColumnsAndTypes().stream().map(c -> new Column(c.getOne(), RelationalExecutor.getRelationalTypeFromDataType(c.getTwo()))).collect(Collectors.toList()), tempFile.getTemporaryPathForFile(), quoteIdentifiers).forEach(x -> checkedExecute(statement, x));
                     }
                 }
                 else
@@ -251,33 +247,5 @@ public class StreamResultToTempTableVisitor implements RelationalDatabaseCommand
     {  //TODO:: This probably doesn't work for complex types
         return value instanceof CharSequence ? "'" + value.toString() + "'" : value.toString();
     }
-
-    private void batchInsertRealizedRelationalResultToDB2TempTable(RealizedRelationalResult realizedRelationalResult, Statement statement, String targetTableName, int batchSize) throws SQLException
-    {
-        final String insertPrefix = "INSERT INTO " + targetTableName + " VALUES  ";
-        final Function<Object, String> normalizer = v ->
-        {
-            if (v == null)
-            {
-                return "";
-            }
-            if (v instanceof Number)
-            {
-                return (String) ResultNormalizer.normalizeToSql(v, this.databaseTimeZone);
-            }
-            return "'" + ResultNormalizer.normalizeToSql(v, this.databaseTimeZone) + "'";
-        };
-
-        Iterator<List<List<Object>>> rowBatchIterator = Iterators.partition(realizedRelationalResult.resultSetRows.iterator(), batchSize);
-        while (rowBatchIterator.hasNext())
-        {
-            String insertSql = rowBatchIterator.next()
-                    .stream()
-                    .map(row -> row.stream().map(normalizer).collect(Collectors.joining(",", "(", ")")))
-                    .collect(Collectors.joining(",", insertPrefix, ""));
-            statement.execute(insertSql);
-        }
-    }
-
-
+    
 }

@@ -50,7 +50,8 @@ function meta::relational::functions::sqlQueryToString::db2::getDDLCommandsTrans
 
 function meta::relational::functions::sqlQueryToString::db2::processTempTableNameDB2(tempTableName:String[1], dc: meta::external::store::relational::runtime::DatabaseConnection[1]) : String[1]
 {
-  'SESSION.' + $tempTableName;
+  let dbConfig = meta::relational::functions::sqlQueryToString::createDbConfig($dc);
+  $dbConfig.identifierProcessor('SESSION') + '.' + $dbConfig.identifierProcessor($tempTableName);
 }
 
 function meta::relational::functions::sqlQueryToString::db2::translateCreateTableStatementForDB2(c:CreateTableSQL[1], dbConfig: DbConfig[1]): String[1]

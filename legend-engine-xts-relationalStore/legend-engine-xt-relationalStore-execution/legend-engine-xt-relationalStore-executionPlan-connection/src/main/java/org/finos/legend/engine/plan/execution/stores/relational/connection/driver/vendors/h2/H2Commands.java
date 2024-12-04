@@ -28,15 +28,15 @@ import java.util.stream.Collectors;
 public class H2Commands extends RelationalDatabaseCommands
 {
     @Override
-    public String dropTempTable(String tableName)
+    public String dropTempTable(String tableName, Boolean quoteIdentifiers)
     {
-        return "Drop table if exists " + tableName;
+        return "Drop table if exists " + mayQuoteIdentifier(tableName, quoteIdentifiers);
     }
 
     @Override
-    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation)
+    public List<String> createAndLoadTempTable(String tableName, List<Column> columns, String optionalCSVFileLocation, Boolean quoteIdentifiers)
     {
-        return Lists.mutable.with("CREATE LOCAL TEMPORARY TABLE " + tableName + "(" + columns.stream().map(c -> c.name + " " + c.type).collect(Collectors.joining(", ")) + ") AS SELECT * FROM CSVREAD('" + optionalCSVFileLocation + "');");
+        return Lists.mutable.with("CREATE LOCAL TEMPORARY TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + "(" + columns.stream().map(c -> mayQuoteIdentifier(c.name, quoteIdentifiers) + " " + c.type).collect(Collectors.joining(", ")) + ") AS SELECT * FROM CSVREAD('" + optionalCSVFileLocation + "');");
     }
 
     @Override
@@ -46,15 +46,15 @@ public class H2Commands extends RelationalDatabaseCommands
     }
 
     @Override
-    public String load(String tableName, String location)
+    public String load(String tableName, String location, Boolean quoteIdentifiers)
     {
-        return "CREATE TABLE " + tableName + " AS SELECT * FROM CSVREAD('" + location + "');";
+        return "CREATE TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + " AS SELECT * FROM CSVREAD('" + location + "');";
     }
 
     @Override
-    public String load(String tableName, String location, List<Column> columns)
+    public String load(String tableName, String location, List<Column> columns, Boolean quoteIdentifiers)
     {
-        return "CREATE TABLE " + tableName + "(" + columns.stream().map(c -> c.name + " " + c.type).collect(Collectors.joining(", ")) + ") AS SELECT * FROM CSVREAD('" + location + "');";
+        return "CREATE TABLE " + mayQuoteIdentifier(tableName, quoteIdentifiers) + "(" + columns.stream().map(c -> mayQuoteIdentifier(c.name, quoteIdentifiers) + " " + c.type).collect(Collectors.joining(", ")) + ") AS SELECT * FROM CSVREAD('" + location + "');";
     }
 
     @Override

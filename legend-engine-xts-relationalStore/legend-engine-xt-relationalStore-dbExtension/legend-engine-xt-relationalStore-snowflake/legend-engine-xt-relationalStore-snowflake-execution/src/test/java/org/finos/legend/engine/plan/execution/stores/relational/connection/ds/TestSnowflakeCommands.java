@@ -38,7 +38,7 @@ public class TestSnowflakeCommands
                 new Column("c", "BIT")
         );
 
-        List<String> sqlStatements = snowflakeCommands.createAndLoadTempTable("temp_1", columns.castToList(), "/tmp/temp.csv");
+        List<String> sqlStatements = snowflakeCommands.createAndLoadTempTable("temp_1", columns.castToList(), "/tmp/temp.csv", false);
         ImmutableList<String> expectedSQLStatements = Lists.immutable.of(
                 "CREATE TEMPORARY TABLE temp_1 (a VARCHAR(100),b VARCHAR(100),c BOOLEAN)",
                 "CREATE OR REPLACE TEMPORARY STAGE LEGEND_TEMP_DB.LEGEND_TEMP_SCHEMA.LEGEND_TEMP_STAGE",

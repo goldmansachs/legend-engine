@@ -174,7 +174,7 @@ public class DataCubeWalkthrough implements Command
                     Path tempFile = Files.createTempFile("walkthrough-sample-data", ".csv");
                     FileOutputStream fos = new FileOutputStream(tempFile.toFile());
                     IOUtils.copy(Objects.requireNonNull(inputStream, "Can't extract sample data for walkthrough"), fos);
-                    statement.executeUpdate(DatabaseManager.fromString(databaseConnection.type.name()).relationalDatabaseSupport().load(tableName, tempFile.toString()));
+                    statement.executeUpdate(DatabaseManager.fromString(databaseConnection.type.name()).relationalDatabaseSupport().load(tableName, tempFile.toString(), databaseConnection.quoteIdentifiers));
                 }
             }
             catch (Exception e)

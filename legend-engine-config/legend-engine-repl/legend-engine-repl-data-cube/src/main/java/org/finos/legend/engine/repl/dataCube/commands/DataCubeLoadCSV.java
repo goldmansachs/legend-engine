@@ -86,7 +86,7 @@ public class DataCubeLoadCSV implements Command
                     Connection connection = ConnectionHelper.getConnection(databaseConnection, client.getPlanExecutor());
                     Statement statement = connection.createStatement())
             {
-                statement.executeUpdate(DatabaseManager.fromString(databaseConnection.type.name()).relationalDatabaseSupport().load(tableName, tokens[2]));
+                statement.executeUpdate(DatabaseManager.fromString(databaseConnection.type.name()).relationalDatabaseSupport().load(tableName, tokens[2], databaseConnection.quoteIdentifiers));
                 this.client.println("Loaded into table: '" + tableName + "'");
             }
 

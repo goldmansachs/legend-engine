@@ -53,7 +53,7 @@ function <<access.private>> meta::relational::postProcessor::prefixForWrapperAll
 
 function <<access.private>> meta::relational::postProcessor::processedTempTableNameForIn(dbType: DatabaseType[1], dc: meta::external::store::relational::runtime::DatabaseConnection[1]):String[1]
 {
-   $dbType->createDbConfig([]).procesTempTableName('tempTableForIn_', $dc);
+   $dbType->createDbConfig([]).processTempTableName('tempTableForIn_', $dc);
 }
 
 function meta::relational::postProcessor::processInOperation(query:SQLQuery[1], runtime:Runtime[1], store:Database[0..1], exeCtx:meta::pure::runtime::ExecutionContext[1], extensions:Extension[*]):PostProcessorResult[1]

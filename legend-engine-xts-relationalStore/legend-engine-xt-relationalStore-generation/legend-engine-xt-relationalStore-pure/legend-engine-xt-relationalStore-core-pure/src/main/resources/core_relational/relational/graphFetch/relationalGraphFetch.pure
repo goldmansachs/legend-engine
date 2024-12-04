@@ -161,7 +161,7 @@ function <<access.private>> meta::relational::graphFetch::executionPlan::dbsUsin
 function meta::relational::graphFetch::executionPlan::createTable(tempTableName: String[1], dc: meta::external::store::relational::runtime::DatabaseConnection[1], columns: SQLResultColumn[*], tempTableSchemaName: String[0..1], dbConfig: DbConfig[1]): Table[1]
 {
   let tempTableColumns = $columns->map(x|^Column(name = $x.label, type = $x.dataType->toOne()));
-  ^Table( name = $dbConfig.procesTempTableName($tempTableName, $dc),
+  ^Table( name = $dbConfig.processTempTableName($tempTableName, $dc),
           schema = ^Schema(name = if($tempTableSchemaName->isNotEmpty(),|$tempTableSchemaName->toOne(),|'default') , database = ^Database(name='TempTableDb')),
           columns = $tempTableColumns,
           temporaryTable = true
@@ -404,7 +404,7 @@ function meta::relational::graphFetch::executionPlan::planRootGraphFetchExecutio
       graphFetchTree = $rootTree,
       batchSize      = $batchSize,
       tempTableName  = $tempTableName,
-      processedTempTableName = $dbConfig.procesTempTableName($tempTableName, $dbConnection),
+      processedTempTableName = $dbConfig.processTempTableName($tempTableName, $dbConnection),
       columns        = $columns,
       children       = $children,
       executionNodes = $wrappedNode,
@@ -532,7 +532,7 @@ function <<access.private>> meta::relational::graphFetch::executionPlan::planGra
       parentIndex    = $parentIdx,
       graphFetchTree = $currentTree,
       tempTableName  = $tempTableName,
-      processedTempTableName = $dbConfig.procesTempTableName($tempTableName, $dbConnection),
+      processedTempTableName = $dbConfig.processTempTableName($tempTableName, $dbConnection),
       columns        = $columns,
       children       = $children,
       executionNodes = $wrappedNode
@@ -644,10 +644,10 @@ function meta::relational::graphFetch::executionPlan::planCrossRootGraphFetchExe
       parentIndex             = $parentIdx,
       graphFetchTree          = $rootTree,
       tempTableName           = $tempTableName,
-      processedTempTableName  = $dbConfig.procesTempTableName($tempTableName,$dbConnection),
+      processedTempTableName  = $dbConfig.processTempTableName($tempTableName,$dbConnection),
       columns                 = $columns,
       parentTempTableName     = $parentTempTableName,
-      processedParentTempTableName = $dbConfig.procesTempTableName($parentTempTableName,$dbConnection),
+      processedParentTempTableName = $dbConfig.processTempTableName($parentTempTableName,$dbConnection),
       parentTempTableColumns  = $parentTempTableColumns,
       children                = $children,
       executionNodes          = $wrappedNode

@@ -107,6 +107,7 @@ public class RelationalResult extends StreamingResult implements IRelationalResu
 
     private final String databaseType;
     private final String databaseTimeZone;
+    private Boolean quoteIdentifiers;
 
     public Span topSpan;
 
@@ -124,14 +125,15 @@ public class RelationalResult extends StreamingResult implements IRelationalResu
 
     public RelationalResult(MutableList<ExecutionActivity> activities, RelationalExecutionNode node, List<SQLResultColumn> sqlResultColumns, String databaseType, String databaseTimeZone, Connection connection,Identity identity, List<String> temporaryTables, Span topSpan, RequestContext requestContext)
     {
-        this(activities, node, sqlResultColumns, databaseType, databaseTimeZone, connection, identity, temporaryTables, topSpan, requestContext, true);
+        this(activities, node, sqlResultColumns, databaseType, databaseTimeZone, false, connection, identity, temporaryTables, topSpan, requestContext, true);
     }
 
-    public RelationalResult(MutableList<ExecutionActivity> activities, RelationalExecutionNode node, List<SQLResultColumn> sqlResultColumns, String databaseType, String databaseTimeZone, Connection connection, Identity identity, List<String> temporaryTables, Span topSpan, RequestContext requestContext, boolean logSQLWithParamValues)
+    public RelationalResult(MutableList<ExecutionActivity> activities, RelationalExecutionNode node, List<SQLResultColumn> sqlResultColumns, String databaseType, String databaseTimeZone, Boolean quoteIdentifiers, Connection connection, Identity identity, List<String> temporaryTables, Span topSpan, RequestContext requestContext, boolean logSQLWithParamValues)
     {
         super(activities);
         this.databaseType = databaseType;
         this.databaseTimeZone = databaseTimeZone;
+        this.quoteIdentifiers = quoteIdentifiers;
         this.temporaryTables = temporaryTables;
         this.topSpan = topSpan;
         this.requestContext = requestContext;
@@ -382,7 +384,7 @@ public class RelationalResult extends StreamingResult implements IRelationalResu
                 try
                 {
                     DatabaseManager databaseManager = DatabaseManager.fromString(this.databaseType);
-                    statement.execute(databaseManager.relationalDatabaseSupport().dropTempTable(table));
+                    statement.execute(databaseManager.relationalDatabaseSupport().dropTempTable(table, quoteIdentifiers));
                 }
                 catch (Exception ignored)
                 {

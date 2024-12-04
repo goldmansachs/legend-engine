@@ -62,6 +62,12 @@ public class RelationalExecutionNode extends ExecutionNode
     }
 
     @JsonIgnore
+    public Boolean getQuoteIdentifiers()
+    {
+        return this.connection.quoteIdentifiers;
+    }
+
+    @JsonIgnore
     public List<SQLResultColumn> getSQLResultColumns()
     {
         return ListIterate.collect(this.resultColumns, SQLResultColumn::new);
