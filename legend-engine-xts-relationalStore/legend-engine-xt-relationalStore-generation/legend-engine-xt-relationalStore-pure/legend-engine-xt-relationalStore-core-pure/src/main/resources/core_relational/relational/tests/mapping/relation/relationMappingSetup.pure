@@ -56,6 +56,12 @@ Class meta::relational::tests::mapping::relation::ExtendedPerson extends meta::r
   groupName: String[1];
 }
 
+Class meta::relational::tests::mapping::relation::GroupByClass
+{
+  firmId: Integer[1];
+  sum: Integer[1];
+}
+
 Class meta::relational::tests::mapping::relation::Firm
 {
   legalName: String[1];
@@ -69,7 +75,7 @@ Association meta::relational::tests::mapping::relation::Person_Firm
 
 ###Mapping
 import meta::relational::tests::mapping::relation::*;
-Mapping meta::relational::tests::mapping::relation::simpleMapping
+Mapping meta::relational::tests::mapping::relation::SimpleMapping
 (
   *Person[person]: Relation
   {
@@ -93,7 +99,7 @@ Mapping meta::relational::tests::mapping::relation::simpleMapping
   }
 )
 
-Mapping meta::relational::tests::mapping::relation::mixedMapping
+Mapping meta::relational::tests::mapping::relation::MixedMapping
 (
   *Person[person]: Relation
   {
@@ -123,15 +129,25 @@ Mapping meta::relational::tests::mapping::relation::mixedMapping
   }
 )
 
-Mapping meta::relational::tests::mapping::relation::complexMapping
+Mapping meta::relational::tests::mapping::relation::WindowColumnMapping
 (
   *ExtendedPerson[person]: Relation
   {
-    ~func meta::relational::tests::mapping::relation::complexPersonFunction__Relation_1_
+    ~func meta::relational::tests::mapping::relation::personFunctionWithJoinAndWindowColumn__Relation_1_
     firstName: 'FIRST NAME',
     groupName: GROUPNAME,
     age: AGE,
     rank: RANK
+  }
+)
+
+Mapping meta::relational::tests::mapping::relation::GroupByMapping
+(
+  *GroupByClass: Relation
+  {
+    ~func meta::relational::tests::mapping::relation::personFunctionWithGroupBy__Relation_1_
+    firmId: FIRMID,
+    sum: SUM
   }
 )
 
@@ -171,9 +187,15 @@ function meta::relational::tests::mapping::relation::firmFunction(): Relation<An
     ->select(~[ID, legalName])
 }
 
-function meta::relational::tests::mapping::relation::complexPersonFunction(): Relation<Any>[1]
+function meta::relational::tests::mapping::relation::personFunctionWithJoinAndWindowColumn(): Relation<Any>[1]
 {
   #>{meta::relational::tests::mapping::relation::testDB.personTable}#
     ->join(#>{meta::relational::tests::mapping::relation::testDB.groupMembershipTable}#, JoinKind.INNER, {x,y| $x.ID == $y.PERSONID})
     ->extend(over(~GROUPID, ~SALARY->ascending()), ~[RANK:{p,w,r| $p->rank($w, $r)}]);
+}
+
+function meta::relational::tests::mapping::relation::personFunctionWithGroupBy(): Relation<Any>[1]
+{
+  #>{meta::relational::tests::mapping::relation::testDB.personTable}#
+    ->groupBy(~FIRMID, ~SUM:x|$x.AGE:y|$y->sum())
 }

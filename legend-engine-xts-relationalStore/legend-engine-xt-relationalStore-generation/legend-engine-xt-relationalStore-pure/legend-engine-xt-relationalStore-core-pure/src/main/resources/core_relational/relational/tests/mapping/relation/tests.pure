@@ -62,103 +62,110 @@ function meta::relational::tests::mapping::relation::createTablesAndFillDb():Boo
 
 function <<access.private>> meta::relational::tests::mapping::relation::testTds(func: FunctionDefinition<{->TabularDataSet[1]}>[1], mapping: Mapping[1], expectedRows:String[*]):Boolean[1]
 {
-   let result = execute($func, 
-                        $mapping, 
-                        meta::external::store::relational::tests::testRuntime(meta::relational::tests::mapping::relation::testDB), 
-                        meta::relational::extension::relationalExtensions()
-                      ).values->at(0);
+  let result = execute($func, 
+                      $mapping, 
+                      meta::external::store::relational::tests::testRuntime(meta::relational::tests::mapping::relation::testDB), 
+                      meta::relational::extension::relationalExtensions()
+                    ).values->at(0);
 
-   assertSameElements($expectedRows, $result.rows->map(r|$r.values->makeString(' | ')));
+  assertSameElements($expectedRows, $result.rows->map(r|$r.values->makeString(' | ')));
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testSimpleRelationMapping():Boolean[1]
 {
-   testTds(|Person.all()->project([x|$x.firstName, x|$x.age], ['name', 'age']), 
-            meta::relational::tests::mapping::relation::simpleMapping, 
-            ['David | 52', 'Fabrice | 45', 'John | 30', 'Oliver | 26']
-          );
+  testTds(|Person.all()->project([x|$x.firstName, x|$x.age], ['name', 'age']), 
+          meta::relational::tests::mapping::relation::SimpleMapping, 
+          ['David | 52', 'Fabrice | 45', 'John | 30', 'Oliver | 26']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testSimpleRelationMappingWithAssociation():Boolean[1]
 {
-   testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.legalName], ['name', 'firmName']),
-            meta::relational::tests::mapping::relation::simpleMapping, 
-            ['David | Firm D', 'Fabrice | Firm C', 'John | Firm X', 'Oliver | Firm C']
-          );
+  testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.legalName], ['name', 'firmName']),
+          meta::relational::tests::mapping::relation::SimpleMapping, 
+          ['David | Firm D', 'Fabrice | Firm C', 'John | Firm X', 'Oliver | Firm C']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testSimpleRelationMappingWithFilter():Boolean[1]
 {
-   testTds(|Firm.all()->filter(x|$x.legalName != 'Firm X')->project([x|$x.legalName, x|$x.employees.firstName], ['firmName', 'name']), 
-            meta::relational::tests::mapping::relation::simpleMapping, 
-            ['Firm A | TDSNull', 'Firm B | TDSNull', 'Firm C | Fabrice', 'Firm C | Oliver', 'Firm D | David']
-          );
+  testTds(|Firm.all()->filter(x|$x.legalName != 'Firm X')->project([x|$x.legalName, x|$x.employees.firstName], ['firmName', 'name']), 
+          meta::relational::tests::mapping::relation::SimpleMapping, 
+          ['Firm A | TDSNull', 'Firm B | TDSNull', 'Firm C | Fabrice', 'Firm C | Oliver', 'Firm D | David']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testSimpleRelationMappingWithSubFilter():Boolean[1]
 {
-   testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.employees->filter(e|$e.age < 35).firstName], ['name', 'firmName']), 
-            meta::relational::tests::mapping::relation::simpleMapping, 
-            ['David | TDSNull', 'Fabrice | TDSNull', 'John | John', 'Oliver | Fabrice', 'Oliver | Oliver']
-          );
+  testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.employees->filter(e|$e.age < 35).firstName], ['name', 'firmName']), 
+          meta::relational::tests::mapping::relation::SimpleMapping, 
+          ['David | TDSNull', 'Fabrice | TDSNull', 'John | John', 'Oliver | Fabrice', 'Oliver | Oliver']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testSimpleRelationMappingWithGroupByAndProject():Boolean[1]
 {
-   testTds(|Person.all()->groupBy([p|$p.firm.legalName], [agg(p|$p.age, y | $y->average())], ['name', 'averageAge'])
-                        ->project([col(r:TDSRow[1]|$r.getString('name'), 'name'), col(r:TDSRow[1]|$r.getString('averageAge'), 'averageAge')]),
-            meta::relational::tests::mapping::relation::simpleMapping,
-            ['Firm C | 35.5', 'Firm D | 52.0', 'Firm X | 30.0']
-          );
+  testTds(|Person.all()->groupBy([p|$p.firm.legalName], [agg(p|$p.age, y | $y->average())], ['name', 'averageAge'])
+                      ->project([col(r:TDSRow[1]|$r.getString('name'), 'name'), col(r:TDSRow[1]|$r.getString('averageAge'), 'averageAge')]),
+          meta::relational::tests::mapping::relation::SimpleMapping,
+          ['Firm C | 35.5', 'Firm D | 52.0', 'Firm X | 30.0']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testMixedMapping():Boolean[1]
 {
   testTds(|Person.all()->project([x|$x.firstName, x|$x.age], ['name', 'age']), 
-            meta::relational::tests::mapping::relation::mixedMapping, 
+            meta::relational::tests::mapping::relation::MixedMapping, 
             ['David | 52', 'Fabrice | 45', 'John | 30', 'Oliver | 26']
-          );
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testMixedMappingWithAssociation():Boolean[1]
 {
-   testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.legalName], ['name', 'firmName']), 
-            meta::relational::tests::mapping::relation::mixedMapping, 
-            ['David | Firm D', 'Fabrice | Firm C', 'John | Firm X', 'Oliver | Firm C']
-          );
+  testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.legalName], ['name', 'firmName']), 
+          meta::relational::tests::mapping::relation::MixedMapping, 
+          ['David | Firm D', 'Fabrice | Firm C', 'John | Firm X', 'Oliver | Firm C']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testMixedMappingWithFilter():Boolean[1]
 {
-   testTds(|Firm.all()->filter(x|$x.legalName != 'Firm X')->project([x|$x.legalName, x|$x.employees.firstName], ['firmName', 'name']), 
-            meta::relational::tests::mapping::relation::mixedMapping, 
-            ['Firm A | TDSNull', 'Firm B | TDSNull', 'Firm C | Fabrice', 'Firm C | Oliver', 'Firm D | David']
-          );
+  testTds(|Firm.all()->filter(x|$x.legalName != 'Firm X')->project([x|$x.legalName, x|$x.employees.firstName], ['firmName', 'name']), 
+          meta::relational::tests::mapping::relation::MixedMapping, 
+          ['Firm A | TDSNull', 'Firm B | TDSNull', 'Firm C | Fabrice', 'Firm C | Oliver', 'Firm D | David']
+        );
 }
 
 // SQL Gen fails during isolation when adding a self join, need to investigate further
 function <<meta::pure::profiles::test.Test, meta::pure::profiles::test.ToFix>> meta::relational::tests::mapping::relation::testMixedMappingWithSubFilter():Boolean[1]
 {
-   testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.employees->filter(e|$e.age < 35).firstName], ['name', 'firmName']), 
-            meta::relational::tests::mapping::relation::mixedMapping, 
-            ['David | TDSNull', 'Fabrice | TDSNull', 'John | John', 'Oliver | Fabrice', 'Oliver | Oliver']
-          );
+  testTds(|Person.all()->project([x|$x.firstName, x|$x.firm.employees->filter(e|$e.age < 35).firstName], ['name', 'firmName']), 
+          meta::relational::tests::mapping::relation::MixedMapping, 
+          ['David | TDSNull', 'Fabrice | TDSNull', 'John | John', 'Oliver | Fabrice', 'Oliver | Oliver']
+        );
 }
 
 function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testMixedMappingWithGroupByAndProject():Boolean[1]
 {
-   testTds(|Person.all()->groupBy([p|$p.firm.legalName], [agg(p|$p.age, y | $y->average())], ['name', 'averageAge'])
-                        ->project([col(r:TDSRow[1]|$r.getString('name'), 'name'), col(r:TDSRow[1]|$r.getString('averageAge'), 'averageAge')]),
-            meta::relational::tests::mapping::relation::mixedMapping,
-            ['Firm C | 35.5', 'Firm D | 52.0', 'Firm X | 30.0']
-          );
+  testTds(|Person.all()->groupBy([p|$p.firm.legalName], [agg(p|$p.age, y | $y->average())], ['name', 'averageAge'])
+                      ->project([col(r:TDSRow[1]|$r.getString('name'), 'name'), col(r:TDSRow[1]|$r.getString('averageAge'), 'averageAge')]),
+          meta::relational::tests::mapping::relation::MixedMapping,
+          ['Firm C | 35.5', 'Firm D | 52.0', 'Firm X | 30.0']
+        );
 }
 
-function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testComplexRelationMapping():Boolean[1]
+function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testRelationMappingWithWindowColumn():Boolean[1]
 {
-   testTds(|ExtendedPerson.all()->filter(x|$x.age > 25)->project([x|$x.firstName, x|$x.groupName, x|$x.rank], ['name', 'groupName', 'rank']), 
-            meta::relational::tests::mapping::relation::complexMapping, 
-            ['David | Group D | 1', 'Fabrice | Group C | 1', 'John | Group A | 2', 'Oliver | Group C | 2']
-          );
+  testTds(|ExtendedPerson.all()->filter(x|$x.age > 25)->project([x|$x.firstName, x|$x.groupName, x|$x.rank], ['name', 'groupName', 'rank']),
+          meta::relational::tests::mapping::relation::WindowColumnMapping, 
+          ['David | Group D | 1', 'Fabrice | Group C | 1', 'John | Group A | 2', 'Oliver | Group C | 2']
+        );
 }
 
+function <<meta::pure::profiles::test.Test>> meta::relational::tests::mapping::relation::testRelationMappingWithGroupBy():Boolean[1]
+{
+  testTds(|GroupByClass.all()->project([x|$x.firmId, x|$x.sum], ['firmId', 'sum']),
+          meta::relational::tests::mapping::relation::GroupByMapping, 
+          ['1 | 53', '2 | 23', '3 | 19', '4 | 71', '5 | 52']
+        );
+}

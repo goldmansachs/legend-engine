@@ -6904,7 +6904,7 @@ function meta::relational::functions::pureToSqlQuery::moveSelectQueryToSubSelect
                                                  filteringOperation = $reprocessedFilteringOperation,
                                                  columns = $reprocessedColumns.second->cast(@Alias)->removeDuplicatesBy(a|$a.name),
                                                  preIsolationCurrentTreeNode = $currentTreeNode,
-                                                 groupBy = $reprocessedGroupBys->filter(c|$c->instanceOf(TableAliasColumn)),
+                                                 groupBy = $reprocessedGroupBys,
                                                  leftSideOfFilter = $newLeftSideOfFilter
                                               )
                    );
