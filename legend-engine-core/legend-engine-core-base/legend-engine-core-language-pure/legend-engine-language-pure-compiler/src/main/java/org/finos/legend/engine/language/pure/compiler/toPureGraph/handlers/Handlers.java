@@ -1058,7 +1058,13 @@ public class Handlers
         register(m(m(m(h("meta::pure::functions::collection::removeDuplicates_T_MANY__T_MANY_", false, ps -> res(ps.get(0)._genericType(), "zeroMany"), ps -> ps.size() == 1)),
                         // meta::pure::functions::collection::removeDuplicates<T>(col:T[*], eql:Function<{T[1],T[1]->Boolean[1]}>[1]):T[*]
                         grp(TwoParameterLambdaInference, h("meta::pure::functions::collection::removeDuplicates_T_MANY__Function_1__T_MANY_", false, ps -> res(ps.get(0)._genericType(), "zeroMany"), p -> p.size() == 2))),
-                grp(TwoParameterLambdaInference, h("meta::pure::functions::collection::removeDuplicates_T_MANY__Function_$0_1$__Function_$0_1$__T_MANY_", true, ps -> res(ps.get(0)._genericType(), "zeroMany"), p -> p.size() == 3))));
+                grp((parameters, vsb) ->
+                {
+                    List<ValueSpecification> firstPassProcessed = parameters.stream().map(p -> p instanceof LambdaFunction ? null : p.accept(vsb)).collect(Collectors.toList());
+                    updateSimpleLambda(parameters.get(1), firstPassProcessed.get(0)._genericType(), new org.finos.legend.engine.protocol.pure.m3.multiplicity.Multiplicity(1, 1), vsb.getContext());
+                    updateTwoParamsLambda(parameters.get(2), firstPassProcessed.get(0)._genericType(), new org.finos.legend.engine.protocol.pure.m3.multiplicity.Multiplicity(1, 1));
+                    return ListIterate.zip(firstPassProcessed, parameters).collect(p -> p.getOne() != null ? p.getOne() : p.getTwo().accept(vsb));
+                }, h("meta::pure::functions::collection::removeDuplicates_T_MANY__Function_$0_1$__Function_$0_1$__T_MANY_", true, ps -> res(ps.get(0)._genericType(), "zeroMany"), p -> p.size() == 3))));
 
         register(h("meta::pure::tds::concatenate_TabularDataSet_1__TabularDataSet_1__TabularDataSet_1_", false, ps -> res("meta::pure::tds::TabularDataSet", "one"), ps -> "TabularDataSet".equals(ps.get(0)._genericType()._rawType()._name())),
                 h("meta::pure::functions::relation::concatenate_Relation_1__Relation_1__Relation_1_", true, ps ->
@@ -1202,8 +1208,15 @@ public class Handlers
         register("meta::pure::functions::meta::instanceOf_Any_1__Type_1__Boolean_1_", true, ps -> res("Boolean", "one"));
         register("meta::pure::functions::collection::union_T_MANY__T_MANY__T_MANY_", false, ps -> res(ps.get(0)._genericType(), "zeroMany"));
         register("meta::pure::functions::collection::reverse_T_m__T_m_", true, ps -> res(ps.get(0)._genericType(), ps.get(0)._multiplicity()));
-        register(m(m(h("meta::pure::functions::date::add_StrictDate_1__Duration_1__StrictDate_1_", false, ps -> res("StrictDate", "one"), ps -> typeOne(ps.get(1), "Duration") && typeOne(ps.get(0), "StrictDate"))),
-                m(h("meta::pure::functions::collection::add_T_MANY__T_1__T_$1_MANY$_", true, ps -> res(ps.get(0)._genericType(), "oneMany"), ps -> true))));
+        register(
+                m(
+                    m(h("meta::pure::functions::date::add_StrictDate_1__Duration_1__StrictDate_1_", false, ps -> res("StrictDate", "one"), ps -> typeOne(ps.get(1), "Duration") && typeOne(ps.get(0), "StrictDate"))),
+                    m(
+                            m(h("meta::pure::functions::collection::add_T_MANY__T_1__T_$1_MANY$_", true, ps -> res(ps.get(0)._genericType(), "oneMany"), ps -> ps.size() == 2)),
+                            m(h("meta::pure::functions::collection::add_T_MANY__Integer_1__T_1__T_$1_MANY$_", true, ps -> res(ps.get(0)._genericType(), "oneMany"), ps -> ps.size() == 3))
+                    )
+                )
+        );
 
         register(m(m(h("meta::pure::functions::collection::dropAt_T_MANY__Integer_1__T_MANY_", false, ps -> res(ps.get(0)._genericType(), "zeroMany"), ps -> ps.size() == 2)),
                 m(h("meta::pure::functions::collection::dropAt_T_MANY__Integer_1__Integer_1__T_MANY_", false, ps -> res(ps.get(0)._genericType(), "zeroMany"), ps -> ps.size() == 3))));
@@ -1679,8 +1692,6 @@ public class Handlers
         register("meta::pure::functions::math::distanceHaversineRadians_Number_1__Number_1__Number_1__Number_1__Number_1_", false, ps -> res("Number", "one"));
         register("meta::pure::functions::math::distanceSphericalLawOfCosinesDegrees_Number_1__Number_1__Number_1__Number_1__Number_1_", false, ps -> res("Number", "one"));
         register("meta::pure::functions::math::distanceSphericalLawOfCosinesRadians_Number_1__Number_1__Number_1__Number_1__Number_1_", false, ps -> res("Number", "one"));
-
-
     }
 
     private void registerMathInequalities()
@@ -1753,6 +1764,11 @@ public class Handlers
                 h("meta::pure::functions::boolean::lessThanEqual_String_$0_1$__String_1__Boolean_1_", false, ps -> res("Boolean", "one"), ps -> typeZeroOne(ps.get(0), "String") && typeOne(ps.get(1), "String")),
                 h("meta::pure::functions::boolean::lessThanEqual_String_$0_1$__String_$0_1$__Boolean_1_", false, ps -> res("Boolean", "one"), ps -> typeZeroOne(ps.get(0), "String") && typeZeroOne(ps.get(1), "String")));
 
+        register(h("meta::pure::functions::boolean::between_StrictDate_$0_1$__StrictDate_$0_1$__StrictDate_$0_1$__Boolean_1_", false, ps -> res("Boolean", "one"), ps -> typeZeroOne(ps.get(0), taxoMap.get("cov_StrictDate")) && typeZeroOne(ps.get(1), taxoMap.get("cov_StrictDate")) && typeZeroOne(ps.get(2), taxoMap.get("cov_StrictDate"))),
+                h("meta::pure::functions::boolean::between_DateTime_$0_1$__DateTime_$0_1$__DateTime_$0_1$__Boolean_1_", false, ps -> res("Boolean", "one"), ps -> typeZeroOne(ps.get(0), taxoMap.get("cov_DateTime")) && typeZeroOne(ps.get(1), taxoMap.get("cov_DateTime")) && typeZeroOne(ps.get(2), taxoMap.get("cov_DateTime"))),
+                h("meta::pure::functions::boolean::between_Number_$0_1$__Number_$0_1$__Number_$0_1$__Boolean_1_", false, ps -> res("Boolean", "one"), ps -> typeZeroOne(ps.get(0), taxoMap.get("cov_Number")) && typeZeroOne(ps.get(1), taxoMap.get("cov_Number")) && typeZeroOne(ps.get(2), taxoMap.get("cov_Number"))),
+                h("meta::pure::functions::boolean::between_String_$0_1$__String_$0_1$__String_$0_1$__Boolean_1_", false, ps -> res("Boolean", "one"), ps -> typeZeroOne(ps.get(0), Sets.mutable.with("String", "Nil")) && typeZeroOne(ps.get(1), Sets.mutable.with("String", "Nil")) && typeZeroOne(ps.get(2), Sets.mutable.with("String", "Nil"))));
+
     }
 
     private void registerMaxMin()
@@ -1822,6 +1838,7 @@ public class Handlers
 
         register(h("meta::pure::functions::math::abs_Float_1__Float_1_", true, ps -> res("Float", "one"), ps -> typeOne(ps.get(0), "Float")),
                 h("meta::pure::functions::math::abs_Integer_1__Integer_1_", true, ps -> res("Integer", "one"), ps -> typeOne(ps.get(0), "Integer")),
+                h("meta::pure::functions::math::abs_Decimal_1__Decimal_1_", true, ps -> res("Decimal", "one"), ps -> typeOne(ps.get(0), "Decimal")),
                 h("meta::pure::functions::math::abs_Number_1__Number_1_", true, ps -> res("Number", "one"), ps -> typeOne(ps.get(0), "Number"))
         );
 
@@ -2618,6 +2635,10 @@ public class Handlers
         map.put("meta::pure::functions::boolean::lessThan_String_1__String_1__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 2 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_String").contains(ps.get(0)._genericType()._rawType()._name()) && isOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_String").contains(ps.get(1)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::boolean::not_Boolean_1__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Boolean").contains(ps.get(0)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::boolean::or_Boolean_1__Boolean_1__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 2 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Boolean").contains(ps.get(0)._genericType()._rawType()._name()) && isOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_Boolean").contains(ps.get(1)._genericType()._rawType()._name()));
+        map.put("meta::pure::functions::boolean::between_StrictDate_$0_1$__StrictDate_$0_1$__StrictDate_$0_1$__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 3 && matchZeroOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_StrictDate").contains(ps.get(0)._genericType()._rawType()._name()) && matchZeroOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_StrictDate").contains(ps.get(1)._genericType()._rawType()._name()) && matchZeroOne(ps.get(2)._multiplicity()) && taxoMap.get("cov_StrictDate").contains(ps.get(2)._genericType()._rawType()._name()));
+        map.put("meta::pure::functions::boolean::between_DateTime_$0_1$__DateTime_$0_1$__DateTime_$0_1$__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 3 && matchZeroOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_DateTime").contains(ps.get(0)._genericType()._rawType()._name()) && matchZeroOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_DateTime").contains(ps.get(1)._genericType()._rawType()._name()) && matchZeroOne(ps.get(2)._multiplicity()) && taxoMap.get("cov_DateTime").contains(ps.get(2)._genericType()._rawType()._name()));
+        map.put("meta::pure::functions::boolean::between_Number_$0_1$__Number_$0_1$__Number_$0_1$__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 3 && matchZeroOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Number").contains(ps.get(0)._genericType()._rawType()._name()) && matchZeroOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_Number").contains(ps.get(1)._genericType()._rawType()._name()) && matchZeroOne(ps.get(2)._multiplicity()) && taxoMap.get("cov_Number").contains(ps.get(2)._genericType()._rawType()._name()));
+        map.put("meta::pure::functions::boolean::between_String_$0_1$__String_$0_1$__String_$0_1$__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 3 && matchZeroOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_String").contains(ps.get(0)._genericType()._rawType()._name()) && matchZeroOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_String").contains(ps.get(1)._genericType()._rawType()._name()) && matchZeroOne(ps.get(2)._multiplicity()) && taxoMap.get("cov_String").contains(ps.get(2)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::collection::add_T_MANY__T_1__T_$1_MANY$_", (List<ValueSpecification> ps) -> ps.size() == 2 && isOne(ps.get(1)._multiplicity()));
         map.put("meta::pure::functions::collection::agg_FunctionDefinition_1__FunctionDefinition_1__AggregateValue_1_", (List<ValueSpecification> ps) -> ps.size() == 2 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_function_FunctionDefinition").contains(ps.get(0)._genericType()._rawType()._name()) && isOne(ps.get(1)._multiplicity()) && taxoMap.get("cov_function_FunctionDefinition").contains(ps.get(1)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::collection::and_Boolean_MANY__Boolean_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && taxoMap.get("cov_Boolean").contains(ps.get(0)._genericType()._rawType()._name()));
@@ -2796,6 +2817,7 @@ public class Handlers
         map.put("meta::pure::functions::lang::subType_Any_m__T_1__T_m_", (List<ValueSpecification> ps) -> ps.size() == 2 && isOne(ps.get(1)._multiplicity()));
         map.put("meta::pure::functions::math::abs_Float_1__Float_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Float").contains(ps.get(0)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::math::abs_Integer_1__Integer_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Integer").contains(ps.get(0)._genericType()._rawType()._name()));
+        map.put("meta::pure::functions::math::abs_Decimal_1__Decimal_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Decimal").contains(ps.get(0)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::math::abs_Number_1__Number_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Number").contains(ps.get(0)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::math::acos_Number_1__Float_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Number").contains(ps.get(0)._genericType()._rawType()._name()));
         map.put("meta::pure::functions::math::asin_Number_1__Float_1_", (List<ValueSpecification> ps) -> ps.size() == 1 && isOne(ps.get(0)._multiplicity()) && taxoMap.get("cov_Number").contains(ps.get(0)._genericType()._rawType()._name()));
