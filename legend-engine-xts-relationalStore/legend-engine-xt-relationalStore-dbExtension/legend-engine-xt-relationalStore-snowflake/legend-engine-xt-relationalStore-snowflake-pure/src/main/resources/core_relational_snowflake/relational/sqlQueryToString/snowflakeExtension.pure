@@ -218,6 +218,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::snowf
     dynaFnToSql('firstMillisecondOfSecond', $allStates,          ^ToSql(format='DATE_TRUNC(\'SECOND\', %s)')),
     dynaFnToSql('firstMinuteOfHour',      $allStates,            ^ToSql(format='DATE_TRUNC(\'HOUR\', %s)')),
     dynaFnToSql('firstSecondOfMinute',    $allStates,            ^ToSql(format='DATE_TRUNC(\'MINUTE\', %s)')),
+    dynaFnToSql('generateGuid',           $allStates,            ^ToSql(format='UUID_STRING()')),
     dynaFnToSql('hour',                   $allStates,            ^ToSql(format='date_part(\'hour\', %s)')),
     dynaFnToSql('indexOf',                $allStates,            ^ToSql(format='CHARINDEX(%s)', transform={p:String[2] | $p->at(1) + ', ' + $p->at(0)})),
     dynaFnToSql('isAlphaNumeric',         $allStates,            ^ToSql(format=regexpPattern('%s'), transform={p:String[1]|$p->transformAlphaNumericParamsDefault()})),

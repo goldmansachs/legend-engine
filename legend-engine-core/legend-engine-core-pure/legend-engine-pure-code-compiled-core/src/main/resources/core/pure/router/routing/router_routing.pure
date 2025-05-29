@@ -852,6 +852,7 @@ function meta::pure::router::routing::shouldStopFunctions(extensions:meta::pure:
     func_String_1__FunctionDefinition_1__TdsOlapAggregation_1_,
     func_FunctionDefinition_1__TdsOlapRank_1_,
     and_Boolean_MANY__Boolean_1_,
+    generateGuid__String_1_,
     or_Boolean_$1_MANY$__Boolean_1_,
     or_Boolean_MANY__Boolean_1_,
     tdsContains_T_1__Function_MANY__TabularDataSet_1__Boolean_1_,

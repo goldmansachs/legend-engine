@@ -12,4 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-native function meta::core::runtime::generateGuid():String[1];
+import meta::core::runtime::*;
+import meta::pure::test::pct::*;
+
+native function <<PCT.function, functionType.SideEffectFunction>> meta::core::runtime::generateGuid():String[1];
+
+function <<PCT.test>> meta::core::runtime::tests::testGenerateGuid<T|m>(f:Function<{Function<{->T[m]}>[1]->T[m]}>[1]):Boolean[1]
+{
+  assertNotEmpty($f->eval(| generateGuid()))
+}

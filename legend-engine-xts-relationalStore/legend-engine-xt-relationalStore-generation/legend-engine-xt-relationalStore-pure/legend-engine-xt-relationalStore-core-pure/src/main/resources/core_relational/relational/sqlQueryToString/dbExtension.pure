@@ -1066,6 +1066,7 @@ Enum meta::relational::functions::sqlQueryToString::DynaFunctionRegistry
   firstSecondOfMinute,
   firstMillisecondOfSecond,
   floor,
+  generateGuid,
   greaterThan,
   greaterThanEqual,
   greatest,
