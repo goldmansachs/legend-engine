@@ -359,6 +359,11 @@ public class CompileContext
         return this.resolve(fullPath, sourceInformation, path -> this.pureModel.getProfile(path, sourceInformation));
     }
 
+    public org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.ConcreteFunctionDefinition<?> resolveConcreteFunctionDefinition(String fullPath)
+    {
+        return this.resolveConcreteFunctionDefinition(fullPath, SourceInformation.getUnknownSourceInformation());
+    }
+
     public org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.ConcreteFunctionDefinition<?> resolveConcreteFunctionDefinition(String fullPath, SourceInformation sourceInformation)
     {
         return this.resolve(fullPath, sourceInformation, path -> this.pureModel.getConcreteFunctionDefinition(path, sourceInformation));
