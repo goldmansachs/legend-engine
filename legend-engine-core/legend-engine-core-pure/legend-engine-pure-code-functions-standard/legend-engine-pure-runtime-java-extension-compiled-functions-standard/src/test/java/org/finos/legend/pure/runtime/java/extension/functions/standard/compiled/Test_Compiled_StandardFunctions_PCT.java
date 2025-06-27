@@ -30,7 +30,9 @@ public class Test_Compiled_StandardFunctions_PCT extends PCTReportConfiguration
     private static final ReportScope reportScope = CoreStandardFunctionsCodeRepositoryProvider.standardFunctions;
     private static final Adapter adapter = PlatformCodeRepositoryProvider.nativeAdapter;
     private static final String platform = "compiled";
-    private static final MutableList<ExclusionSpecification> expectedFailures = Lists.mutable.empty();
+    private static final MutableList<ExclusionSpecification> expectedFailures = Lists.mutable.with(
+            one("meta::pure::functions::collection::tests::in::testIn_relation_extend_Function_1__Boolean_1_", "Boolean not supported yet")
+    );
 
     public static Test suite()
     {
