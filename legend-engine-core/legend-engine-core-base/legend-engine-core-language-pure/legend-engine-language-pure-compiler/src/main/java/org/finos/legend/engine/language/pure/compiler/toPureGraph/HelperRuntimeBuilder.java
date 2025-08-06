@@ -18,7 +18,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
+import org.eclipse.collections.impl.factory.Maps;
 import org.eclipse.collections.impl.utility.ListIterate;
+import org.finos.legend.engine.language.pure.compiler.toPureGraph.handlers.RuntimeCompilerHandler;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.handlers.StoreProviderCompilerHelper;
 import org.finos.legend.engine.protocol.pure.m3.SourceInformation;
 import org.finos.legend.engine.protocol.pure.v1.model.context.EngineErrorType;
@@ -56,6 +58,9 @@ import org.finos.legend.pure.m4.coreinstance.CoreInstance;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -336,22 +341,28 @@ public class HelperRuntimeBuilder
             Mapping mappingToCheck, List<PackageableRuntime> runtimes, PureModel pureModel)
     {
         return ListIterate.collect(runtimes, runtime -> pureModel.getPackageableRuntime(runtime.getPath(), null)).distinct()
-                .select(runtime -> isRuntimeCompatibleWithMapping(runtime, mappingToCheck));
+                .select(runtime -> isRuntimeCompatibleWithMapping(runtime._runtimeValue(), mappingToCheck, pureModel.extensions.getExtraRuntimeCompilerHandler()));
     }
 
     public static boolean isRuntimeCompatibleWithMapping(Root_meta_pure_runtime_PackageableRuntime runtime, Mapping mappingToCheck)
     {
-        return isRuntimeCompatibleWithMapping(runtime._runtimeValue(), mappingToCheck);
+        return isRuntimeCompatibleWithMapping(runtime._runtimeValue(), mappingToCheck, Maps.mutable.empty());
     }
 
     public static boolean isRuntimeCompatibleWithMapping(Root_meta_core_runtime_EngineRuntime runtime, Mapping mappingToCheck)
     {
-        return ListIterate.collect(runtime._mappings().toList(), mapping ->
+        return isRuntimeCompatibleWithMapping(runtime, mappingToCheck, Maps.mutable.empty());
+    }
+
+    public static boolean isRuntimeCompatibleWithMapping(Root_meta_core_runtime_EngineRuntime runtime, Mapping mappingToCheck, Map<String, RuntimeCompilerHandler> handlerMap)
+    {
+        Optional<Boolean> isCompatible =  handlerMap.values().stream().map(h -> h.isRuntimeCompatibleWithMapping(runtime, mappingToCheck)).filter(Objects::nonNull).findFirst();
+        return isCompatible.orElseGet(() -> ListIterate.collect(runtime._mappings().toList(), mapping ->
         {
             Set<Mapping> mappings = new HashSet<>();
             mappings.add(mapping);
             mappings.addAll(HelperMappingBuilder.getAllIncludedMappings(mapping).toSet());
             return mappings;
-        }).anySatisfy(mappings -> mappings.contains(mappingToCheck));
+        }).anySatisfy(mappings -> mappings.contains(mappingToCheck)));
     }
 }

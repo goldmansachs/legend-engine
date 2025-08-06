@@ -163,7 +163,7 @@ public class DataSpaceCompilerExtension implements CompilerExtension, EmbeddedDa
                     {
                         Mapping mapping = context.resolveMapping(executionContext.mapping.path, executionContext.mapping.sourceInformation);
                         Root_meta_pure_runtime_PackageableRuntime runtime = context.resolvePackageableRuntime(executionContext.defaultRuntime.path, executionContext.defaultRuntime.sourceInformation);
-                        if (!HelperRuntimeBuilder.isRuntimeCompatibleWithMapping(runtime, mapping))
+                        if (!HelperRuntimeBuilder.isRuntimeCompatibleWithMapping(runtime._runtimeValue(), mapping, context.pureModel.extensions.getExtraRuntimeCompilerHandler()))
                         {
                             throw new EngineException("Execution context '" + executionContext.name + "' default runtime is not compatible with mapping", dataSpace.sourceInformation, EngineErrorType.COMPILATION);
                         }
