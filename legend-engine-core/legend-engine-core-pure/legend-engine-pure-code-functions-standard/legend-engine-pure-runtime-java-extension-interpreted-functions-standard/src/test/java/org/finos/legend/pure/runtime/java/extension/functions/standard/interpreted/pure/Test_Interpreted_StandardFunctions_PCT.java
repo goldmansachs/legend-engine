@@ -30,8 +30,9 @@ public class Test_Interpreted_StandardFunctions_PCT extends PCTReportConfigurati
     private static final ReportScope reportScope = CoreStandardFunctionsCodeRepositoryProvider.standardFunctions;
     private static final Adapter adapter = PlatformCodeRepositoryProvider.nativeAdapter;
     private static final String platform = "interpreted";
-    private static final MutableList<ExclusionSpecification> expectedFailures = Lists.mutable.empty();
-
+    private static final MutableList<ExclusionSpecification> expectedFailures = Lists.mutable.with(
+            one("meta::pure::functions::collection::tests::in::testIn_relation_extend_Function_1__Boolean_1_", "\"The type Boolean is not supported yet!\"")
+    );
     public static Test suite()
     {
         return PureTestBuilderInterpreted.buildPCTTestSuite(reportScope, expectedFailures, adapter);
