@@ -87,8 +87,10 @@ function <<access.private>> meta::relational::postProcessor::reAlias::traverse(q
                                                                     r:VarSetPlaceHolder[1]      | pair($r.varName,$name),
                                                                     r:VarCrossSetPlaceHolder[1] | pair($r.varName,$name),
                                                                     ss:SemiStructuredArrayFlatten[1] | pair('ss_flatten', $name)->concatenate($ss.navigation->traverse()),
-                                                                    ss:SemiStructuredArrayFlattenRelation[1] | pair('ss_flatten', $name)->concatenate($ss.navigation->traverse())
+                                                                    ss:SemiStructuredArrayFlattenRelation[1] | pair('ss_flatten', $name)->concatenate($ss.navigation->traverse()),
+                                                                    v:View[1] | []
                                                                ]);,
+                     tac:TableAliasColumn[1] | $tac.alias->traverse(),
                      union:Union[1]         | $union.queries->traverse(),
                      u:UnaryOperation[1]    | $u.nested->traverse(),
                      d:DynaFunction[1]      | $d.parameters->traverse();,
