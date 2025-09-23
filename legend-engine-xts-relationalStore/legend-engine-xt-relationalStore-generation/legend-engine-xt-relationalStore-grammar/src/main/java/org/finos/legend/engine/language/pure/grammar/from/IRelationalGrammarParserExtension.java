@@ -28,7 +28,9 @@ import org.finos.legend.engine.language.pure.grammar.from.extension.PureGrammarP
 import org.finos.legend.engine.language.pure.grammar.from.milestoning.MilestoningSpecificationSourceCode;
 import org.finos.legend.engine.language.pure.grammar.from.postProcessors.PostProcessorSpecificationSourceCode;
 import org.finos.legend.engine.language.pure.grammar.from.queryGenerationConfigs.QueryGenerationConfigSourceCode;
+import org.finos.legend.engine.language.pure.grammar.from.store.IncludeStoreSpecificationSourceCode;
 import org.finos.legend.engine.protocol.pure.v1.model.context.EngineErrorType;
+import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.IncludeStore;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.connection.RelationalDatabaseConnection;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.connection.RelationalQueryGenerationConfig;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.connection.authentication.AuthenticationStrategy;
@@ -73,6 +75,11 @@ public interface IRelationalGrammarParserExtension extends PureGrammarParserExte
     static Milestoning process(MilestoningSpecificationSourceCode code, List<Function<MilestoningSpecificationSourceCode, Milestoning>> processors)
     {
         return process(code, processors, "Milestoning");
+    }
+
+    static IncludeStore process(IncludeStoreSpecificationSourceCode code, List<Function<IncludeStoreSpecificationSourceCode, IncludeStore>> processors)
+    {
+        return process(code, processors, "IncludeStore");
     }
 
     static RelationalQueryGenerationConfig process(QueryGenerationConfigSourceCode code, List<Function<QueryGenerationConfigSourceCode, RelationalQueryGenerationConfig>> processors)
@@ -137,6 +144,11 @@ public interface IRelationalGrammarParserExtension extends PureGrammarParserExte
     }
 
     default List<Function<MilestoningSpecificationSourceCode, Milestoning>> getExtraMilestoningParsers()
+    {
+        return Collections.emptyList();
+    }
+
+    default List<Function<IncludeStoreSpecificationSourceCode, IncludeStore>> getExtraIncludeStoreParsers()
     {
         return Collections.emptyList();
     }
