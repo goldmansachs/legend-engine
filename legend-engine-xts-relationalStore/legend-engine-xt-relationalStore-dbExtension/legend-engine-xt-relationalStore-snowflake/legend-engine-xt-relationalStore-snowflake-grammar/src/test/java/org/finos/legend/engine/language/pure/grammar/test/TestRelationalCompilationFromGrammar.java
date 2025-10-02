@@ -451,7 +451,7 @@ public class TestRelationalCompilationFromGrammar extends TestCompilationFromGra
                 "                    or SimpleSchema.PeopleView.name2 = 'GSGI'), 'True', 'False')\n" +
                 "            )\n" +
                 " )\n" +
-                ")\n", "COMPILATION error at [12:5-18:1]: View: PeopleView contains multiple main tables: [PeopleTable,PeopleView] there should be only one root Table for Views");
+                ")\n", "COMPILATION error at [12:5-18:13]: View: PeopleView contains multiple main tables: [PeopleTable,PeopleView] there should be only one root Table for Views");
     }
 
     @Test
