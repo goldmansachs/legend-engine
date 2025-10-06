@@ -47,7 +47,7 @@ import org.finos.legend.engine.protocol.pure.m3.valuespecification.constant.data
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.raw.UnitType;
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.deprecated.Whatever;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "_type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "_type", visible = true)
 @JsonSubTypes({
         // Collection
         @JsonSubTypes.Type(value = Collection.class, name = "collection"),
