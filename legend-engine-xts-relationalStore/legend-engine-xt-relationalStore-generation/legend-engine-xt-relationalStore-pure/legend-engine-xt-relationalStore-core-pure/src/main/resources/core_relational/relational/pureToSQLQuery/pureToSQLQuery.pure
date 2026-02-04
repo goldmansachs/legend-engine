@@ -6100,7 +6100,11 @@ function meta::relational::functions::pureToSqlQuery::processStaticPivot(express
     tac:TableAliasColumn[1] | if($tac.column.name->quoteSafeEqual($pivotColumnName), |$tac, |[])]))->toOne('Could not find the pivot column in input: ' + $pivotColumnName);
   let matchedPivotColumnName = ^ColumnName(name = $pivotColumn.column.name->addQuotesIfNecessary());
   let filteringOp = ^DynaFunction(name = 'in', parameters = [$matchedPivotColumnName, ^LiteralList(values = $staticPivotValues)]);
-  let filteredInputSelect = ^$inputSelect(filteringOperation = $filteringOp);
+  let existingFilter = $inputSelect.filteringOperation;
+  let combinedFilter = if($existingFilter->isEmpty(),
+                          |$filteringOp,
+                          |^DynaFunction(name = 'and', parameters = [$existingFilter->toOne(), $filteringOp]));
+  let filteredInputSelect = ^$inputSelect(filteringOperation = $combinedFilter);
   let inputTableAlias = ^TableAlias(name = $inputQueryAlias, relationalElement=$filteredInputSelect);
   let allInputColumns = $filteredInputSelect.columns->map(c | let alias = $inputTableAlias->switchAliasForColumns($c)->toOne();
                                                         let tac = $alias.relationalElement->cast(@TableAliasColumn);
