@@ -168,6 +168,17 @@ public abstract class AbstractTo extends NativeFunction
                 return this.repository.newFloatCoreInstance(jsonNode.textValue());
             }
         }
+        else if (targetRawType == processorSupport.package_getByUserPath(M3Paths.Decimal))
+        {
+            if (jsonNode.isNumber())
+            {
+                return this.repository.newDecimalCoreInstance(jsonNode.decimalValue());
+            }
+            else if (jsonNode.isTextual())
+            {
+                return this.repository.newDecimalCoreInstance(jsonNode.textValue());
+            }
+        }
         else if (targetRawType == processorSupport.package_getByUserPath(M3Paths.StrictDate))
         {
             if (jsonNode.isTextual())

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import meta::pure::functions::flow::*;
 import meta::pure::metamodel::serialization::grammar::*;
 import meta::relational::grammar::serialization::*;
 import meta::pure::functions::variant::convert::*;
@@ -96,7 +97,7 @@ function meta::relational::tests::pct::testAdapterForRelationalExecution<X|o>(f:
 
 function meta::relational::tests::pct::testAdapterForRelationalExecution<X|o>(f:Function<{->X[o]}>[1], dbc:meta::external::store::relational::runtime::DatabaseConnection[1], extensions:Extension[*]):X[o]
 {
-    let debug = noDebug();
+    let debug = debug();
 
     let repocessed = $f->meta::relational::tests::pct::process::reprocess($dbc, $debug);
     let newFunction = $repocessed.first;
@@ -129,26 +130,28 @@ function meta::relational::tests::pct::testAdapterForRelationalExecution<X|o>(f:
     // ----
 
     let resultType = $f->functionReturnType().rawType->toOne();
-    let json = $x->meta::json::parseJSON();
-    if (!$json->instanceOf(JSONObject),
-      | $json->meta::json::fromJSON($resultType),
-      | if ($json->cast(@JSONObject).keyValuePairs->filter(k|$k.key.value=='result').value->isEmpty(),
-            | let res = $json->meta::json::fromJSON(meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalClassResult, ^meta::json::ExtendedJSONDeserializationConfig(typeKeyName='__TYPE', failOnUnknownProperties=true, nullReplacementInArray=TDSNull))->cast(@meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalClassResult)->toOne();
-              let x= meta::protocols::pure::vX_X_X::invocation::execution::execute::processRelationalClassResult($res, $repocessed.second.mapping->toOne(), $repocessed.second.runtime, [], $extensions);
-              $x.first.values;,
-            | let res = $json->meta::json::fromJSON(meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalTDSResult, ^meta::json::ExtendedJSONDeserializationConfig(typeKeyName='__TYPE', failOnUnknownProperties=true, nullReplacementInArray=TDSNull))->cast(@meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalTDSResult)->toOne();
+    let json = $x->fromJson();
+    if ($json->meta::pure::functions::variant::navigation::get('result')->isEmpty(),
+            | 
+              // todo move to variant json given it respect decimals..              
+              let res = $x->meta::json::parseJSON()->meta::json::fromJSON(meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalClassResult, ^meta::json::ExtendedJSONDeserializationConfig(typeKeyName='__TYPE', failOnUnknownProperties=true, nullReplacementInArray=TDSNull))->cast(@meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalClassResult)->toOne();
+              let px = meta::protocols::pure::vX_X_X::invocation::execution::execute::processRelationalClassResult($res, $repocessed.second.mapping->toOne(), $repocessed.second.runtime, [], $extensions);
+              $px.first.values;,
+            | 
               // processResult
               if ($resultType->instanceOf(PrimitiveType) || $resultType->instanceOf(Enumeration) || $resultType->in([Variant, List, Map, Nil]),
-                | let preResultFinal = $res.result.rows->head().values->head();
+                | 
+                  let builderType = $json->meta::pure::functions::variant::navigation::get('builder')->meta::pure::functions::variant::navigation::get('type')->to(@String)->map(x | $x->pathToElement()->cast(@Type));
+                  let preResultFinal = $json->meta::pure::functions::variant::navigation::get('result')->meta::pure::functions::variant::navigation::get('rows')->meta::pure::functions::variant::navigation::get(0)->meta::pure::functions::variant::navigation::get('values')->meta::pure::functions::variant::navigation::get(0);
 
                   print(if($debug.debug,|'\nRaw Result:\n'+$preResultFinal->makeString('[',',',']'),|''));
 
-                  let resultFinal = $preResultFinal->resultToType($f->functionReturnType(), $f->functionReturnMultiplicity());
+                  let resultFinal = $preResultFinal->resultToType($builderType, $f->functionReturnType(), $f->functionReturnMultiplicity());
 
                   print(if($debug.debug,|'\nResult Final:\n'+$resultFinal->makeString('[',',',']'),|''));
                   $resultFinal;,
                 |
-                  let resultFinal = meta::protocols::pure::vX_X_X::invocation::execution::execute::getTDSResultFromProtocol($res, $f->functionReturnType(), $extensions);
+                  let resultFinal = meta::relational::tests::pct::process::getTDSResultFromProtocol($json, $f->functionReturnType(), $extensions);
 
                   let relType = $resultFinal->genericType().typeArguments.rawType->cast(@RelationType<Any>)->toOne();
 
@@ -163,72 +166,94 @@ function meta::relational::tests::pct::testAdapterForRelationalExecution<X|o>(f:
                   );
                   $resultFinal;
               );
-    ))->cast(@X)->toMultiplicity(@[o]);
+    )->cast(@X)->toMultiplicity(@[o]);
 }
 
-function meta::relational::tests::pct::process::resultToType(preResultFinal: Any[0..1], type: GenericType[1], mult: Multiplicity[1]):Any[*]
+function meta::relational::tests::pct::process::getTDSResultFromProtocol(variant:Variant[1], funcReturnType:GenericType[1], extensions:meta::pure::extension::Extension[*]): Any[1]
+{  
+  let cols = $variant->meta::pure::functions::variant::navigation::get('builder')->meta::pure::functions::variant::navigation::get('columns')->toMany(@Variant);
+  let rows = $variant->meta::pure::functions::variant::navigation::get('result')->meta::pure::functions::variant::navigation::get('rows')->toMany(@Variant);
+
+  // We lose column type info after pivot, so need to compensate from protocol.
+  let columns = if ($funcReturnType.typeArguments->at(0).rawType->toOne()->instanceOf(RelationType),
+                    | $funcReturnType.typeArguments->at(0).rawType->cast(@RelationType<Any>).columns->map(x |                        
+                        let multiplicity = $x->functionReturnMultiplicity();                       
+                         meta::protocols::pure::vX_X_X::invocation::execution::execute::manageName($x.name) + ':'+$x->functionReturnType()->printGenericType(true)+'['+if ($multiplicity == ZeroMany,|PureOne, |$multiplicity)->printMultiplicity()+']';
+                      ),
+                    | $cols->map(c | $c->meta::pure::functions::variant::navigation::get('type')->to(@String)->map(t |
+                        if($t == 'meta::pure::precisePrimitives::Varchar', |'String', |$t);
+                      )->map(t |  meta::protocols::pure::vX_X_X::invocation::execution::execute::manageName($c->meta::pure::functions::variant::navigation::get('name')->to(@String)) + ':' + $t));
+                );
+
+  let tdsString = $columns->joinStrings(',') + '\n' +
+                                $rows->map(x|
+                                  let rowValues = $x->meta::pure::functions::variant::navigation::get('values')->toMany(@Variant);
+                                  range($rowValues->size())->map(z |
+                                      $rowValues->at($z)->map(v|$v->to(@String)->map(v | $v->meta::relational::tests::csv::escapeCSVString())->orElse('null'));
+                                  )->makeString(',');
+                                )->joinStrings('\n');    
+  $tdsString->stringToTDS();
+}
+
+
+function meta::relational::tests::pct::process::resultToType(preResultFinal: Variant[0..1], bType: Type[0..1], type: GenericType[1], mult: Multiplicity[1]):Any[*]
 {
   let resultType = $type.rawType->toOne();
 
   if ([
-        pair(|$preResultFinal->isEmpty() || $preResultFinal == TDSNull || $resultType == Nil, |[]),
-        pair(|$preResultFinal->toOne()->instanceOf(String) && $mult->isToMany() && $preResultFinal->toOne()->cast(@String)->startsWith('[') && $preResultFinal->toOne()->cast(@String)->endsWith(']'), |$preResultFinal->toOne()->cast(@String)->fromJson()->toMany($type)),
-        pair(|$resultType->subTypeOf(DateTime), |meta::pure::functions::string::parseDate($preResultFinal->toOne()->toString())),
-        pair(|$resultType->subTypeOf(Date), |buildDate($preResultFinal->toOne()->toString())),
-        pair(|$resultType->subTypeOf(Decimal), |$preResultFinal->toOne()->cast(@Number)->toDecimal()),
-        pair(|$resultType->subTypeOf(Integer), |$preResultFinal->toOne()->cast(@Number)->round()),
-        pair(|$resultType->subTypeOf(Float), |$preResultFinal->toOne()->cast(@Number)->toFloat()),
-        pair(|$resultType->subTypeOf(Number), |$preResultFinal->toOne()->cast(@Number)),
-        pair(|$resultType->instanceOf(Enumeration), | meta::pure::functions::lang::extractEnumValue($resultType->cast(@Enumeration<Any>), $preResultFinal->toOne()->toString())),
-        pair(|$resultType == Variant, |$preResultFinal->toOne()->cast(@String)->fromJson()),
-        pair(|$resultType->in([List, Map]), |$preResultFinal->toOne()->cast(@String)->fromJson()->to($type))
+        pair(|$preResultFinal->isEmpty() || $resultType == Nil, |[]),
+        pair(|$mult->isToMany(), |$preResultFinal->toOne()->toMany($bType->coalesce($type.rawType))),
+        pair(|$resultType->instanceOf(Enumeration), | meta::pure::functions::lang::extractEnumValue($resultType->cast(@Enumeration<Any>), $preResultFinal->to(@String)->toOne()))
       ],
-    | $preResultFinal->toOne()
+    | $preResultFinal->toOne()->to($bType, $type)
   );
 }
 
-function meta::relational::tests::pct::process::toMany(var: Variant[1], type: GenericType[1]):Any[*]
+function meta::relational::tests::pct::process::toMany(var: Variant[1], type: Type[1]):Any[*]
 {
-  // compile time has hard time doing dynamic toMany so this is to compensate
+  // compile time has hard time doing dynamic toMany so this is to compensate  
   if([
-      pair(|$type.rawType == Integer, |$var->toMany(@Integer)),
-      pair(|$type.rawType == Float, |$var->toMany(@Float)),
-      pair(|$type.rawType == String, |$var->toMany(@String)),
-      pair(|$type.rawType == StrictDate, |$var->toMany(@StrictDate)),
-      pair(|$type.rawType == DateTime, |$var->toMany(@DateTime)),
-      pair(|$type.rawType == Boolean, |$var->toMany(@Boolean)),
-      pair(|$type.rawType == Variant, |$var->toMany(@Variant))
+      pair(|$type == Integer, |$var->toMany(@Integer)),
+      pair(|$type == Decimal, |$var->toMany(@Decimal)),
+      pair(|$type == Float, |$var->toMany(@Float)),
+      pair(|$type == String, |$var->toMany(@String)),
+      pair(|$type == StrictDate, |$var->toMany(@StrictDate)),
+      pair(|$type == DateTime, |$var->toMany(@DateTime)),
+      pair(|$type == Boolean, |$var->toMany(@Boolean)),
+      pair(|$type == Variant, |$var->toMany(@Variant))
     ],
-    | fail('Not supported: ' + $type->meta::pure::metamodel::serialization::grammar::printGenericType()); [];
+    | fail('Not supported: ' + $type->elementToPath()); [];
   );
 }
 
-function meta::relational::tests::pct::process::to(var: Variant[1], type: GenericType[1]):Any[0..1]
+function meta::relational::tests::pct::process::to(var: Variant[1], bType: Type[0..1], type: GenericType[1]):Any[0..1]
 {
   // compile time has hard time doing dynamic to so this is to compensate
+  let rType = $bType->coalesce($type.rawType);
   if([
-      pair(|$type.rawType == Integer, |$var->to(@Integer)),
-      pair(|$type.rawType == Float, |$var->to(@Float)),
-      pair(|$type.rawType == String, |$var->to(@String)),
-      pair(|$type.rawType == StrictDate, |$var->to(@StrictDate)),
-      pair(|$type.rawType == DateTime, |$var->to(@DateTime)),
-      pair(|$type.rawType == Boolean, |$var->to(@Boolean)),
+      pair(|$rType == Integer, |$var->to(@Integer)),
+      pair(|$rType == Float, |$var->to(@Float)),
+      pair(|$rType == String, |$var->to(@String)),
+      pair(|$rType == StrictDate, |$var->to(@StrictDate)),
+      pair(|$rType == DateTime, |$var->to(@DateTime)),
+      pair(|$rType == Boolean, |$var->to(@Boolean)),
+      pair(|$rType == Decimal, |$var->to(@Decimal)),
 
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == Integer, |$var->to(@List<Integer>)),
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == Float, |$var->to(@List<Float>)),
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == String, |$var->to(@List<String>)),
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == StrictDate, |$var->to(@List<StrictDate>)),
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == DateTime, |$var->to(@List<DateTime>)),
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == Boolean, |$var->to(@List<Boolean>)),
-      pair(|$type.rawType == List && $type.typeArguments->at(0).rawType == Variant, |$var->to(@List<Variant>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == Integer, |$var->to(@List<Integer>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == Float, |$var->to(@List<Float>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == String, |$var->to(@List<String>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == StrictDate, |$var->to(@List<StrictDate>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == DateTime, |$var->to(@List<DateTime>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == Boolean, |$var->to(@List<Boolean>)),
+      pair(|$rType == List && $type.typeArguments->at(0).rawType == Variant, |$var->to(@List<Variant>)),
 
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == Integer, |$var->to(@Map<String,Integer>)),
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == Float, |$var->to(@Map<String,Float>)),
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == String, |$var->to(@Map<String,String>)),
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == StrictDate, |$var->to(@Map<String,StrictDate>)),
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == DateTime, |$var->to(@Map<String,DateTime>)),
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == Boolean, |$var->to(@Map<String,Boolean>)),
-      pair(|$type.rawType == Map && $type.typeArguments->at(1).rawType == Variant, |$var->to(@Map<String,Variant>))
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == Integer, |$var->to(@Map<String,Integer>)),
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == Float, |$var->to(@Map<String,Float>)),
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == String, |$var->to(@Map<String,String>)),
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == StrictDate, |$var->to(@Map<String,StrictDate>)),
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == DateTime, |$var->to(@Map<String,DateTime>)),
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == Boolean, |$var->to(@Map<String,Boolean>)),
+      pair(|$rType == Map && $type.typeArguments->at(1).rawType == Variant, |$var->to(@Map<String,Variant>))
     ],
     | fail('Not supported: ' + $type->meta::pure::metamodel::serialization::grammar::printGenericType()); [];
   );

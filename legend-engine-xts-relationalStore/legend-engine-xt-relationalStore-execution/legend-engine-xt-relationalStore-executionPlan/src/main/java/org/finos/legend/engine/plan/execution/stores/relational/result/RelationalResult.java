@@ -287,7 +287,15 @@ public class RelationalResult extends StreamingResult implements IRelationalResu
                 );
             }
             setTransformers.add(new SetImplTransformers(transformerInputs));
-            this.builder = new TDSBuilder(node, this.sqlColumns, isDatabaseIdentifiersCaseSensitive);
+            TDSBuilder tdsBuilder = new TDSBuilder(node, this.sqlColumns, isDatabaseIdentifiersCaseSensitive);
+
+            for (int i = 0; i < tdsBuilder.columns.size(); i++)
+            {
+                TDSColumn column = tdsBuilder.columns.get(i);
+                column.type = toMoreSpecificIfPossible(column.type, i);
+            }
+
+            this.builder = tdsBuilder;
             this.columnListForSerializer = ListIterate.collect(((TDSBuilder) this.builder).columns, col -> col.name);
         }
         else if (ExecutionNodeClassResultHelper.isClassResult(node))
@@ -357,8 +365,37 @@ public class RelationalResult extends StreamingResult implements IRelationalResu
                 setImpl.transformers.add(SetImplTransformers.TEMPORARY_DATATYPE_TRANSFORMER);
             }
             setTransformers.add(setImpl);
-            this.builder = new DataTypeBuilder(node);
+            DataTypeBuilder dtBuilder = new DataTypeBuilder(node);
+            dtBuilder.type = toMoreSpecificIfPossible(dtBuilder.type, 0);
+            this.builder = dtBuilder;
         }
+    }
+
+    private String toMoreSpecificIfPossible(String type, int col) throws SQLException
+    {
+        // report more specific
+        if ("Number".equals(type))
+        {
+            switch (this.resultSetMetaData.getColumnType(col + 1))
+            {
+                case Types.DECIMAL:
+                case Types.NUMERIC:
+                    return "Decimal";
+                case Types.INTEGER:
+                case Types.TINYINT:
+                case Types.SMALLINT:
+                case Types.BIGINT:
+                    return "Integer";
+                case Types.REAL:
+                case Types.FLOAT:
+                case Types.DOUBLE:
+                    return "Float";
+                default:
+                    return type;
+            }
+        }
+
+        return type;
     }
 
     @Override

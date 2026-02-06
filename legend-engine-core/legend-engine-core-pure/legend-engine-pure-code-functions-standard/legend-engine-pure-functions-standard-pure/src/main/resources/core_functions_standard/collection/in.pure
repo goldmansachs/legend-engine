@@ -77,7 +77,7 @@ function <<PCT.test, meta::pure::functions::relation::PCTRelationQualifier.relat
                   5, wwe
                   6, weq
                 #->extend(~[
-                  isValid:c|$c.str->in(['a', 'ewe', 'wwe'])
+                  isValid:c|$c.str->in([1D, 2D, 3D])
                 ])
               };
 

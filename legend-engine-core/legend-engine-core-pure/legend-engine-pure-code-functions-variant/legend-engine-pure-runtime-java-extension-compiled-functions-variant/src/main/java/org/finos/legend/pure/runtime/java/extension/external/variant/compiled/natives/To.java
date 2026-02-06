@@ -16,6 +16,8 @@
 package org.finos.legend.pure.runtime.java.extension.external.variant.compiled.natives;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
+import java.math.BigDecimal;
 import java.util.Iterator;
 import java.util.Map;
 import org.eclipse.collections.api.RichIterable;
@@ -268,6 +270,17 @@ public class To extends AbstractNative
                 else if (jsonNode.isTextual())
                 {
                     return Double.parseDouble(jsonNode.asText());
+                }
+            }
+            else if (pureGenericType._rawType() == es.getProcessorSupport().package_getByUserPath(M3Paths.Decimal))
+            {
+                if (jsonNode.isNumber())
+                {
+                    return jsonNode.decimalValue();
+                }
+                else if (jsonNode.isTextual())
+                {
+                    return new BigDecimal(jsonNode.asText());
                 }
             }
             else if (pureGenericType._rawType() == es.getProcessorSupport().package_getByUserPath(M3Paths.Boolean))

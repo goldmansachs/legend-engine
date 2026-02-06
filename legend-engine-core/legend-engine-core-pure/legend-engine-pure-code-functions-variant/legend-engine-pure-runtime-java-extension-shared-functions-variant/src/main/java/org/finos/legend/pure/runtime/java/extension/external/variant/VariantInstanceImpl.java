@@ -14,8 +14,10 @@
 
 package org.finos.legend.pure.runtime.java.extension.external.variant;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.variant.Variant;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.variant.VariantCoreInstanceWrapper;
 import org.finos.legend.pure.m3.navigation.M3Paths;
@@ -28,7 +30,10 @@ import java.util.Objects;
 
 public class VariantInstanceImpl extends VariantCoreInstanceWrapper
 {
-    public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .enable(DeserializationFeature.USE_LONG_FOR_INTS)
+            .setNodeFactory(JsonNodeFactory.withExactBigDecimals(true));
 
     private final JsonNode jsonNode;
 

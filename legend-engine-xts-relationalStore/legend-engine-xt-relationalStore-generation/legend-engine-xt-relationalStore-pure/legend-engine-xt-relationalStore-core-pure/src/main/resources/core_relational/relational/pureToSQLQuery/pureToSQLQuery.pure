@@ -550,10 +550,7 @@ function meta::relational::functions::pureToSqlQuery::processValue(vals:Any[*], 
     if ($vals->isEmpty(), | ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = ^Literal(value=^SQLNull())),|^$select(columns = ^Literal(value=^SQLNull()))))
                         , | $vals->map(v | 
                                 $v->match([                                  
-                                  s:String[1] | ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = ^Literal(value=$s)),|^$select(columns = ^Literal(value=$s)))),
-                                  //WTF
-                                  d:Decimal[1] | let cast = newDynaFunction('cast', [^Literal(value=$d), ^DataTypeInfo(dataType = $v->genericType()->genericTypeToDataType(PureOne))]);
-                                                 ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = $cast),|^$select(columns = $cast)));,
+                                  s:String[1] | ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = ^Literal(value=$s)),|^$select(columns = ^Literal(value=$s)))),                                  
                                   n:Number[1] | ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = ^Literal(value=$n)),|^$select(columns = ^Literal(value=$n)))),
                                   d:Date[1] | ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = ^Literal(value=$d)),|^$select(columns = ^Literal(value=$d)))),
                                   b:Boolean[1] | ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = ^Literal(value=$b)),|^$select(columns = ^Literal(value=$b)))),
@@ -4652,7 +4649,7 @@ function meta::relational::functions::pureToSqlQuery::toVariantFriendlyValue(col
   };
 
   $cols->unwrapAlias()->match([
-    l: Literal[1] | $toList->eval($l->filter(v | !$v.value->instanceOf(SQLNull))),
+    l: Literal[1] | $toList->eval($l->filter(v | !$v.value->instanceOf(SQLNull))),    
     c: RelationalOperationElement[1] | $c,
     a: RelationalOperationElement[*] | $toList->eval($a)
   ]);
@@ -9580,6 +9577,20 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
          )->list()
       ),
       ^Pair<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1],State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>(
+         first = meta::pure::functions::math::max_Number_MANY__Number_$0_1$_,
+         second = pair(
+            meta::relational::functions::pureToSqlQuery::isVariantInputWithInstanceValue_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+            meta::relational::functions::pureToSqlQuery::processVariantMax_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
+         )->list()
+      ),    
+      ^Pair<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1],State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>(
+         first = meta::pure::functions::math::max_Number_$1_MANY$__Number_1_,
+         second = pair(
+            meta::relational::functions::pureToSqlQuery::isVariantInputWithInstanceValue_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+            meta::relational::functions::pureToSqlQuery::processVariantMax_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
+         )->list()
+      ),            
+      ^Pair<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1],State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>(
          first = meta::pure::functions::math::min_Integer_MANY__Integer_$0_1$_,
          second = pair(
             meta::relational::functions::pureToSqlQuery::isVariantInputWithInstanceValue_ValueSpecification_1__Map_1__State_1__Boolean_1_,
@@ -9607,6 +9618,20 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
             meta::relational::functions::pureToSqlQuery::processVariantMin_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
          )->list()
       ),
+      ^Pair<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1],State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>(
+         first = meta::pure::functions::math::min_Number_$1_MANY$__Number_1_,
+         second = pair(
+            meta::relational::functions::pureToSqlQuery::isVariantInputWithInstanceValue_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+            meta::relational::functions::pureToSqlQuery::processVariantMin_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
+          )->list()
+      ),        
+      ^Pair<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1],State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>(
+         first = meta::pure::functions::math::min_Number_MANY__Number_$0_1$_,
+         second = pair(
+            meta::relational::functions::pureToSqlQuery::isVariantInputWithInstanceValue_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+            meta::relational::functions::pureToSqlQuery::processVariantMin_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
+          )->list()
+      ),       
       ^Pair<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1],State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>(
          first = new_Class_1__String_1__KeyExpression_MANY__T_1_,
          second = pair(

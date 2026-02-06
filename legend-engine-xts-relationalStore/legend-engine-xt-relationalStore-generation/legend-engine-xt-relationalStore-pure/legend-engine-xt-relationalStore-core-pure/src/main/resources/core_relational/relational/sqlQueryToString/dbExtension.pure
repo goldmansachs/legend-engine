@@ -1,3 +1,4 @@
+import meta::pure::precisePrimitives::*;
 import meta::relational::metamodel::join::*;
 import meta::relational::functions::sqlQueryToString::*;
 import meta::relational::functions::pureToSqlQuery::metamodel::*;
@@ -618,7 +619,17 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::proce
 function meta::relational::functions::sqlQueryToString::processLiteralValue(a:Any[1], dbConfig : DbConfig[1]) : String[1]
 {
    let processor = $dbConfig.literalProcessor($a->type());
-   $processor.formatValue($a, $dbConfig.dbTimeZone);
+   let s = $processor.formatValue($a, $dbConfig.dbTimeZone);  
+
+   $a->match([
+    d: Decimal[1] | 
+      let asS = $d->toString();
+      let dot = $asS->indexOf('.');
+      let precision = if ($dot >= 0, | $asS->length() - 1, | $asS->length());
+      let rationalSize = if ($dot >= 0, | $asS->substring($dot + 1)->length(), | 0);
+      'cast(%s as %s)'->format([$s, $dbConfig.dataTypeToSqlText(^meta::relational::metamodel::datatype::Decimal(precision = $precision, scale = $rationalSize))]);,
+    a: Any[1] | $s
+   ]);
 }
 
 function meta::relational::functions::sqlQueryToString::getLiteralProcessorForType(type:Type[1], literalProcessor: meta::pure::metamodel::function::Function<{Type[1] -> LiteralProcessor[1]}>[1]): LiteralProcessor[1]

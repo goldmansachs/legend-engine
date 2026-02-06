@@ -55,10 +55,6 @@ public class Test_Relational_DuckDB_UnclassifiedFunctions_PCT extends PCTReportC
             //toupperfirstcharacter
             one("meta::pure::functions::string::tests::toupperfirstcharacter::TestToUpperFirstCharacter_Function_1__Boolean_1_", "\"\nexpected: 'XOxOxOx'\nactual:   'xOxOxOx'\"", AdapterQualifier.needsInvestigation),
 
-            // 0-indexed (Pure) vs 1-indexed (SQL standard)
-            one("meta::pure::functions::string::tests::regexpIndexOf::testRegexpIndexOf_Function_1__Boolean_1_", "\"\nexpected: 3\nactual:   4\"", AdapterQualifier.needsInvestigation),
-            one("meta::pure::functions::string::tests::regexpIndexOf::testRegexpIndexOf_GroupNumber_Function_1__Boolean_1_", "\"\nexpected: 3\nactual:   4\"", AdapterQualifier.needsInvestigation),
-
             // Multiline regexp parameter needs to be investigated
             one("meta::pure::functions::string::tests::regexpLike::testRegexpLike_CaseInsensitive_Multiline_Function_1__Boolean_1_", "\"Assert failed\"", AdapterQualifier.needsInvestigation),
             one("meta::pure::functions::string::tests::regexpLike::testRegexpLike_CaseInsensitive_Multiline_NonNewlineSensitive_Function_1__Boolean_1_", "\"Assert failed\"", AdapterQualifier.needsInvestigation),
