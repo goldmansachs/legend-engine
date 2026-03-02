@@ -5202,9 +5202,10 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
    let currentTreeNode=$treeAndCurrentTreeNode.second;
 
    //Include the saved filters that are applicable to this root tree
-   let savedFilteringOp =  $leftSide.select.savedFilteringOperation->map(p|let filtersToRoot = $p.first->findNodeByChild($leftSide.select.data->toOne(), $tree->cast(@RootJoinTreeNode));
-                                                                           if ($filtersToRoot->isEmpty(),  | [], | pair($filtersToRoot->toOne(), $p.second));
-                                                                         );
+   let savedFilteringOp =  $leftSide.select.savedFilteringOperation->map(p |
+   let filtersToRoot = $p.first->findNodeByChild($leftSide.select.data->toOne(), $tree->cast(@RootJoinTreeNode));
+      if ($filtersToRoot->isEmpty(), | [], | pair($filtersToRoot->toOne(), $p.second));
+   );
 
    let rootSelect = ^SelectWithCursor(
                        select = ^SelectSQLQuery(
@@ -5250,19 +5251,20 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
 
    let newLastNode = if ($leftSide.currentTreeNode->isEmpty(),|[] ,|$leftSide.currentTreeNode->toOne()->findOneNode($leftSide.select.data->toOne(), $mergedWithCollapsedFilteringOperation.data->toOne()));
 
-   let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty(),
+   // --- compute lateral join flag before we mutate filteringOperation ---
+   let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false]);
+   // Only clear filteringOperation (move to savedFilteringOperation) for projection context when NOT a lateral join
+   let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty() && !$isFilterOnLateralJoin,
          |^$mergedWithCollapsedFilteringOperation
            (
               filteringOperation = [],
               savedFilteringOperation +=  pair($newLastNode->toOne(), $mergedWithCollapsedFilteringOperation.filteringOperation->toOne())
            ),
          | $mergedWithCollapsedFilteringOperation
-
    );
 
    let rawType = $leftSidePure.genericType.rawType->toOne();
    let isFilterOnDataType = $state.inFilter && $rawType->instanceOf(DataType);
-   let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1]|$j.lateral == true, a:Any[0..1]|false]);
    let savedFilterCurrentTreeNode = $newLastNode;
 
    let filteringOperation = if ($isFilterOnDataType || $savedFilterCurrentTreeNode->isEmpty() || $isFilterOnLateralJoin, | $managedFilteredPosition.filteringOperation,|[]);
@@ -5291,9 +5293,8 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
              | $context.space+ '   (M)Processing filter pre-isolation >  : \n' + $context.space+meta::relational::functions::pureToSqlQuery::printDebugQuery($preIsolation.element->cast(@SelectWithCursor).select, $context.space, $extensions)+'\n'));
 
 
-   let inForcedIsolationDebugMode=  {|$context->instanceOf(RelationalDebugContext) && !$context->cast(@RelationalDebugContext).forcedIsolation->isEmpty()};//when isolation is forced AND isolation is run below then the JoinTreeNode is processed multiple times, resulting in an incorrect joinName which subsequently may not merge with other branches
-
    //dont force isolation if  we are processing an Exists as we will isolate as part of it.
+   let inForcedIsolationDebugMode = {| $context->instanceOf(RelationalDebugContext) && !$context->cast(@RelationalDebugContext).forcedIsolation->isEmpty() };
    let shouldIsolateNestedFilter = $state.inFilter && ($state.filterChainDepth <= 1 ) && !$inForcedIsolationDebugMode->eval() && ($state.shouldIsolateNestedFilter->isEmpty() || $state.shouldIsolateNestedFilter->toOne() );
    print(if(!$context.debug, |'',| $context.space+'   (M)Should isolate nested filter State(nested='+ $state.inFilter->toString()+',shouldIsolate='+$state.shouldIsolate->toString()+',shouldIsolateNestedFilter='+if($state.shouldIsolateNestedFilter->isEmpty(),|'[]',|$state.shouldIsolateNestedFilter->toOne()->toString())+') ? '+ $shouldIsolateNestedFilter->toString()+' >  \n'));
 
