@@ -5202,8 +5202,8 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
    let currentTreeNode=$treeAndCurrentTreeNode.second;
 
    //Include the saved filters that are applicable to this root tree
-   let savedFilteringOp =  $leftSide.select.savedFilteringOperation->map(p |
-   let filtersToRoot = $p.first->findNodeByChild($leftSide.select.data->toOne(), $tree->cast(@RootJoinTreeNode));
+   let savedFilteringOp = $leftSide.select.savedFilteringOperation->map(p |
+      let filtersToRoot = $p.first->findNodeByChild($leftSide.select.data->toOne(), $tree->cast(@RootJoinTreeNode));
       if ($filtersToRoot->isEmpty(), | [], | pair($filtersToRoot->toOne(), $p.second));
    );
 
@@ -5252,8 +5252,9 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
    let newLastNode = if ($leftSide.currentTreeNode->isEmpty(),|[] ,|$leftSide.currentTreeNode->toOne()->findOneNode($leftSide.select.data->toOne(), $mergedWithCollapsedFilteringOperation.data->toOne()));
 
    // --- compute lateral join flag before we mutate filteringOperation ---
-   let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false]);
-   // Only clear filteringOperation (move to savedFilteringOperation) for projection context when NOT a lateral join
+let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false])
+                            && ($leftSideOp.currentPropertyMapping->size() >= 1)
+                            && $leftSideOp.currentPropertyMapping->forAll(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping));  // Only clear filteringOperation (move to savedFilteringOperation) for projection context when NOT a lateral join
    let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty() && !$isFilterOnLateralJoin,
          |^$mergedWithCollapsedFilteringOperation
            (
@@ -5276,11 +5277,11 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
    (
       element = ^SelectWithCursor(
                     select = ^$managedFilteredPosition
-                              (
-                                 leftSideOfFilter = $newLastNode,
-                                 filteringOperation = $filteringOperation,
-                                 savedFilteringOperation = $savedFilteringOperation
-                              ),
+                            (
+                               leftSideOfFilter = $newLastNode,
+                               filteringOperation = $filteringOperation,
+                               savedFilteringOperation = $savedFilteringOperation
+                            ),
                     currentTreeNode = $newLastNode,
                     positionBeforeLastApplyJoinTreeNode = if($leftSide.positionBeforeLastApplyJoinTreeNode->isEmpty(),|[],|$leftSide.positionBeforeLastApplyJoinTreeNode->toOne()->findNode($leftSide.select.data->toOne(), $mergedWithCollapsedFilteringOperation.data->toOne())->toOne()),
                     milestoningContext = $leftSide.milestoningContext,

@@ -288,3 +288,13 @@ function flatten::semiStructuredMultiLevelFlattenMerging(): TabularDataSet[1]
         col(x | $x.firm.addresses->subType(@flatten::model::AddressWithLines).lines->subType(@flatten::model::CityAddressLine).city, 'Firm Address City')
     ])
 }
+
+function flatten::semiStructuredArrayFilterOnly(): TabularDataSet[1]
+{
+    flatten::model::Person.all()
+    ->project([
+        col(x | $x.firstName, 'First Name'),
+        col(x | $x.firm.legalName, 'Firm Name'),
+        col(x | $x.firm.addresses->filter(a | $a.name->startsWith('A1')).name, 'Filtered Address Name')
+    ])
+}
