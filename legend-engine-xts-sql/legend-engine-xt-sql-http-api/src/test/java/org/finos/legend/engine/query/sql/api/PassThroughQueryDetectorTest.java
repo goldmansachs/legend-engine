@@ -22,247 +22,197 @@ import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-
+/**
+ * Unit tests for PassThroughQueryDetector.
+ *
+ * A pass-through query is a SELECT * query with no modifications (no WHERE, ORDER BY, etc.)
+ * that can use a pre-generated execution plan directly without SQL-to-Pure transformation.
+ */
 public class PassThroughQueryDetectorTest
 {
-    private final SQLGrammarParser parser = SQLGrammarParser.newInstance();
+    private static final SQLGrammarParser PARSER = SQLGrammarParser.newInstance();
+
+    private Query parse(String sql)
+    {
+        return (Query) PARSER.parseStatement(sql);
+    }
 
     // ==================== PASS-THROUGH QUERIES (should return true) ====================
 
     @Test
-    public void testSimpleSelectAllIsPassThrough()
+    public void testSimpleSelectAll_IsPassThrough()
     {
-        String sql = "SELECT * FROM service('/myService')";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertTrue("SELECT * FROM service should be pass-through", result);
+        Query query = parse("SELECT * FROM service('/myService')");
+        assertTrue("Simple SELECT * should be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testNestedSelectAllIsPassThrough()
+    public void testNestedSelectAll_IsPassThrough()
     {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService'))";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertTrue("SELECT * FROM (SELECT * FROM service) should be pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService'))");
+        assertTrue("Nested SELECT * should be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testDeeplyNestedSelectAllIsPassThrough()
+    public void testDeeplyNestedSelectAll_IsPassThrough()
     {
-        String sql = "SELECT * FROM (SELECT * FROM (SELECT * FROM service('/myService')))";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertTrue("Deeply nested SELECT * FROM service should be pass-through", result);
-    }
-
-    // ==================== NON-PASS-THROUGH QUERIES (should return false) ====================
-
-    @Test
-    public void testSelectWithWhereClauseIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM service('/myService') WHERE age > 30";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with WHERE clause should NOT be pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT * FROM (SELECT * FROM service('/myService')))");
+        assertTrue("Deeply nested SELECT * should be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testSelectSpecificColumnsIsNotPassThrough()
+    public void testSelectAllWithTableAlias_IsPassThrough()
     {
-        String sql = "SELECT name FROM service('/myService')";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT specific columns should NOT be pass-through", result);
+        Query query = parse("SELECT * FROM service('/myService') AS t");
+        assertTrue("SELECT * with table alias should be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testSelectWithOrderByIsNotPassThrough()
+    public void testNestedSelectAllWithAlias_IsPassThrough()
     {
-        String sql = "SELECT * FROM service('/myService') ORDER BY name";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with ORDER BY should NOT be pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService') AS inner_t) AS outer_t");
+        assertTrue("Nested SELECT * with aliases should be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - WHERE CLAUSE ====================
+
+    @Test
+    public void testSelectWithWhere_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') WHERE age > 30");
+        assertFalse("SELECT * with WHERE should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testSelectWithLimitIsNotPassThrough()
+    public void testNestedSelectWithInnerWhere_IsNotPassThrough()
     {
-        String sql = "SELECT * FROM service('/myService') LIMIT 10";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with LIMIT should NOT be pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService') WHERE age > 30)");
+        assertFalse("Nested SELECT * with inner WHERE should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testSelectWithGroupByIsNotPassThrough()
+    public void testNestedSelectWithOuterWhere_IsNotPassThrough()
     {
-        String sql = "SELECT * FROM service('/myService') GROUP BY name";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with GROUP BY should NOT be pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService')) WHERE age > 30");
+        assertFalse("Nested SELECT * with outer WHERE should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - SPECIFIC COLUMNS ====================
+
+    @Test
+    public void testSelectSpecificColumn_IsNotPassThrough()
+    {
+        Query query = parse("SELECT name FROM service('/myService')");
+        assertFalse("SELECT specific column should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testSelectMultipleColumnsIsNotPassThrough()
+    public void testSelectMultipleColumns_IsNotPassThrough()
     {
-        String sql = "SELECT name, age FROM service('/myService')";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT multiple specific columns should NOT be pass-through", result);
+        Query query = parse("SELECT name, age FROM service('/myService')");
+        assertFalse("SELECT multiple columns should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testNestedSelectWithWhereIsNotPassThrough()
+    public void testSelectPrefixedStar_IsNotPassThrough()
     {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService') WHERE age > 30)";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Nested SELECT with WHERE should NOT be pass-through", result);
+        Query query = parse("SELECT t.* FROM service('/myService') AS t");
+        assertFalse("SELECT t.* (prefixed star) should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testNestedSelectSpecificColumnsIsNotPassThrough()
+    public void testNestedSelectSpecificColumns_IsNotPassThrough()
     {
-        String sql = "SELECT * FROM (SELECT name FROM service('/myService'))";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Nested SELECT with specific columns should NOT be pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT name FROM service('/myService'))");
+        assertFalse("Outer SELECT * with inner specific columns should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - ORDER BY ====================
+
+    @Test
+    public void testSelectWithOrderBy_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') ORDER BY name");
+        assertFalse("SELECT * with ORDER BY should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     @Test
-    public void testOuterWhereWithNestedPassThroughIsNotPassThrough()
+    public void testNestedSelectWithOuterOrderBy_IsNotPassThrough()
     {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService')) WHERE age > 30";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Outer WHERE clause makes it NOT pass-through", result);
+        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService')) ORDER BY name");
+        assertFalse("Nested SELECT * with outer ORDER BY should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - LIMIT/OFFSET ====================
+
+    @Test
+    public void testSelectWithLimit_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') LIMIT 10");
+        assertFalse("SELECT * with LIMIT should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    @Test
+    public void testSelectWithOffset_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') OFFSET 5");
+        assertFalse("SELECT * with OFFSET should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    @Test
+    public void testSelectWithLimitAndOffset_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') LIMIT 10 OFFSET 5");
+        assertFalse("SELECT * with LIMIT and OFFSET should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - GROUP BY/HAVING ====================
+
+    @Test
+    public void testSelectWithGroupBy_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') GROUP BY name");
+        assertFalse("SELECT * with GROUP BY should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    @Test
+    public void testSelectWithHaving_IsNotPassThrough()
+    {
+        Query query = parse("SELECT name, count(*) FROM service('/myService') GROUP BY name HAVING count(*) > 1");
+        assertFalse("SELECT with HAVING should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - DISTINCT ====================
+
+    @Test
+    public void testSelectDistinct_IsNotPassThrough()
+    {
+        Query query = parse("SELECT DISTINCT * FROM service('/myService')");
+        assertFalse("SELECT DISTINCT * should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    // ==================== NON-PASS-THROUGH - MULTIPLE SOURCES ====================
+
+    @Test
+    public void testSelectWithJoin_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService') JOIN service('/otherService') ON 1=1");
+        assertFalse("SELECT * with JOIN should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
+    }
+
+    @Test
+    public void testSelectFromMultipleSources_IsNotPassThrough()
+    {
+        Query query = parse("SELECT * FROM service('/myService'), service('/otherService')");
+        assertFalse("SELECT * from multiple sources should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
     // ==================== EDGE CASES ====================
 
     @Test
-    public void testNullQueryIsNotPassThrough()
+    public void testNullQuery_IsNotPassThrough()
     {
-        boolean result = PassThroughQueryDetector.isPassThrough(null);
-        assertFalse("Null query should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectWithHavingIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM service('/myService') GROUP BY name HAVING count(*) > 1";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with HAVING should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectWithOffsetIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM service('/myService') OFFSET 5";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with OFFSET should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectWithLimitAndOffsetIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM service('/myService') LIMIT 10 OFFSET 5";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with LIMIT and OFFSET should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectDistinctIsNotPassThrough()
-    {
-        String sql = "SELECT DISTINCT * FROM service('/myService')";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT DISTINCT * should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectWithTableAliasStarIsNotPassThrough()
-    {
-        // SELECT t.* is different from SELECT * - it has a prefix
-        String sql = "SELECT t.* FROM service('/myService') AS t";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT t.* (prefixed) should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectWithJoinIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM service('/myService') JOIN service('/otherService') ON 1=1";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * with JOIN should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testSelectFromMultipleServicesIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM service('/myService'), service('/otherService')";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("SELECT * from multiple services should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testNestedSelectWithOrderByIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService') ORDER BY name)";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Nested SELECT with ORDER BY should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testNestedSelectWithLimitIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService') LIMIT 10)";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Nested SELECT with LIMIT should NOT be pass-through", result);
-    }
-
-    @Test
-    public void testOuterOrderByWithNestedPassThroughIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService')) ORDER BY name";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Outer ORDER BY makes it NOT pass-through", result);
-    }
-
-    @Test
-    public void testOuterLimitWithNestedPassThroughIsNotPassThrough()
-    {
-        String sql = "SELECT * FROM (SELECT * FROM service('/myService')) LIMIT 10";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertFalse("Outer LIMIT makes it NOT pass-through", result);
-    }
-
-    @Test
-    public void testSelectAllWithTableAliasIsPassThrough()
-    {
-        // SELECT * FROM service AS t should still be pass-through (no prefix on *)
-        String sql = "SELECT * FROM service('/myService') AS t";
-        Query query = parse(sql);
-        boolean result = PassThroughQueryDetector.isPassThrough(query);
-        assertTrue("SELECT * with table alias (no prefix) should be pass-through", result);
-    }
-
-    // ==================== HELPER METHODS ====================
-
-    private Query parse(String sql)
-    {
-        return (Query) parser.parseStatement(sql);
+        assertFalse("null query should NOT be pass-through", PassThroughQueryDetector.isPassThrough(null));
     }
 }
 
