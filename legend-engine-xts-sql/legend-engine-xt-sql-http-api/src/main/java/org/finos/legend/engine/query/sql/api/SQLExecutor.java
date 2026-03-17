@@ -34,6 +34,7 @@ import org.eclipse.collections.impl.tuple.Tuples;
 import org.eclipse.collections.impl.utility.Iterate;
 import org.eclipse.collections.impl.utility.ListIterate;
 import org.eclipse.collections.impl.utility.internal.IterableIterate;
+import org.finos.legend.engine.language.pure.compiler.toPureGraph.HelperRuntimeBuilder;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.HelperValueSpecificationBuilder;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.grammar.from.PureGrammarParser;
@@ -48,6 +49,7 @@ import org.finos.legend.engine.protocol.pure.PureClientVersions;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContext;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextPointer;
+import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.ExecutionPlan;
 import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.SingleExecutionPlan;
 import org.finos.legend.engine.protocol.pure.m3.multiplicity.Multiplicity;
 import org.finos.legend.engine.protocol.pure.m3.type.generics.GenericType;
@@ -68,6 +70,7 @@ import org.finos.legend.engine.protocol.sql.schema.metamodel.MetamodelToProtocol
 import org.finos.legend.engine.protocol.sql.schema.metamodel.Schema;
 import org.finos.legend.engine.query.sql.providers.core.SQLContext;
 import org.finos.legend.engine.query.sql.providers.core.SQLSource;
+import org.finos.legend.engine.query.sql.providers.core.SQLSourceArgument;
 import org.finos.legend.engine.query.sql.providers.core.SQLSourceProvider;
 import org.finos.legend.engine.query.sql.providers.core.SQLSourceResolvedContext;
 import org.finos.legend.engine.query.sql.providers.core.TableSource;
@@ -89,9 +92,11 @@ import org.finos.legend.pure.generated.Root_meta_external_query_sql_transformati
 import org.finos.legend.pure.generated.Root_meta_external_query_sql_transformation_queryToPure_SqlTransformContext;
 import org.finos.legend.pure.generated.Root_meta_pure_executionPlan_ExecutionPlan;
 import org.finos.legend.pure.generated.Root_meta_pure_extension_Extension;
+import org.finos.legend.pure.generated.Root_meta_core_runtime_Runtime;
 import org.finos.legend.pure.generated.core_external_format_json_toJSON;
 import org.finos.legend.pure.generated.core_external_query_sql_binding_fromPure_fromPure;
 import org.finos.legend.pure.generated.core_pure_router_preeval_preeval;
+import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.Mapping;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.FunctionDefinition;
 import org.finos.legend.pure.m3.execution.ExecutionSupport;
 import org.finos.legend.pure.runtime.java.compiled.generation.processors.support.function.DefaultPureLambdaFunction1;
@@ -99,11 +104,10 @@ import org.slf4j.Logger;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.finos.legend.engine.plan.generation.PlanGenerator.transformExecutionPlan;
 
@@ -118,33 +122,6 @@ public class SQLExecutor
             Tuples.pair(LongLiteral.class, "Integer"),
             Tuples.pair(DoubleLiteral.class, "Float")
     );
-
-    // Cache configuration (configurable via system properties)
-    private static final int MAX_CACHE_SIZE = Integer.getInteger("legend.sql.planCache.maxSize", 1000);
-    private static final long CACHE_TTL_MS = Long.getLong("legend.sql.planCache.ttlMs", 3600000L);
-
-    // Plan cache: Key = JSON serialization of Query, Value = CachedPlan (plan + timestamp)
-    private static final Map<String, CachedPlan> PLAN_CACHE = new ConcurrentHashMap<>();
-
-    // Counter for testing to verify cache prevents unnecessary regeneration
-    private static int planGenerationCount = 0;
-
-    private static class CachedPlan
-    {
-        final SingleExecutionPlan plan;
-        final long timestamp;
-
-        CachedPlan(SingleExecutionPlan plan)
-        {
-            this.plan = plan;
-            this.timestamp = System.currentTimeMillis();
-        }
-
-        boolean isExpired()
-        {
-            return System.currentTimeMillis() - timestamp > CACHE_TTL_MS;
-        }
-    }
 
     private final ModelManager modelManager;
     private final PlanExecutor planExecutor;
@@ -172,24 +149,64 @@ public class SQLExecutor
 
     public Result execute(Query query, List<Object> positionalArguments, String user, SQLContext context, Identity identity)
     {
-        String cacheKey = serializeQuery(query);
-        boolean canUseCache = cacheKey != null && (positionalArguments == null || positionalArguments.isEmpty());
+        // Check if this is a pass-through query with no positional arguments
+        boolean isPassThrough = PassThroughQueryDetector.isPassThrough(query)
+            && (positionalArguments == null || positionalArguments.isEmpty());
 
-        if (canUseCache)
+        if (isPassThrough)
         {
-            SingleExecutionPlan cachedPlan = getCachedPlan(cacheKey);
-            if (cachedPlan != null)
-            {
-                LOGGER.debug("Plan cache HIT for query hash: {}", cacheKey.hashCode());
-                return planExecutor.execute(cachedPlan, Maps.mutable.empty(), user, identity);
-            }
+            return executePassThrough(query, user, context, identity);
         }
 
-        LOGGER.debug("Plan cache MISS for query hash: {}", cacheKey != null ? cacheKey.hashCode() : "N/A");
+        return executeStandard(query, positionalArguments, user, context, identity);
+    }
 
-        final String finalCacheKey = cacheKey;
-        final boolean finalCanUseCache = canUseCache;
 
+    private Result executePassThrough(Query query, String user, SQLContext context, Identity identity)
+    {
+        return TraceUtils.trace("execute-passthrough", span ->
+        {
+            long start = System.currentTimeMillis();
+
+            // Resolve sources and get PureModel
+            Pair<RichIterable<SQLSource>, PureModelContext> sqlSourcesAndPureModel = getSourcesAndModel(query, context, identity);
+            RichIterable<SQLSource> sources = sqlSourcesAndPureModel.getOne();
+
+            if (sources.size() != 1)
+            {
+                // Fall back to standard execution for multi-source queries
+                return executeStandard(query, FastList.newList(), user, context, identity);
+            }
+
+            SQLSource source = sources.getFirst();
+
+            // Check if pre-generated plan is available from the service
+            ExecutionPlan preGeneratedPlan = source.getPreGeneratedPlan();
+            if (preGeneratedPlan == null)
+            {
+                // No pre-generated plan available, fall back to standard execution
+                //LOGGER.debug("No pre-generated plan available for pass-through query, falling back to standard execution");
+                return executeStandard(query, FastList.newList(), user, context, identity);
+            }
+
+            // Use the pre-generated plan directly
+            //LOGGER.info("Using pre-generated execution plan for pass-through query");
+            //span.setTag("optimization", "pre-generated-plan");
+
+            SingleExecutionPlan plan = (SingleExecutionPlan) preGeneratedPlan;
+            Result result = planExecutor.execute(plan, Maps.mutable.empty(), user, identity);
+
+            long elapsed = System.currentTimeMillis() - start;
+            //MetricsHandler.observe("execute", start, System.currentTimeMillis());
+            //MetricsHandler.observe("execute_passthrough", start, System.currentTimeMillis());
+            //LOGGER.info("Pass-through query executed in {}ms (used pre-generated plan)", elapsed);
+
+            return result;
+        });
+    }
+
+    private Result executeStandard(Query query, List<Object> positionalArguments, String user, SQLContext context, Identity identity)
+    {
         return process(query, positionalArguments, (transformedContext, pureModel, sources, positionals, span) ->
         {
             long start = System.currentTimeMillis();
@@ -204,93 +221,16 @@ public class SQLExecutor
 
             SingleExecutionPlan transformedPlan = transformExecutionPlan(plans._plan(), pureModel, PureClientVersions.production, identity, routerExtensions.apply(pureModel), transformers);
 
-            if (finalCanUseCache)
-            {
-                if (PLAN_CACHE.size() >= MAX_CACHE_SIZE)
-                {
-                    evictOldestEntries();
-                }
-                PLAN_CACHE.put(finalCacheKey, new CachedPlan(transformedPlan));
-                LOGGER.debug("Plan cached for query hash: {}, cache size: {}", finalCacheKey.hashCode(), PLAN_CACHE.size());
-            }
-
             arguments.putAll(positionalArgumentPlans);
             Result result = planExecutor.execute(transformedPlan, arguments, user, identity);
 
+            long elapsed = System.currentTimeMillis() - start;
             MetricsHandler.observe("execute", start, System.currentTimeMillis());
+            MetricsHandler.observe("execute_standard", start, System.currentTimeMillis());
+            LOGGER.debug("Standard query executed in {}ms (full SQL-to-Pure transformation)", elapsed);
 
             return result;
         }, "execute", context, identity);
-    }
-
-    /**
-     * Retrieves a cached plan if present and not expired.
-     */
-    private static SingleExecutionPlan getCachedPlan(String cacheKey)
-    {
-        CachedPlan cached = PLAN_CACHE.get(cacheKey);
-        if (cached == null)
-        {
-            return null;
-        }
-        if (cached.isExpired())
-        {
-            PLAN_CACHE.remove(cacheKey);
-            LOGGER.debug("Plan cache entry expired for query hash: {}", cacheKey.hashCode());
-            return null;
-        }
-        return cached.plan;
-    }
-
-    /**
-     * Evicts the oldest 10% of cache entries when cache is full.
-     */
-    private static void evictOldestEntries()
-    {
-        int toEvict = Math.max(1, MAX_CACHE_SIZE / 10);
-
-        PLAN_CACHE.entrySet().stream()
-            .sorted(Comparator.comparingLong(e -> e.getValue().timestamp))
-            .limit(toEvict)
-            .map(Map.Entry::getKey)
-            .forEach(PLAN_CACHE::remove);
-
-        LOGGER.debug("Evicted {} oldest cache entries", toEvict);
-    }
-
-    /**
-     * Clears all cached execution plans. Call when models are updated.
-     */
-    public static void clearPlanCache()
-    {
-        PLAN_CACHE.clear();
-        planGenerationCount = 0;
-        LOGGER.info("Plan cache cleared");
-    }
-
-    public static int getPlanCacheSize()
-    {
-        return PLAN_CACHE.size();
-    }
-
-    public static int getPlanGenerationCount()
-    {
-        return planGenerationCount;
-    }
-
-
-    /**
-     * Removes expired entries from the cache. Can be called by a background cleanup task.
-     */
-    public static void cleanupExpiredEntries()
-    {
-        int before = PLAN_CACHE.size();
-        PLAN_CACHE.entrySet().removeIf(e -> e.getValue().isExpired());
-        int removed = before - PLAN_CACHE.size();
-        if (removed > 0)
-        {
-            LOGGER.info("Removed {} expired plan cache entries", removed);
-        }
     }
 
     private Map<String, Result> getPlanArguments(RichIterable<? extends Root_meta_external_query_sql_transformation_queryToPure_PlanParameter> arguments, PureModel pureModel, String user, Identity identity)
@@ -375,9 +315,6 @@ public class SQLExecutor
 
     private Root_meta_external_query_sql_transformation_queryToPure_PlanGenerationResult planResult(Root_meta_external_query_sql_transformation_queryToPure_SqlTransformContext transformedContext, PureModel pureModel, RichIterable<Root_meta_external_query_sql_transformation_queryToPure_SQLSource> sources)
     {
-        planGenerationCount++;
-        LOGGER.debug("Plan generation #{}", planGenerationCount);
-
         long startTime = System.currentTimeMillis();
 
         Root_meta_external_query_sql_transformation_queryToPure_PlanGenerationResult result = core_external_query_sql_binding_fromPure_fromPure.Root_meta_external_query_sql_transformation_queryToPure_getPlanResult_SqlTransformContext_1__SQLSource_MANY__Extension_MANY__PlanGenerationResult_1_(transformedContext, sources, routerExtensions.apply(pureModel), pureModel.getExecutionSupport());
@@ -586,36 +523,23 @@ public class SQLExecutor
         }
     }
 
-    /**
-     * Serializes a Query object to JSON for use as a cache key.
-     * The query is first normalized to ensure semantically equivalent queries
-     * produce the same cache key.
-     */
-    private String serializeQuery(Query query)
+    private <T> T read(String string, Class<T> clazz)
     {
         try
         {
-            Query normalized = QueryNormalizer.normalize(query);
-            return OBJECT_MAPPER.writeValueAsString(normalized);
+            return OBJECT_MAPPER.readValue(string, clazz);
         }
-        catch (Exception e)
+        catch (JsonProcessingException e)
         {
-            LOGGER.warn("Failed to serialize query for caching: {}", e.getMessage());
             return null;
         }
     }
 
     private Integer hash(Query query)
     {
-        String json = serializeQuery(query);
-        return json != null ? json.hashCode() : System.identityHashCode(query);
-    }
-
-    private <T> T read(String string, Class<T> clazz)
-    {
         try
         {
-            return OBJECT_MAPPER.readValue(string, clazz);
+            return Objects.hash(OBJECT_MAPPER.writeValueAsString(query));
         }
         catch (JsonProcessingException e)
         {
