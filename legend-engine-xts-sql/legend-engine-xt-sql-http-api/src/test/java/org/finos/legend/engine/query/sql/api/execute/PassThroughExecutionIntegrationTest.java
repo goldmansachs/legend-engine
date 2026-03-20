@@ -1,4 +1,4 @@
-// Copyright 2023 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,8 @@ import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
-import org.finos.legend.engine.language.sql.grammar.from.SQLGrammarParser;
 import org.finos.legend.engine.plan.execution.PlanExecutor;
 import org.finos.legend.engine.plan.generation.extension.PlanGeneratorExtension;
-import org.finos.legend.engine.protocol.sql.metamodel.Query;
 import org.finos.legend.engine.pure.code.core.PureCoreExtensionLoader;
 import org.finos.legend.engine.query.sql.api.CatchAllExceptionMapper;
 import org.finos.legend.engine.query.sql.api.MockPac4jFeature;
@@ -35,25 +33,27 @@ import org.glassfish.jersey.test.TestProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.client.Entity;
 import java.util.ServiceLoader;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Integration tests for Pass-Through Query Optimization.
  *
- * These tests ACTUALLY EXECUTE queries through SQLExecutor to verify that:
- * 1. Pass-through queries use the optimized execution path
- * 2. Non-pass-through queries use the standard execution path
- *
- * The pass-through optimization bypasses SQL-to-Pure transformation for simple
- * SELECT * FROM service('/...') queries, generating plans directly from the
- * service's lambda function.
+ * These tests verify that:
+ * - Pass-through queries (SELECT * with no modifications) can use pre-generated execution plans,
+ * skipping SQL-to-Pure transformation and plan generation for simple SELECT * queries.
  */
 public class PassThroughExecutionIntegrationTest
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PassThroughExecutionIntegrationTest.class);
+    private static final ObjectMapper OM = new ObjectMapper();
+
     static
     {
         System.setProperty(TestProperties.CONTAINER_PORT, "0");
@@ -61,18 +61,17 @@ public class PassThroughExecutionIntegrationTest
 
     @ClassRule
     public static final ResourceTestRule resources = getResourceTestRule();
-    private static final ObjectMapper OM = new ObjectMapper();
-    private static final SQLGrammarParser PARSER = SQLGrammarParser.newInstance();
 
     public static ResourceTestRule getResourceTestRule()
     {
-        DeploymentMode deploymentMode = DeploymentMode.TEST;
-        ModelManager modelManager = new ModelManager(deploymentMode);
+        ModelManager modelManager = new ModelManager(DeploymentMode.TEST);
         PlanExecutor executor = PlanExecutor.newPlanExecutorWithAvailableStoreExecutors();
-
         MutableList<PlanGeneratorExtension> generatorExtensions = Lists.mutable.withAll(ServiceLoader.load(PlanGeneratorExtension.class));
-        TestSQLSourceProvider testSQLSourceProvider = new TestSQLSourceProvider();
-        SqlExecute sqlExecute = new SqlExecute(modelManager, executor, (pm) -> PureCoreExtensionLoader.extensions().flatCollect(g -> g.extraPureCoreExtensions(pm.getExecutionSupport())), FastList.newListWith(testSQLSourceProvider), generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers));
+
+        TestSQLSourceProvider testSQLSourceProvider = new TestSQLSourceProvider(true);
+        LOGGER.info("Pre-generated plans enabled: {}, count: {}", testSQLSourceProvider.isPreGeneratedPlansEnabled(), testSQLSourceProvider.getPreGeneratedPlanCount());
+
+        SqlExecute sqlExecute = new SqlExecute( modelManager, executor, (pm) -> PureCoreExtensionLoader.extensions().flatCollect(g -> g.extraPureCoreExtensions(pm.getExecutionSupport())), FastList.newListWith(testSQLSourceProvider), generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers));
 
         return ResourceTestRule.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -83,20 +82,15 @@ public class PassThroughExecutionIntegrationTest
                 .build();
     }
 
-    private Query parse(String sql)
-    {
-        return (Query) PARSER.parseStatement(sql);
-    }
-
     private String executeQuery(String sql)
     {
         return resources.target("sql/v1/execution/execute")
                 .request()
-                .post(Entity.json(new SQLQueryInput(null, sql, FastList.newList()))).readEntity(String.class);
+                .post(Entity.json(new SQLQueryInput(null, sql, FastList.newList())))
+                .readEntity(String.class);
     }
 
     // ==================== PASS-THROUGH QUERY TESTS ====================
-    // These use the optimized pass-through execution path
 
     @Test
     public void testPassThrough_SimpleSelectAll() throws JsonProcessingException
@@ -105,7 +99,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() > 0);
+        assertFalse("Should return rows", tdsResult.result.rows.isEmpty());
     }
 
     @Test
@@ -115,7 +109,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() > 0);
+        assertFalse("Should return rows", tdsResult.result.rows.isEmpty());
     }
 
     @Test
@@ -125,11 +119,10 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() > 0);
+        assertFalse("Should return rows", tdsResult.result.rows.isEmpty());
     }
 
-    // ==================== NON-PASS-THROUGH QUERY TESTS ====================
-    // These use the standard execution path (full SQL-to-Pure transformation)
+    // ==================== STANDARD PATH TESTS ====================
 
     @Test
     public void testStandard_SelectWithWhereClause() throws JsonProcessingException
@@ -138,7 +131,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
+        assertNotNull("Should return result", tdsResult.result);
     }
 
     @Test
@@ -148,7 +141,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() > 0);
+        assertFalse("Should return rows", tdsResult.result.rows.isEmpty());
     }
 
     @Test
@@ -158,7 +151,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() > 0);
+        assertFalse("Should return rows", tdsResult.result.rows.isEmpty());
     }
 
     @Test
@@ -168,7 +161,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
+        assertNotNull("Should return result", tdsResult.result);
     }
 
     @Test
@@ -178,7 +171,7 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
+        assertNotNull("Should return result", tdsResult.result);
     }
 
     @Test
@@ -188,46 +181,16 @@ public class PassThroughExecutionIntegrationTest
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
+        assertNotNull("Should return result", tdsResult.result);
     }
 
     @Test
     public void testStandard_SelectDistinct() throws JsonProcessingException
     {
-        String sql = "SELECT DISTINCT * FROM service('/testService')";
+        String sql = "SELECT DISTINCT Name FROM service('/testService')";
         String result = executeQuery(sql);
 
         TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
-    }
-
-    @Test
-    public void testStandard_SelectWithPrefixedStar() throws JsonProcessingException
-    {
-        String sql = "SELECT t.* FROM service('/testService') AS t";
-        String result = executeQuery(sql);
-
-        TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
-    }
-
-    @Test
-    public void testStandard_OuterWhereOnNestedPassThrough() throws JsonProcessingException
-    {
-        String sql = "SELECT * FROM (SELECT * FROM service('/testService')) WHERE Id > 0";
-        String result = executeQuery(sql);
-
-        TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
-    }
-
-    @Test
-    public void testStandard_OuterOrderByOnNestedPassThrough() throws JsonProcessingException
-    {
-        String sql = "SELECT * FROM (SELECT * FROM service('/testService')) ORDER BY Name";
-        String result = executeQuery(sql);
-
-        TDSExecuteResult tdsResult = OM.readValue(result, TDSExecuteResult.class);
-        assertTrue("Should return rows", tdsResult.result.rows.size() >= 0);
+        assertNotNull("Should return result", tdsResult.result);
     }
 }

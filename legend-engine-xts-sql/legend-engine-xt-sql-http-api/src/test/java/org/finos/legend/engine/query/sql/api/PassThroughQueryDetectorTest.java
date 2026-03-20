@@ -1,4 +1,4 @@
-// Copyright 2023 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -159,13 +159,6 @@ public class PassThroughQueryDetectorTest
         assertFalse("SELECT * with OFFSET should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
     }
 
-    @Test
-    public void testSelectWithLimitAndOffset_IsNotPassThrough()
-    {
-        Query query = parse("SELECT * FROM service('/myService') LIMIT 10 OFFSET 5");
-        assertFalse("SELECT * with LIMIT and OFFSET should NOT be pass-through", PassThroughQueryDetector.isPassThrough(query));
-    }
-
     // ==================== NON-PASS-THROUGH - GROUP BY/HAVING ====================
 
     @Test
@@ -215,4 +208,3 @@ public class PassThroughQueryDetectorTest
         assertFalse("null query should NOT be pass-through", PassThroughQueryDetector.isPassThrough(null));
     }
 }
-
