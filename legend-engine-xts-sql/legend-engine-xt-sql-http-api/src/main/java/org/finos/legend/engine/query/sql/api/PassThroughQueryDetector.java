@@ -1,4 +1,4 @@
-// Copyright 2023 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,11 @@ import org.finos.legend.engine.protocol.sql.metamodel.TableFunction;
 import org.finos.legend.engine.protocol.sql.metamodel.TableSubquery;
 
 /**
- * Utility class for detecting pass-through SQL queries.
- *
- * A pass-through query is one that returns exactly what the service returns with no modifications.
+ * Checks if a query is a pass-through query that can use a pre-generated plan.
+ * A query is pass-through if:
+ * - It's a SELECT * (all columns, no specific selection)
+ * - It has exactly one FROM clause that's a service/table function
+ * - It has no WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or OFFSET clauses
  */
 public class PassThroughQueryDetector
 {
@@ -35,14 +37,6 @@ public class PassThroughQueryDetector
     {
     }
 
-    /**
-     * Checks if a query is a pass-through query that can use a pre-generated plan.
-     *
-     * A query is pass-through if:
-     * - It's a SELECT * (all columns, no specific selection)
-     * - It has exactly one FROM clause that's a service/table function
-     * - It has no WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or OFFSET clauses
-     */
     public static boolean isPassThrough(Query query)
     {
         if (query == null || query.queryBody == null)
@@ -64,7 +58,6 @@ public class PassThroughQueryDetector
         return selectAll && singleSource && noModifiers;
     }
 
-    // Checks if the SELECT clause is "SELECT *" (all columns, not DISTINCT).
     private static boolean isSelectAll(QuerySpecification spec)
     {
         if (spec.select == null || spec.select.selectItems == null || spec.select.selectItems.size() != 1)
@@ -90,10 +83,6 @@ public class PassThroughQueryDetector
         return allColumns.prefix == null || allColumns.prefix.isEmpty();
     }
 
-    /**
-     * Checks if the FROM clause has exactly one source that's a table function (service)
-     * or a pass-through subquery (SELECT * FROM (SELECT * FROM service)).
-     */
     private static boolean hasSingleServiceSource(QuerySpecification spec)
     {
         if (spec.from == null || spec.from.size() != 1)
@@ -134,7 +123,7 @@ public class PassThroughQueryDetector
     }
 
 
-    // Checks that the query has no clauses that would modify the result.
+    // Checks that the query has no clauses that would modify the result e.g WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, OFFSET.
     private static boolean hasNoModifyingClauses(QuerySpecification spec)
     {
         if (spec.where != null)
@@ -170,4 +159,3 @@ public class PassThroughQueryDetector
         return true;
     }
 }
-

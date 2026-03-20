@@ -34,7 +34,6 @@ import org.eclipse.collections.impl.tuple.Tuples;
 import org.eclipse.collections.impl.utility.Iterate;
 import org.eclipse.collections.impl.utility.ListIterate;
 import org.eclipse.collections.impl.utility.internal.IterableIterate;
-import org.finos.legend.engine.language.pure.compiler.toPureGraph.HelperRuntimeBuilder;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.HelperValueSpecificationBuilder;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.grammar.from.PureGrammarParser;
@@ -70,7 +69,6 @@ import org.finos.legend.engine.protocol.sql.schema.metamodel.MetamodelToProtocol
 import org.finos.legend.engine.protocol.sql.schema.metamodel.Schema;
 import org.finos.legend.engine.query.sql.providers.core.SQLContext;
 import org.finos.legend.engine.query.sql.providers.core.SQLSource;
-import org.finos.legend.engine.query.sql.providers.core.SQLSourceArgument;
 import org.finos.legend.engine.query.sql.providers.core.SQLSourceProvider;
 import org.finos.legend.engine.query.sql.providers.core.SQLSourceResolvedContext;
 import org.finos.legend.engine.query.sql.providers.core.TableSource;
@@ -92,11 +90,9 @@ import org.finos.legend.pure.generated.Root_meta_external_query_sql_transformati
 import org.finos.legend.pure.generated.Root_meta_external_query_sql_transformation_queryToPure_SqlTransformContext;
 import org.finos.legend.pure.generated.Root_meta_pure_executionPlan_ExecutionPlan;
 import org.finos.legend.pure.generated.Root_meta_pure_extension_Extension;
-import org.finos.legend.pure.generated.Root_meta_core_runtime_Runtime;
 import org.finos.legend.pure.generated.core_external_format_json_toJSON;
 import org.finos.legend.pure.generated.core_external_query_sql_binding_fromPure_fromPure;
 import org.finos.legend.pure.generated.core_pure_router_preeval_preeval;
-import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.Mapping;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.FunctionDefinition;
 import org.finos.legend.pure.m3.execution.ExecutionSupport;
 import org.finos.legend.pure.runtime.java.compiled.generation.processors.support.function.DefaultPureLambdaFunction1;
@@ -155,51 +151,39 @@ public class SQLExecutor
 
         if (isPassThrough)
         {
-            return executePassThrough(query, user, context, identity);
+            return executeWithPreGeneratedPlan(query, user, context, identity);
         }
 
         return executeStandard(query, positionalArguments, user, context, identity);
     }
 
-
-    private Result executePassThrough(Query query, String user, SQLContext context, Identity identity)
+    private Result executeWithPreGeneratedPlan(Query query, String user, SQLContext context, Identity identity)
     {
         return TraceUtils.trace("execute-passthrough", span ->
         {
             long start = System.currentTimeMillis();
+            LOGGER.info("Executing query using pre-generated plan path");
 
-            // Resolve sources and get PureModel
             Pair<RichIterable<SQLSource>, PureModelContext> sqlSourcesAndPureModel = getSourcesAndModel(query, context, identity);
             RichIterable<SQLSource> sources = sqlSourcesAndPureModel.getOne();
 
-            if (sources.size() != 1)
+            // Pass-through optimization requires exactly one source with a pre-generated plan
+            if (sources.size() != 1 || sources.getFirst().getPreGeneratedPlan() == null)
             {
-                // Fall back to standard execution for multi-source queries
+                LOGGER.info("No pre-generated plan available, falling back to standard execution path");
                 return executeStandard(query, FastList.newList(), user, context, identity);
             }
 
-            SQLSource source = sources.getFirst();
-
-            // Check if pre-generated plan is available from the service
-            ExecutionPlan preGeneratedPlan = source.getPreGeneratedPlan();
-            if (preGeneratedPlan == null)
-            {
-                // No pre-generated plan available, fall back to standard execution
-                //LOGGER.debug("No pre-generated plan available for pass-through query, falling back to standard execution");
-                return executeStandard(query, FastList.newList(), user, context, identity);
-            }
-
-            // Use the pre-generated plan directly
-            //LOGGER.info("Using pre-generated execution plan for pass-through query");
-            //span.setTag("optimization", "pre-generated-plan");
+            ExecutionPlan preGeneratedPlan = sources.getFirst().getPreGeneratedPlan();
+            span.setTag("passThrough", true);
 
             SingleExecutionPlan plan = (SingleExecutionPlan) preGeneratedPlan;
             Result result = planExecutor.execute(plan, Maps.mutable.empty(), user, identity);
 
             long elapsed = System.currentTimeMillis() - start;
-            //MetricsHandler.observe("execute", start, System.currentTimeMillis());
-            //MetricsHandler.observe("execute_passthrough", start, System.currentTimeMillis());
-            //LOGGER.info("Pass-through query executed in {}ms (used pre-generated plan)", elapsed);
+            MetricsHandler.observe("execute", start, System.currentTimeMillis());
+            LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.EXECUTE_INTERACTIVE_STOP, (double) elapsed).toString());
+            LOGGER.debug("Pass-through query executed in {}ms (used pre-generated plan)", elapsed);
 
             return result;
         });
@@ -210,6 +194,7 @@ public class SQLExecutor
         return process(query, positionalArguments, (transformedContext, pureModel, sources, positionals, span) ->
         {
             long start = System.currentTimeMillis();
+            LOGGER.info("Executing query using standard path (full SQL-to-Pure transformation)");
             LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.EXECUTE_INTERACTIVE_STOP, (double) System.currentTimeMillis() - start).toString());
 
             Root_meta_external_query_sql_transformation_queryToPure_PlanGenerationResult plans = planResult(transformedContext, pureModel, sources);
