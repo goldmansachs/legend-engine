@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for PassThroughQueryDetector.
- *
  * A pass-through query is a SELECT * query with no modifications (no WHERE, ORDER BY, etc.)
  * that can use a pre-generated execution plan directly without SQL-to-Pure transformation.
  */

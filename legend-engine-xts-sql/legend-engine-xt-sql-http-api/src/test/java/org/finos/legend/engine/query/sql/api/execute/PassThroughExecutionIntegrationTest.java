@@ -44,7 +44,6 @@ import static org.junit.Assert.assertNotNull;
 
 /**
  * Integration tests for Pass-Through Query Optimization.
- *
  * These tests verify that:
  * - Pass-through queries (SELECT * with no modifications) can use pre-generated execution plans,
  * skipping SQL-to-Pure transformation and plan generation for simple SELECT * queries.
