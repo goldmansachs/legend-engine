@@ -25,19 +25,19 @@ import org.finos.legend.engine.protocol.sql.metamodel.TableFunction;
 import org.finos.legend.engine.protocol.sql.metamodel.TableSubquery;
 
 /**
- * Checks if a query is a pass-through query that can use a pre-generated plan.
- * A query is pass-through if:
+ * Checks if a query is a SELECT * query that can use a pre-generated plan.
+ * A query is SELECT * if:
  * - It's a SELECT * (all columns, no specific selection)
  * - It has exactly one FROM clause that's a service/table function
  * - It has no WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or OFFSET clauses
  */
-public class PassThroughQueryDetector
+public class SelectStarQueryDetector
 {
-    private PassThroughQueryDetector()
+    private SelectStarQueryDetector()
     {
     }
 
-    public static boolean isPassThrough(Query query)
+    public static boolean isSelectStar(Query query)
     {
         if (query == null || query.queryBody == null)
         {
@@ -65,7 +65,7 @@ public class PassThroughQueryDetector
             return false;
         }
 
-        // DISTINCT modifies the result, so it's not pass-through
+        // DISTINCT modifies the result, so it's not a simple SELECT *
         if (spec.select.distinct)
         {
             return false;
@@ -92,11 +92,11 @@ public class PassThroughQueryDetector
 
         Relation source = spec.from.get(0);
 
-        return isPassThroughRelation(source);
+        return isSelectStarRelation(source);
     }
 
-    // Checks if a relation is a pass-through source (service reference, aliased service, or pass-through subquery).
-    private static boolean isPassThroughRelation(Relation source)
+    // Checks if a relation is a SELECT * source (service reference, aliased service, or SELECT * subquery).
+    private static boolean isSelectStarRelation(Relation source)
     {
         // Direct service reference: SELECT * FROM service('/myService')
         if (source instanceof TableFunction)
@@ -108,15 +108,15 @@ public class PassThroughQueryDetector
         if (source instanceof AliasedRelation)
         {
             AliasedRelation aliased = (AliasedRelation) source;
-            return aliased.relation != null && isPassThroughRelation(aliased.relation);
+            return aliased.relation != null && isSelectStarRelation(aliased.relation);
         }
 
         // Nested subquery: SELECT * FROM (SELECT * FROM service('/myService'))
         if (source instanceof TableSubquery)
         {
             TableSubquery subquery = (TableSubquery) source;
-            // Recursively check if the inner query is also pass-through
-            return subquery.query != null && isPassThrough(subquery.query);
+            // Recursively check if the inner query is also SELECT *
+            return subquery.query != null && isSelectStar(subquery.query);
         }
 
         return false;

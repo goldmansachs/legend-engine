@@ -43,14 +43,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * Integration tests for Pass-Through Query Optimization.
+ * Integration tests for SELECT * Query Optimization.
  * These tests verify that:
- * - Pass-through queries (SELECT * with no modifications) can use pre-generated execution plans,
+ * - SELECT * queries (with no modifications) can use pre-generated execution plans,
  * skipping SQL-to-Pure transformation and plan generation for simple SELECT * queries.
  */
-public class PassThroughExecutionIntegrationTest
+public class SelectStarExecutionIntegrationTest
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PassThroughExecutionIntegrationTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SelectStarExecutionIntegrationTest.class);
     private static final ObjectMapper OM = new ObjectMapper();
 
     static
@@ -89,10 +89,10 @@ public class PassThroughExecutionIntegrationTest
                 .readEntity(String.class);
     }
 
-    // ==================== PASS-THROUGH QUERY TESTS ====================
+    // ==================== SELECT * QUERY TESTS ====================
 
     @Test
-    public void testPassThrough_SimpleSelectAll() throws JsonProcessingException
+    public void testSelectStar_SimpleSelectAll() throws JsonProcessingException
     {
         String sql = "SELECT * FROM service('/testService')";
         String result = executeQuery(sql);
@@ -102,7 +102,7 @@ public class PassThroughExecutionIntegrationTest
     }
 
     @Test
-    public void testPassThrough_NestedSelectAll() throws JsonProcessingException
+    public void testSelectStar_NestedSelectAll() throws JsonProcessingException
     {
         String sql = "SELECT * FROM (SELECT * FROM service('/testService'))";
         String result = executeQuery(sql);
@@ -112,7 +112,7 @@ public class PassThroughExecutionIntegrationTest
     }
 
     @Test
-    public void testPassThrough_WithTableAlias() throws JsonProcessingException
+    public void testSelectStar_WithTableAlias() throws JsonProcessingException
     {
         String sql = "SELECT * FROM service('/testService') AS t";
         String result = executeQuery(sql);

@@ -145,11 +145,11 @@ public class SQLExecutor
 
     public Result execute(Query query, List<Object> positionalArguments, String user, SQLContext context, Identity identity)
     {
-        // Check if this is a pass-through query with no positional arguments
-        boolean isPassThrough = PassThroughQueryDetector.isPassThrough(query)
+        // Check if this is a SELECT * query with no positional arguments
+        boolean isSelectStar = SelectStarQueryDetector.isSelectStar(query)
             && (positionalArguments == null || positionalArguments.isEmpty());
 
-        if (isPassThrough)
+        if (isSelectStar)
         {
             return executeWithPreGeneratedPlan(query, user, context, identity);
         }
@@ -159,7 +159,7 @@ public class SQLExecutor
 
     private Result executeWithPreGeneratedPlan(Query query, String user, SQLContext context, Identity identity)
     {
-        return TraceUtils.trace("execute-passthrough", span ->
+        return TraceUtils.trace("execute-select-star", span ->
         {
             long start = System.currentTimeMillis();
             LOGGER.info("Executing query using pre-generated plan path");
@@ -167,7 +167,7 @@ public class SQLExecutor
             Pair<RichIterable<SQLSource>, PureModelContext> sqlSourcesAndPureModel = getSourcesAndModel(query, context, identity);
             RichIterable<SQLSource> sources = sqlSourcesAndPureModel.getOne();
 
-            // Pass-through optimization requires exactly one source with a pre-generated plan
+            // SELECT * optimization requires exactly one source with a pre-generated plan
             if (sources.size() != 1 || sources.getFirst().getPreGeneratedPlan() == null)
             {
                 LOGGER.info("No pre-generated plan available, falling back to standard execution path");
@@ -175,7 +175,7 @@ public class SQLExecutor
             }
 
             ExecutionPlan preGeneratedPlan = sources.getFirst().getPreGeneratedPlan();
-            span.setTag("passThrough", true);
+            span.setTag("selectStar", true);
 
             SingleExecutionPlan plan = (SingleExecutionPlan) preGeneratedPlan;
             Result result = planExecutor.execute(plan, Maps.mutable.empty(), user, identity);
@@ -183,7 +183,7 @@ public class SQLExecutor
             long elapsed = System.currentTimeMillis() - start;
             MetricsHandler.observe("execute", start, System.currentTimeMillis());
             LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.EXECUTE_INTERACTIVE_STOP, (double) elapsed).toString());
-            LOGGER.debug("Pass-through query executed in {}ms (used pre-generated plan)", elapsed);
+            LOGGER.debug("SELECT * query executed in {}ms (used pre-generated plan)", elapsed);
 
             return result;
         });
