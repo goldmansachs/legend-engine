@@ -15,117 +15,45 @@
 
 package org.finos.legend.engine.query.sql.api;
 
-import org.finos.legend.engine.protocol.sql.metamodel.AliasedRelation;
 import org.finos.legend.engine.protocol.sql.metamodel.AllColumns;
+import org.finos.legend.engine.protocol.sql.metamodel.Join;
 import org.finos.legend.engine.protocol.sql.metamodel.Query;
 import org.finos.legend.engine.protocol.sql.metamodel.QuerySpecification;
-import org.finos.legend.engine.protocol.sql.metamodel.Relation;
-import org.finos.legend.engine.protocol.sql.metamodel.SelectItem;
+import org.finos.legend.engine.protocol.sql.metamodel.SetOperation;
+import org.finos.legend.engine.protocol.sql.metamodel.SingleColumn;
+import org.finos.legend.engine.protocol.sql.metamodel.Table;
 import org.finos.legend.engine.protocol.sql.metamodel.TableFunction;
-import org.finos.legend.engine.protocol.sql.metamodel.TableSubquery;
+import org.finos.legend.engine.protocol.sql.visitors.BaseNodeCollectorVisitor;
 
 /**
- * Checks if a query is a SELECT * query that can use a pre-generated plan.
- * A query is SELECT * if:
- * - It's a SELECT * (all columns, no specific selection)
- * - It has exactly one FROM clause that's a service/table function
+ * Detects if a query is a SELECT * query that can use a pre-generated plan.
+ * Uses the visitor pattern to traverse the SQL AST.
+ * A query qualifies as SELECT * if:
+ * - It selects all columns (SELECT *)
+ * - It has exactly one service/table function source (no JOINs, no multiple tables)
  * - It has no WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or OFFSET clauses
+ * - It's not a UNION/INTERSECT/EXCEPT operation
  */
-public class SelectStarQueryDetector
+public class SelectStarQueryDetector extends BaseNodeCollectorVisitor<Boolean>
 {
     private SelectStarQueryDetector()
     {
+        super(values -> values.stream().allMatch(v -> v), true);
     }
 
     public static boolean isSelectStar(Query query)
     {
-        if (query == null || query.queryBody == null)
+        if (query == null)
         {
             return false;
         }
-
-        if (!(query.queryBody instanceof QuerySpecification))
-        {
-            return false;
-        }
-
-        QuerySpecification spec = (QuerySpecification) query.queryBody;
-
-        boolean selectAll = isSelectAll(spec);
-        boolean singleSource = hasSingleServiceSource(spec);
-        boolean noModifiers = hasNoModifyingClauses(spec);
-
-        return selectAll && singleSource && noModifiers;
+        return new SelectStarQueryDetector().visit(query);
     }
 
-    private static boolean isSelectAll(QuerySpecification spec)
+    @Override
+    public Boolean visit(QuerySpecification spec)
     {
-        if (spec.select == null || spec.select.selectItems == null || spec.select.selectItems.size() != 1)
-        {
-            return false;
-        }
-
-        // DISTINCT modifies the result, so it's not a simple SELECT *
-        if (spec.select.distinct)
-        {
-            return false;
-        }
-
-        SelectItem item = spec.select.selectItems.get(0);
-
-        if (!(item instanceof AllColumns))
-        {
-            return false;
-        }
-
-        // Must not have a prefix (e.g., SELECT t.* would have prefix "t")
-        AllColumns allColumns = (AllColumns) item;
-        return allColumns.prefix == null || allColumns.prefix.isEmpty();
-    }
-
-    private static boolean hasSingleServiceSource(QuerySpecification spec)
-    {
-        if (spec.from == null || spec.from.size() != 1)
-        {
-            return false;
-        }
-
-        Relation source = spec.from.get(0);
-
-        return isSelectStarRelation(source);
-    }
-
-    // Checks if a relation is a SELECT * source (service reference, aliased service, or SELECT * subquery).
-    private static boolean isSelectStarRelation(Relation source)
-    {
-        // Direct service reference: SELECT * FROM service('/myService')
-        if (source instanceof TableFunction)
-        {
-            return true;
-        }
-
-        // Aliased relation: SELECT * FROM service('/myService') AS t
-        if (source instanceof AliasedRelation)
-        {
-            AliasedRelation aliased = (AliasedRelation) source;
-            return aliased.relation != null && isSelectStarRelation(aliased.relation);
-        }
-
-        // Nested subquery: SELECT * FROM (SELECT * FROM service('/myService'))
-        if (source instanceof TableSubquery)
-        {
-            TableSubquery subquery = (TableSubquery) source;
-            // Recursively check if the inner query is also SELECT *
-            return subquery.query != null && isSelectStar(subquery.query);
-        }
-
-        return false;
-    }
-
-
-    // Checks that the query has no clauses that would modify the result e.g WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, OFFSET.
-    private static boolean hasNoModifyingClauses(QuerySpecification spec)
-    {
+        // Check for modifying clauses that disqualify SELECT *
         if (spec.where != null)
         {
             return false;
@@ -156,6 +84,66 @@ public class SelectStarQueryDetector
             return false;
         }
 
+        // Must have exactly one source in FROM clause
+        if (spec.from == null || spec.from.size() != 1)
+        {
+            return false;
+        }
+
+        if (spec.select != null && spec.select.distinct)
+        {
+            return false;
+        }
+
+        // Must be SELECT * (single AllColumns item with no prefix)
+        if (spec.select == null || spec.select.selectItems == null || spec.select.selectItems.size() != 1)
+        {
+            return false;
+        }
+
+        // Validate the SELECT item and FROM source
+        Boolean selectValid = collect(spec.select.selectItems);
+        Boolean fromValid = collect(spec.from);
+
+        return collate(selectValid, fromValid);
+    }
+
+    @Override
+    public Boolean visit(AllColumns val)
+    {
+        // SELECT * is valid only if there's no prefix (e.g., SELECT t.* is not valid)
+        return val.prefix == null || val.prefix.isEmpty();
+    }
+
+    @Override
+    public Boolean visit(SingleColumn val)
+    {
+        return false;
+    }
+
+    @Override
+    public Boolean visit(TableFunction val)
+    {
+        // TableFunction (e.g., service('/myService')) is a valid source
         return true;
+    }
+
+    @Override
+    public Boolean visit(Table val)
+    {
+        // Regular table reference - not a service, so not valid for this optimization
+        return false;
+    }
+
+    @Override
+    public Boolean visit(Join val)
+    {
+        return false;
+    }
+
+    @Override
+    public Boolean visit(SetOperation val)
+    {
+        return false;
     }
 }
