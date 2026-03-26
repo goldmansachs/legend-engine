@@ -20,8 +20,6 @@ import org.finos.legend.engine.protocol.sql.metamodel.Join;
 import org.finos.legend.engine.protocol.sql.metamodel.Query;
 import org.finos.legend.engine.protocol.sql.metamodel.QuerySpecification;
 import org.finos.legend.engine.protocol.sql.metamodel.SetOperation;
-import org.finos.legend.engine.protocol.sql.metamodel.SingleColumn;
-import org.finos.legend.engine.protocol.sql.metamodel.Table;
 import org.finos.legend.engine.protocol.sql.metamodel.TableFunction;
 import org.finos.legend.engine.protocol.sql.visitors.BaseNodeCollectorVisitor;
 
@@ -29,7 +27,7 @@ import org.finos.legend.engine.protocol.sql.visitors.BaseNodeCollectorVisitor;
  * Detects if a query is a SELECT * query that can use a pre-generated plan.
  * Uses the visitor pattern to traverse the SQL AST.
  * A query qualifies as SELECT * if:
- * - It selects all columns (SELECT *)
+ * - It selects all columns (SELECT *)                                                    
  * - It has exactly one service/table function source (no JOINs, no multiple tables)
  * - It has no WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or OFFSET clauses
  * - It's not a UNION/INTERSECT/EXCEPT operation
@@ -38,7 +36,7 @@ public class SelectStarQueryDetector extends BaseNodeCollectorVisitor<Boolean>
 {
     private SelectStarQueryDetector()
     {
-        super(values -> values.stream().allMatch(v -> v), true);
+        super(values -> values.stream().allMatch(v -> v), false);
     }
 
     public static boolean isSelectStar(Query query)
@@ -49,37 +47,17 @@ public class SelectStarQueryDetector extends BaseNodeCollectorVisitor<Boolean>
         }
         return new SelectStarQueryDetector().visit(query);
     }
-
+ 
     @Override
     public Boolean visit(QuerySpecification spec)
     {
-        // Check for modifying clauses that disqualify SELECT *
-        if (spec.where != null)
-        {
-            return false;
-        }
-
-        if (spec.groupBy != null && !spec.groupBy.isEmpty())
-        {
-            return false;
-        }
-
-        if (spec.having != null)
-        {
-            return false;
-        }
-
-        if (spec.orderBy != null && !spec.orderBy.isEmpty())
-        {
-            return false;
-        }
-
-        if (spec.limit != null)
-        {
-            return false;
-        }
-
-        if (spec.offset != null)
+        // Disqualifying clauses
+        if (spec.where != null ||
+            spec.having != null ||
+            spec.limit != null ||
+            spec.offset != null ||
+            (spec.groupBy != null && !spec.groupBy.isEmpty()) ||
+            (spec.orderBy != null && !spec.orderBy.isEmpty()))
         {
             return false;
         }
@@ -90,13 +68,11 @@ public class SelectStarQueryDetector extends BaseNodeCollectorVisitor<Boolean>
             return false;
         }
 
-        if (spec.select != null && spec.select.distinct)
-        {
-            return false;
-        }
-
-        // Must be SELECT * (single AllColumns item with no prefix)
-        if (spec.select == null || spec.select.selectItems == null || spec.select.selectItems.size() != 1)
+        // Must be SELECT * (single AllColumns item with no prefix, not DISTINCT)
+        if (spec.select == null ||
+            spec.select.distinct ||
+            spec.select.selectItems == null ||
+            spec.select.selectItems.size() != 1)
         {
             return false;
         }
@@ -116,23 +92,10 @@ public class SelectStarQueryDetector extends BaseNodeCollectorVisitor<Boolean>
     }
 
     @Override
-    public Boolean visit(SingleColumn val)
-    {
-        return false;
-    }
-
-    @Override
     public Boolean visit(TableFunction val)
     {
         // TableFunction (e.g., service('/myService')) is a valid source
         return true;
-    }
-
-    @Override
-    public Boolean visit(Table val)
-    {
-        // Regular table reference - not a service, so not valid for this optimization
-        return false;
     }
 
     @Override
