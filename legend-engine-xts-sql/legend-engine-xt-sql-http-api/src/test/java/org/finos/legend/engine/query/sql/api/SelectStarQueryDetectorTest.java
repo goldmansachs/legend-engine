@@ -24,186 +24,101 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for SelectStarQueryDetector.
- * A SELECT * query is one with no modifications (no WHERE, ORDER BY, etc.)
+ * A SELECT * query is one with no modifications (no WHERE, ORDER BY, etc.) 
+ * has a single service source (no JOINs or multiple tables)
  * that can use a pre-generated execution plan directly without SQL-to-Pure transformation.
  */
 public class SelectStarQueryDetectorTest
 {
     private static final SQLGrammarParser PARSER = SQLGrammarParser.newInstance();
-
-    private Query parse(String sql)
+    private void assertIsSelectStar(String sql)
     {
-        return (Query) PARSER.parseStatement(sql);
+        Query query = (Query) PARSER.parseStatement(sql);
+        assertTrue("Query should qualify for SELECT * optimization (can use pre-generated plan): " + sql,
+                SelectStarQueryDetector.isSelectStar(query));
+    }
+    
+    private void assertIsNotSelectStar(String sql)
+    {
+        Query query = (Query) PARSER.parseStatement(sql);
+        assertFalse("Query should NOT qualify for SELECT * optimization (requires SQL-to-Pure transformation): " + sql,
+                SelectStarQueryDetector.isSelectStar(query));
     }
 
-    // ==================== SELECT * QUERIES (should return true) ====================
-
+    // ==================== OPTIMIZABLE QUERIES ====================
     @Test
-    public void testSimpleSelectAll_IsSelectStar()
+    public void testSelectStar()
     {
-        Query query = parse("SELECT * FROM service('/myService')");
-        assertTrue("Simple SELECT * should be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        assertIsSelectStar("SELECT * FROM service('/myService')");
+        assertIsSelectStar("SELECT * FROM service('/myService') AS t");
+        assertIsSelectStar("SELECT * FROM (SELECT * FROM service('/myService'))");
+        assertIsSelectStar("SELECT * FROM (SELECT * FROM (SELECT * FROM service('/myService')))");
+        assertIsSelectStar("SELECT * FROM (SELECT * FROM service('/myService') AS inner_t) AS outer_t");
     }
 
+    // ==================== NON-OPTIMIZABLE QUERIES ====================
     @Test
-    public void testNestedSelectAll_IsSelectStar()
+    public void testWithWhere()
     {
-        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService'))");
-        assertTrue("Nested SELECT * should be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    @Test
-    public void testDeeplyNestedSelectAll_IsSelectStar()
-    {
-        Query query = parse("SELECT * FROM (SELECT * FROM (SELECT * FROM service('/myService')))");
-        assertTrue("Deeply nested SELECT * should be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    @Test
-    public void testSelectAllWithTableAlias_IsSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService') AS t");
-        assertTrue("SELECT * with table alias should be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    @Test
-    public void testNestedSelectAllWithAlias_IsSelectStar()
-    {
-        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService') AS inner_t) AS outer_t");
-        assertTrue("Nested SELECT * with aliases should be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - WHERE CLAUSE ====================
-
-    @Test
-    public void testSelectWithWhere_IsNotSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService') WHERE age > 30");
-        assertFalse("SELECT * with WHERE should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        // WHERE clause requires transformation to apply filtering logic
+        assertIsNotSelectStar("SELECT * FROM service('/myService') WHERE age > 30");
+        assertIsNotSelectStar("SELECT * FROM (SELECT * FROM service('/myService') WHERE age > 30)");
+        assertIsNotSelectStar("SELECT * FROM (SELECT * FROM service('/myService')) WHERE age > 30");
     }
 
     @Test
-    public void testNestedSelectWithInnerWhere_IsNotSelectStar()
+    public void testWithSpecificColumns()
     {
-        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService') WHERE age > 30)");
-        assertFalse("Nested SELECT * with inner WHERE should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        // Selecting specific columns requires transformation to project only those columns
+        assertIsNotSelectStar("SELECT name FROM service('/myService')");
+        assertIsNotSelectStar("SELECT name, age FROM service('/myService')");
+        
+        // Prefixed star (t.*) is treated as specific column selection
+        assertIsNotSelectStar("SELECT t.* FROM service('/myService') AS t");
+        
+        // Inner query with specific columns disqualifies the entire query
+        assertIsNotSelectStar("SELECT * FROM (SELECT name FROM service('/myService'))");
     }
 
     @Test
-    public void testNestedSelectWithOuterWhere_IsNotSelectStar()
+    public void testWithOrderBy()
     {
-        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService')) WHERE age > 30");
-        assertFalse("Nested SELECT * with outer WHERE should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - SPECIFIC COLUMNS ====================
-
-    @Test
-    public void testSelectSpecificColumn_IsNotSelectStar()
-    {
-        Query query = parse("SELECT name FROM service('/myService')");
-        assertFalse("SELECT specific column should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        // ORDER BY requires transformation to apply sorting logic
+        assertIsNotSelectStar("SELECT * FROM service('/myService') ORDER BY name");
+        assertIsNotSelectStar("SELECT * FROM (SELECT * FROM service('/myService')) ORDER BY name");
     }
 
     @Test
-    public void testSelectMultipleColumns_IsNotSelectStar()
+    public void testWithLimitOffset()
     {
-        Query query = parse("SELECT name, age FROM service('/myService')");
-        assertFalse("SELECT multiple columns should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        // LIMIT/OFFSET requires transformation to apply pagination
+        assertIsNotSelectStar("SELECT * FROM service('/myService') LIMIT 10");
+        assertIsNotSelectStar("SELECT * FROM service('/myService') OFFSET 5");
     }
 
     @Test
-    public void testSelectPrefixedStar_IsNotSelectStar()
+    public void testWithGroupByHaving()
     {
-        Query query = parse("SELECT t.* FROM service('/myService') AS t");
-        assertFalse("SELECT t.* (prefixed star) should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        assertIsNotSelectStar("SELECT * FROM service('/myService') GROUP BY name");
+        assertIsNotSelectStar("SELECT name, count(*) FROM service('/myService') GROUP BY name HAVING count(*) > 1");
     }
 
     @Test
-    public void testNestedSelectSpecificColumns_IsNotSelectStar()
+    public void testWithDistinct()
     {
-        Query query = parse("SELECT * FROM (SELECT name FROM service('/myService'))");
-        assertFalse("Outer SELECT * with inner specific columns should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - ORDER BY ====================
-
-    @Test
-    public void testSelectWithOrderBy_IsNotSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService') ORDER BY name");
-        assertFalse("SELECT * with ORDER BY should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        assertIsNotSelectStar("SELECT DISTINCT * FROM service('/myService')");
     }
 
     @Test
-    public void testNestedSelectWithOuterOrderBy_IsNotSelectStar()
+    public void testWithMultipleSources()
     {
-        Query query = parse("SELECT * FROM (SELECT * FROM service('/myService')) ORDER BY name");
-        assertFalse("Nested SELECT * with outer ORDER BY should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - LIMIT/OFFSET ====================
-
-    @Test
-    public void testSelectWithLimit_IsNotSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService') LIMIT 10");
-        assertFalse("SELECT * with LIMIT should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
+        assertIsNotSelectStar("SELECT * FROM service('/myService') JOIN service('/otherService') ON 1=1");
+        assertIsNotSelectStar("SELECT * FROM service('/myService'), service('/otherService')");
     }
 
     @Test
-    public void testSelectWithOffset_IsNotSelectStar()
+    public void testNullQuery()
     {
-        Query query = parse("SELECT * FROM service('/myService') OFFSET 5");
-        assertFalse("SELECT * with OFFSET should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - GROUP BY/HAVING ====================
-
-    @Test
-    public void testSelectWithGroupBy_IsNotSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService') GROUP BY name");
-        assertFalse("SELECT * with GROUP BY should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    @Test
-    public void testSelectWithHaving_IsNotSelectStar()
-    {
-        Query query = parse("SELECT name, count(*) FROM service('/myService') GROUP BY name HAVING count(*) > 1");
-        assertFalse("SELECT with HAVING should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - DISTINCT ====================
-
-    @Test
-    public void testSelectDistinct_IsNotSelectStar()
-    {
-        Query query = parse("SELECT DISTINCT * FROM service('/myService')");
-        assertFalse("SELECT DISTINCT * should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== NON-SELECT * - MULTIPLE SOURCES ====================
-
-    @Test
-    public void testSelectWithJoin_IsNotSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService') JOIN service('/otherService') ON 1=1");
-        assertFalse("SELECT * with JOIN should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    @Test
-    public void testSelectFromMultipleSources_IsNotSelectStar()
-    {
-        Query query = parse("SELECT * FROM service('/myService'), service('/otherService')");
-        assertFalse("SELECT * from multiple sources should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(query));
-    }
-
-    // ==================== EDGE CASES ====================
-
-    @Test
-    public void testNullQuery_IsNotSelectStar()
-    {
-        assertFalse("null query should NOT be detected as SELECT *", SelectStarQueryDetector.isSelectStar(null));
+        assertFalse(SelectStarQueryDetector.isSelectStar(null));
     }
 }
