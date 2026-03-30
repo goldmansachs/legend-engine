@@ -1289,6 +1289,29 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesS
                ')(csv_frame("\\nid,grp\\n1,2\\n2,1\\n3,3\\n4,4\\n5,2\\n6,1\\n7,3\\n7,1\\n9,5\\n10,0"))')
         ]
       )
+    ]->combine(),
+
+    // ==========================================
+    // zScore
+    // ==========================================
+    [
+      meta::pure::functions::math::tests::zScore::testZScore_Function_1__Boolean_1_->testRev(
+        [
+          rev('|#TDS{\n'+
+                'id,grp,name\n'+
+                '2,1,A\n'+
+                '4,1,B\n'+
+                '4,1,C\n'+
+                '4,1,D\n'+
+                '5,1,E\n'+
+                '5,1,F\n'+
+                '7,1,G\n'+
+                '9,1,H}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(), ~zScore:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::math::zScore($w, $r, ~id)})',
+              '(lambda frame:' +
+               '  frame.assign(zScore=lambda r: frame.groupby("grp")["id"].zscore())' +
+               ')(csv_frame("\\nid,grp,name\\n2,1,A\\n4,1,B\\n4,1,C\\n4,1,D\\n5,1,E\\n5,1,F\\n7,1,G\\n9,1,H"))')
+        ]
+      )
     ]->combine()
   ]
 }
