@@ -72,7 +72,6 @@ import org.finos.legend.engine.query.sql.providers.core.SQLSource;
 import org.finos.legend.engine.query.sql.providers.core.SQLSourceProvider;
 import org.finos.legend.engine.query.sql.providers.core.SQLSourceResolvedContext;
 import org.finos.legend.engine.query.sql.providers.core.TableSource;
-import org.finos.legend.engine.query.sql.providers.core.TableSourceArgument;
 import org.finos.legend.engine.query.sql.providers.shared.utils.TraceUtils;
 import org.finos.legend.engine.shared.core.ObjectMapperFactory;
 import org.finos.legend.engine.shared.core.function.Function5;
@@ -175,13 +174,11 @@ public class SQLExecutor
                 return executeStandard(query, FastList.newList(), user, context, identity);
             }
 
-            SQLSource source = sources.getFirst();
-            ExecutionPlan preGeneratedPlan = source.getPreGeneratedPlan();
+            ExecutionPlan preGeneratedPlan = sources.getFirst().getPreGeneratedPlan();
             span.setTag("selectStar", true);
-            
-            Map<String, Result> arguments = getPlanArguments(query, source);
+
             SingleExecutionPlan plan = (SingleExecutionPlan) preGeneratedPlan;
-            Result result = planExecutor.execute(plan, arguments, user, identity);
+            Result result = planExecutor.execute(plan, Maps.mutable.empty(), user, identity);
 
             long elapsed = System.currentTimeMillis() - start;
             MetricsHandler.observe("execute", start, System.currentTimeMillis());
@@ -243,33 +240,6 @@ public class SQLExecutor
 
             return Tuples.pair(p._name(), result);
         }));
-    }
-    
-    Map<String, Result> getPlanArguments(Query query, SQLSource source)
-    {
-        MutableMap<String, Result> arguments = Maps.mutable.empty();
-
-        LambdaFunction func = source.getFunc();
-        if (func == null || func.parameters == null || func.parameters.isEmpty())
-        {
-            return arguments;
-        }
-
-        Set<String> lambdaParamNames = ListIterate.collect(func.parameters, p -> p.name).toSet();
-        TableSource tableSource = new TableSourceExtractor().visit(query).iterator().next();
-
-        for (TableSourceArgument arg : tableSource.getArguments())
-        {
-            if (arg.getName() != null
-                    && lambdaParamNames.contains(arg.getName())
-                    && arg.getValue() != null
-                    && !(arg.getValue() instanceof Expression))
-            {
-                arguments.put(arg.getName(), new ConstantResult(arg.getValue()));
-            }
-        }
-
-        return arguments;
     }
 
     public LambdaFunction lambda(Query query, SQLContext context, Identity identity)
