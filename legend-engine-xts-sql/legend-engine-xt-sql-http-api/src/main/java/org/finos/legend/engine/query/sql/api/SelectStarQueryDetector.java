@@ -29,6 +29,7 @@ import org.finos.legend.engine.protocol.sql.visitors.BaseNodeCollectorVisitor;
  * A query qualifies as SELECT * if:
  * - It selects all columns (SELECT *)                                                    
  * - It has exactly one service/table function source (no JOINs, no multiple tables)
+ * - The table function has exactly one argument (the service name, no parameters) [Version 1]
  * - It has no WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or OFFSET clauses
  * - It's not a UNION/INTERSECT/EXCEPT operation
  */
@@ -87,15 +88,18 @@ public class SelectStarQueryDetector extends BaseNodeCollectorVisitor<Boolean>
     @Override
     public Boolean visit(AllColumns val)
     {
-        // SELECT * is valid only if there's no prefix (e.g., SELECT t.* is not valid)
-        return val.prefix == null || val.prefix.isEmpty();
+        return true;
     }
 
     @Override
     public Boolean visit(TableFunction val)
     {
-        // TableFunction (e.g., service('/myService')) is a valid source
-        return true;
+        // For iteration 1, only optimize when the table function has exactly one argument
+        // (the service name), e.g. service('/myService'). Parameterized services like
+        // service('/myService', businessDate => '2015-01-01') go through the standard path.
+        return val.functionCall != null
+                && val.functionCall.arguments != null
+                && val.functionCall.arguments.size() == 1;
     }
 
     @Override

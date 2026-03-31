@@ -51,6 +51,7 @@ public class SelectStarQueryDetectorTest
     {
         assertIsSelectStar("SELECT * FROM service('/myService')");
         assertIsSelectStar("SELECT * FROM service('/myService') AS t");
+        assertIsSelectStar("SELECT t.* FROM service('/myService') AS t");
         assertIsSelectStar("SELECT * FROM (SELECT * FROM service('/myService'))");
         assertIsSelectStar("SELECT * FROM (SELECT * FROM (SELECT * FROM service('/myService')))");
         assertIsSelectStar("SELECT * FROM (SELECT * FROM service('/myService') AS inner_t) AS outer_t");
@@ -72,9 +73,6 @@ public class SelectStarQueryDetectorTest
         // Selecting specific columns requires transformation to project only those columns
         assertIsNotSelectStar("SELECT name FROM service('/myService')");
         assertIsNotSelectStar("SELECT name, age FROM service('/myService')");
-        
-        // Prefixed star (t.*) is treated as specific column selection
-        assertIsNotSelectStar("SELECT t.* FROM service('/myService') AS t");
         
         // Inner query with specific columns disqualifies the entire query
         assertIsNotSelectStar("SELECT * FROM (SELECT name FROM service('/myService'))");
@@ -114,6 +112,15 @@ public class SelectStarQueryDetectorTest
     {
         assertIsNotSelectStar("SELECT * FROM service('/myService') JOIN service('/otherService') ON 1=1");
         assertIsNotSelectStar("SELECT * FROM service('/myService'), service('/otherService')");
+    }
+
+    @Test
+    public void testWithServiceParameters()
+    {
+        // Parameterized service calls require the standard path for version 1
+        assertIsNotSelectStar("SELECT * FROM service('/myService', businessDate => '2015-01-01')");
+        assertIsNotSelectStar("SELECT * FROM service('/myService', date => '2023-08-24', type => 'Type1')");
+        assertIsNotSelectStar("SELECT * FROM service('/myService', names => ARRAY['Alice', 'Bob'])");
     }
 
     @Test
