@@ -70,7 +70,7 @@ public class SelectStarExecutionIntegrationTest
         TestSQLSourceProvider testSQLSourceProvider = new TestSQLSourceProvider(true);
         LOGGER.info("Pre-generated plans enabled: {}, count: {}", testSQLSourceProvider.isPreGeneratedPlansEnabled(), testSQLSourceProvider.getPreGeneratedPlanCount());
 
-        SqlExecute sqlExecute = new SqlExecute( modelManager, executor, (pm) -> PureCoreExtensionLoader.extensions().flatCollect(g -> g.extraPureCoreExtensions(pm.getExecutionSupport())), FastList.newListWith(testSQLSourceProvider), generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers));
+        SqlExecute sqlExecute = new SqlExecute(modelManager, executor, (pm) -> PureCoreExtensionLoader.extensions().flatCollect(g -> g.extraPureCoreExtensions(pm.getExecutionSupport())), FastList.newListWith(testSQLSourceProvider), generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers));
 
         return ResourceTestRule.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())

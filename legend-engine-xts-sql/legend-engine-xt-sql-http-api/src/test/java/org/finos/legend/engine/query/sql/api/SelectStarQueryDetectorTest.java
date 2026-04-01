@@ -31,6 +31,7 @@ import static org.junit.Assert.assertTrue;
 public class SelectStarQueryDetectorTest
 {
     private static final SQLGrammarParser PARSER = SQLGrammarParser.newInstance();
+    
     private void assertIsSelectStar(String sql)
     {
         Query query = (Query) PARSER.parseStatement(sql);
