@@ -45,7 +45,8 @@ meta::protocols::pure::vX_X_X::transformation::fromPureGraph::connection::snowfl
                      organization = $s.organization,
                      role = $s.role,
                      enableQueryTags = $s.enableQueryTags,
-                     setSessionTimezone = $s.setSessionTimezone
+                     setSessionTimezone = $s.setSessionTimezone,
+                     setSessionQuotedIdentifiersIgnoreCase = $s.setSessionQuotedIdentifiersIgnoreCase
                  )
     ],
     reverse_transfers_typeLookups = [
@@ -77,7 +78,8 @@ meta::protocols::pure::vX_X_X::transformation::fromPureGraph::connection::snowfl
                 organization = $s.organization,
                 role = $s.role,
                 enableQueryTags = $s.enableQueryTags,
-                setSessionTimezone = $s.setSessionTimezone
+                setSessionTimezone = $s.setSessionTimezone,
+                setSessionQuotedIdentifiersIgnoreCase = $s.setSessionQuotedIdentifiersIgnoreCase
             )
     ]
   )

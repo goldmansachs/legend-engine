@@ -111,6 +111,11 @@ public class SnowflakeConnectionExtension implements ConnectionExtension, Strate
                 {
                     sessionTimezone = StringUtils.isNotEmpty(connection.timeZone) ? connection.timeZone : "UTC";
                 }
+                String sessionQuoteIdentifiersIgnoreCase = null;
+                if (snowflakeDatasourceSpecification.setSessionQuotedIdentifiersIgnoreCase)
+                {
+                    sessionQuoteIdentifiersIgnoreCase = snowflakeDatasourceSpecification.quotedIdentifiersIgnoreCase != null ? String.valueOf(snowflakeDatasourceSpecification.quotedIdentifiersIgnoreCase) : "false";
+                }
                 return new SnowflakeDataSourceSpecificationKey(
                         snowflakeDatasourceSpecification.accountName,
                         snowflakeDatasourceSpecification.region,
@@ -127,7 +132,8 @@ public class SnowflakeConnectionExtension implements ConnectionExtension, Strate
                         snowflakeDatasourceSpecification.role,
                         snowflakeDatasourceSpecification.tempTableDb,
                         snowflakeDatasourceSpecification.tempTableSchema,
-                        sessionTimezone);
+                        sessionTimezone,
+                        sessionQuoteIdentifiersIgnoreCase);
             }
             return null;
         };

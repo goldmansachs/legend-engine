@@ -47,13 +47,13 @@ public class SnowflakeDataSourceSpecificationTest extends SnowflakeDataSourceSpe
 
     private SnowflakeDataSourceSpecification buildSnowflakeDataSource(String accountName, String region, String warehouse, String database, String cloudType, Boolean quoteIdentifiers, String proxyHost, String proxyProt, String nonProxyHosts, String accountType, String organisation, String role)
     {
-        return buildSnowflakeDataSource(accountName, region, warehouse, database, cloudType, quoteIdentifiers, proxyHost, proxyProt, nonProxyHosts, accountType, organisation, role, null);
+        return buildSnowflakeDataSource(accountName, region, warehouse, database, cloudType, quoteIdentifiers, proxyHost, proxyProt, nonProxyHosts, accountType, organisation, role, null, null);
     }
 
-    private SnowflakeDataSourceSpecification buildSnowflakeDataSource(String accountName, String region, String warehouse, String database, String cloudType, Boolean quoteIdentifiers, String proxyHost, String proxyProt, String nonProxyHosts, String accountType, String organisation, String role, String sessionTimezone)
+    private SnowflakeDataSourceSpecification buildSnowflakeDataSource(String accountName, String region, String warehouse, String database, String cloudType, Boolean quoteIdentifiers, String proxyHost, String proxyProt, String nonProxyHosts, String accountType, String organisation, String role, String sessionTimezone, String sessionQuoteIdentifiersIgnoreCase)
     {
         return new SnowflakeDataSourceSpecification(
-                new SnowflakeDataSourceSpecificationKey(accountName, region, warehouse, database, cloudType, quoteIdentifiers, null, proxyHost, proxyProt, nonProxyHosts, accountType, organisation, role, null, null, sessionTimezone),
+                new SnowflakeDataSourceSpecificationKey(accountName, region, warehouse, database, cloudType, quoteIdentifiers, null, proxyHost, proxyProt, nonProxyHosts, accountType, organisation, role, null, null, sessionTimezone, sessionQuoteIdentifiersIgnoreCase),
                 new SnowflakeManager(),
                 new SnowflakePublicAuthenticationStrategy("SF_KEY", "SF_PASS", "LEGEND_RO_PIERRE"));
     }
@@ -316,7 +316,7 @@ public class SnowflakeDataSourceSpecificationTest extends SnowflakeDataSourceSpe
     @Test
     public void testSnowflakeDataSourceSpecification_SessionTimezoneNotSet1()
     {
-        SnowflakeDataSourceSpecification ds = buildSnowflakeDataSource("sampleAccount", "us-east-2", "LEGENDRO_WH", "SAMPLE_DB", "aws", false, null, null, null, null, null, null, null);
+        SnowflakeDataSourceSpecification ds = buildSnowflakeDataSource("sampleAccount", "us-east-2", "LEGENDRO_WH", "SAMPLE_DB", "aws", false, null, null, null, null, null, null);
         Properties properties = ds.getConnectionProperties();
         Assert.assertNull(properties.getProperty(SnowflakeDataSourceSpecification.SNOWFLAKE_SESSION_TIMEZONE));
     }
@@ -324,7 +324,7 @@ public class SnowflakeDataSourceSpecificationTest extends SnowflakeDataSourceSpe
     @Test
     public void testSnowflakeDataSourceSpecification_SessionTimezoneFromConnectionValue1()
     {
-        SnowflakeDataSourceSpecification ds = buildSnowflakeDataSource("sampleAccount", "us-east-2", "LEGENDRO_WH", "SAMPLE_DB", "aws", false, null, null, null, null, null, null, "US/Eastern");
+        SnowflakeDataSourceSpecification ds = buildSnowflakeDataSource("sampleAccount", "us-east-2", "LEGENDRO_WH", "SAMPLE_DB", "aws", false, null, null, null, null, null, null, "US/Eastern", null);
         Properties properties = ds.getConnectionProperties();
         Assert.assertEquals("US/Eastern", properties.getProperty(SnowflakeDataSourceSpecification.SNOWFLAKE_SESSION_TIMEZONE));
     }
@@ -376,5 +376,82 @@ public class SnowflakeDataSourceSpecificationTest extends SnowflakeDataSourceSpe
         RelationalDatabaseConnection connection = getConnection(true);
         connection.timeZone = "America/Los_Angeles";
         Assert.assertEquals("America/Los_Angeles", computeAndGetSessionTimezoneFromJdbcProperties(connection));
+    }
+
+    private RelationalDatabaseConnection getConnectionWithQuotedIdentifiersIgnoreCase(boolean setSessionQuotedIdentifiersIgnoreCase, Boolean quotedIdentifiersIgnoreCase)
+    {
+        SnowflakeDatasourceSpecification ds = new SnowflakeDatasourceSpecification();
+        ds.accountName = "sampleAccount";
+        ds.region = "us-east-2";
+        ds.warehouseName = "LEGENDRO_WH";
+        ds.databaseName = "SAMPLE_DB";
+        ds.cloudType = "aws";
+        ds.setSessionQuotedIdentifiersIgnoreCase = setSessionQuotedIdentifiersIgnoreCase;
+        ds.quotedIdentifiersIgnoreCase = quotedIdentifiersIgnoreCase;
+        org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.connection.authentication.SnowflakePublicAuthenticationStrategy authStrategy =
+                new org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.connection.authentication.SnowflakePublicAuthenticationStrategy();
+        authStrategy.privateKeyVaultReference = "SF_KEY";
+        authStrategy.passPhraseVaultReference = "SF_PASS";
+        authStrategy.publicUserName = "LEGEND_RO_PIERRE";
+        return new RelationalDatabaseConnection(ds, authStrategy, DatabaseType.Snowflake);
+    }
+
+    private String computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(RelationalDatabaseConnection connection)
+    {
+        RelationalConnectionManager manager = new RelationalConnectionManager(0, Collections.emptyList());
+        SnowflakeDataSourceSpecification ds = (SnowflakeDataSourceSpecification) manager.getDataSourceSpecification(connection);
+        Properties properties = ds.getConnectionProperties();
+        return properties.getProperty(SnowflakeDataSourceSpecification.SNOWFLAKE_QUOTED_IDENTIFIERS_IGNORE_CASE);
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseSet()
+    {
+        SnowflakeDataSourceSpecification ds = buildSnowflakeDataSource("sampleAccount", "us-east-2", "LEGENDRO_WH", "SAMPLE_DB", "aws", false, null, null, null, null, null, null, null, "true");
+        Properties properties = ds.getConnectionProperties();
+        Assert.assertEquals("true", properties.getProperty(SnowflakeDataSourceSpecification.SNOWFLAKE_QUOTED_IDENTIFIERS_IGNORE_CASE));
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseNotSet1()
+    {
+        SnowflakeDataSourceSpecification ds = buildSnowflakeDataSource("sampleAccount", "us-east-2", "LEGENDRO_WH", "SAMPLE_DB", "aws", true, null, null, null, null, null, null, null, null);
+        Properties properties = ds.getConnectionProperties();
+        Assert.assertNull(properties.getProperty(SnowflakeDataSourceSpecification.SNOWFLAKE_QUOTED_IDENTIFIERS_IGNORE_CASE));
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseNotSet2()
+    {
+        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(false, null);
+        Assert.assertNull(computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(connection));
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseSetButNotOnSession2()
+    {
+        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(false, true);
+        Assert.assertNull(computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(connection));
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseDefaultsToFalse()
+    {
+        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(true, null);
+        Assert.assertEquals("false", computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(connection));
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseSetToTrue()
+    {
+        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(true, true);
+        Assert.assertEquals("true", computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(connection));
+    }
+
+    @Test
+    public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseSetToFalse()
+    {
+        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(true, false);
+        Assert.assertEquals("false", computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(connection));
     }
 }
