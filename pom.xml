@@ -26,7 +26,7 @@
     <name>Legend Engine</name>
     <groupId>org.finos.legend.engine</groupId>
     <artifactId>legend-engine</artifactId>
-    <version>4.124.1-SNAPSHOT</version>
+    <version>4.124.4-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
@@ -103,6 +103,7 @@
 
         <!-- Application -->
         <module>legend-engine-application-query</module>
+        <module>legend-engine-shared-mongo</module>
         <module>legend-engine-xts-identity</module>
 
         <!-- Python -->
@@ -115,9 +116,9 @@
     <properties>
         <!-- Legend -->
         <legend.pure.version>5.81.0</legend.pure.version>
-        <legend.shared.version>0.33.0</legend.shared.version>
+        <legend.shared.version>0.34.0</legend.shared.version>
         <legend.web-application.version>13.2.0</legend.web-application.version>
-        <legend.pylegend.version>0.17.0</legend.pylegend.version>
+        <legend.pylegend.version>0.18.0</legend.pylegend.version>
 
         <!-- SONAR -->
         <sonar.projectKey>legend-engine</sonar.projectKey>
@@ -142,7 +143,7 @@
         <maven.compiler.release>8</maven.compiler.release>
         <maven.enforcer.requireJavaVersion>[11.0.10,12)</maven.enforcer.requireJavaVersion>
         <maven.enforcer.requireMavenVersion>3.6.2</maven.enforcer.requireMavenVersion>
-        <project.build.outputTimestamp>1774359633</project.build.outputTimestamp>
+        <project.build.outputTimestamp>1774826677</project.build.outputTimestamp>
         <surefire.vm.params>-XX:-MaxFDLimit -XX:SoftRefLRUPolicyMSPerMB=1 -Duser.timezone=GMT</surefire.vm.params>
         <surefire.reports.directory />
         <publish.server.id>central</publish.server.id>
@@ -403,12 +404,12 @@
         </pluginManagement>
 
         <plugins>
-            <plugin>
+           <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>
                 <configuration>
                     <publishingServerId>central</publishingServerId>
-                    <autoPublish>true</autoPublish>
+                     <autoPublish>true</autoPublish>
                     <waitMaxTime>3600</waitMaxTime>
                 </configuration>
             </plugin>
@@ -534,10 +535,10 @@
                                         <!-- Default -->
 
                                         <!-- No HTTP Specific dependencies -->
-                                        <!--                                        <exclude>javax.ws.rs</exclude>-->
-                                        <!--                                        <exclude>io.swagger</exclude>-->
-                                        <!--                                        <exclude>org.pac4j</exclude>-->
-                                        <!--                                        <exclude>org.pac4j.jax-rs</exclude>-->
+<!--                                        <exclude>javax.ws.rs</exclude>-->
+<!--                                        <exclude>io.swagger</exclude>-->
+<!--                                        <exclude>org.pac4j</exclude>-->
+<!--                                        <exclude>org.pac4j.jax-rs</exclude>-->
                                         <!-- No HTTP Specific dependencies -->
                                     </excludes>
                                     <includes>
@@ -579,10 +580,10 @@
                                         <!-- Default -->
 
                                         <!-- No HTTP Specific dependencies -->
-                                        <!--                                        <exclude>javax.ws.rs</exclude>-->
-                                        <!--                                        <exclude>io.swagger</exclude>-->
-                                        <!--                                        <exclude>org.pac4j</exclude>-->
-                                        <!--                                        <exclude>org.pac4j.jax-rs</exclude>-->
+<!--                                        <exclude>javax.ws.rs</exclude>-->
+<!--                                        <exclude>io.swagger</exclude>-->
+<!--                                        <exclude>org.pac4j</exclude>-->
+<!--                                        <exclude>org.pac4j.jax-rs</exclude>-->
                                         <!-- No HTTP Specific dependencies -->
 
                                         <!-- No Pure -->
@@ -879,11 +880,11 @@
                 <artifactId>legend-engine-xt-memsqlFunction-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <!--            <dependency>-->
-            <!--                <groupId>org.finos.legend.engine</groupId>-->
-            <!--                <artifactId>legend-engine-xt-snowflake-generator</artifactId>-->
-            <!--                <version>${project.version}</version>-->
-            <!--            </dependency>-->
+<!--            <dependency>-->
+<!--                <groupId>org.finos.legend.engine</groupId>-->
+<!--                <artifactId>legend-engine-xt-snowflake-generator</artifactId>-->
+<!--                <version>${project.version}</version>-->
+<!--            </dependency>-->
             <dependency>
                 <groupId>org.finos.legend.engine</groupId>
                 <artifactId>legend-engine-xt-authentication-pure</artifactId>
@@ -1301,7 +1302,7 @@
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
-            <dependency>
+             <dependency>
                 <groupId>org.finos.legend.engine</groupId>
                 <artifactId>legend-engine-xt-relationalStore-sqlPlanning-pure</artifactId>
                 <version>${project.version}</version>
@@ -3009,6 +3010,11 @@
                 <artifactId>legend-engine-pure-code-reversePCT-pure</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.finos.legend.engine</groupId>
+                <artifactId>legend-engine-shared-mongo</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <!-- ENGINE -->
 
             <!-- PURE -->
@@ -3354,17 +3360,17 @@
             </dependency>
             <dependency>
                 <groupId>org.finos.legend.engine</groupId>
-                <artifactId>legend-engine-xt-python-reversePCT-shared</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.finos.legend.engine</groupId>
                 <artifactId>legend-engine-xt-python-reversePCT-legendQL</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.finos.legend.engine</groupId>
                 <artifactId>legend-engine-xt-python-reversePCT-pandasAPI</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.finos.legend.engine</groupId>
+                <artifactId>legend-engine-xt-python-reversePCT-shared</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -3457,6 +3463,11 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.dataformat</groupId>
                 <artifactId>jackson-dataformat-xml</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
             <dependency>
