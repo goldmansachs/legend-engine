@@ -51,7 +51,7 @@ public interface StrategicConnectionExtension extends LegendConnectionExtension
         return (connection, identity, allocationResults) -> null;
     }
 
-    default Boolean getQuotedIdentifiersIgnoreCase(DatasourceSpecification datasourceSpecification)
+    default Boolean getIdentifiersCaseSensitivity(DatasourceSpecification datasourceSpecification)
     {
         return null;
     }

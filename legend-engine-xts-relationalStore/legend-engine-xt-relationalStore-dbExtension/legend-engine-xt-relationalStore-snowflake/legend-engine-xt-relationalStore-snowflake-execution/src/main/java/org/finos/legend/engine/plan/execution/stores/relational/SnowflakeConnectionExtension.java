@@ -156,7 +156,7 @@ public class SnowflakeConnectionExtension implements ConnectionExtension, Strate
     }
 
     @Override
-    public Boolean getQuotedIdentifiersIgnoreCase(DatasourceSpecification datasourceSpecification)
+    public Boolean getIdentifiersCaseSensitivity(DatasourceSpecification datasourceSpecification)
     {
         if (datasourceSpecification instanceof SnowflakeDatasourceSpecification)
         {
