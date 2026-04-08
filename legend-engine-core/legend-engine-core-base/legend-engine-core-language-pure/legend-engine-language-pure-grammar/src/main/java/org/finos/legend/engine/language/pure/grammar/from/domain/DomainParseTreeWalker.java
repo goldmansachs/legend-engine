@@ -36,6 +36,7 @@ import org.finos.legend.engine.language.pure.grammar.from.antlr4.graphFetchTree.
 import org.finos.legend.engine.language.pure.grammar.from.antlr4.navigation.NavigationLexerGrammar;
 import org.finos.legend.engine.language.pure.grammar.from.antlr4.navigation.NavigationParserGrammar;
 import org.finos.legend.engine.language.pure.grammar.from.data.embedded.HelperEmbeddedDataGrammarParser;
+import org.finos.legend.engine.language.pure.grammar.from.data.embedded.RelationResultDataTreeWalker;
 import org.finos.legend.engine.language.pure.grammar.from.extension.EmbeddedPureParser;
 import org.finos.legend.engine.language.pure.grammar.from.runtime.PackageableElementPointerFactory;
 import org.finos.legend.engine.language.pure.grammar.to.HelperValueSpecificationGrammarComposer;
@@ -73,6 +74,7 @@ import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.functio
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.section.ImportAwareCodeSection;
 import org.finos.legend.engine.protocol.pure.v1.model.test.assertion.EqualTo;
 import org.finos.legend.engine.protocol.pure.v1.model.test.assertion.EqualToJson;
+import org.finos.legend.engine.protocol.pure.v1.model.test.assertion.EqualToRelation;
 import org.finos.legend.engine.protocol.pure.v1.model.test.assertion.TestAssertion;
 import org.finos.legend.engine.protocol.pure.m3.type.generics.GenericType;
 import org.finos.legend.engine.protocol.pure.m3.valuespecification.constant.PackageableType;
@@ -593,6 +595,19 @@ public class DomainParseTreeWalker
             String value = PureGrammarParserUtility.fromGrammarString(functionTestSuiteContext.externalFormatValue().STRING().getText(), true);
             assertion = createEqualToJSON(contentType, value, walkerSourceInformation.getSourceInformation(functionTestSuiteContext.externalFormatValue()));
         }
+        else if (functionTestSuiteContext.embeddedData() != null)
+        {
+            DomainParserGrammar.EmbeddedDataContext embeddedDataCtx = functionTestSuiteContext.embeddedData();
+            String type = PureGrammarParserUtility.fromIdentifier(embeddedDataCtx.identifier());
+            if ("Relation".equals(type))
+            {
+                assertion = parseRelationResultAssertion(embeddedDataCtx);
+            }
+            else
+            {
+                throw new EngineException("Unsupported embedded data type for function test assertion: " + type + ". Only 'Relation' is supported.", walkerSourceInformation.getSourceInformation(embeddedDataCtx), EngineErrorType.PARSER);
+            }
+        }
         else
         {
             DomainParser parser = new DomainParser();
@@ -609,6 +624,50 @@ public class DomainParseTreeWalker
         }
         assertion.id = DEFAULT_TESTABLE_ID;
         return assertion;
+    }
+
+    private EqualToRelation parseRelationResultAssertion(DomainParserGrammar.EmbeddedDataContext embeddedDataCtx)
+    {
+        // Extract the island content between #{ and }#
+        StringBuilder builder = new StringBuilder();
+        for (DomainParserGrammar.EmbeddedDataContentContext cc : embeddedDataCtx.embeddedDataContent())
+        {
+            builder.append(cc.getText());
+        }
+        // Remove the trailing }# (the last 2 chars are }#)
+        if (builder.length() >= 2)
+        {
+            builder.setLength(builder.length() - 2);
+        }
+        String content = builder.toString();
+
+        // Set up source information
+        TerminalNode islandOpen = embeddedDataCtx.ISLAND_OPEN();
+        int startLine = islandOpen.getSymbol().getLine();
+        int lineOffset = walkerSourceInformation.getLineOffset() + startLine - 1;
+        int columnOffset = (startLine == 1 ? walkerSourceInformation.getColumnOffset() : 0) + islandOpen.getSymbol().getCharPositionInLine() + islandOpen.getSymbol().getText().length();
+        ParseTreeWalkerSourceInformation innerWalkerSourceInformation = new ParseTreeWalkerSourceInformation.Builder(walkerSourceInformation).withLineOffset(lineOffset).withColumnOffset(columnOffset).build();
+        SourceInformation sourceInformation = walkerSourceInformation.getSourceInformation(embeddedDataCtx);
+
+        // Parse using RelationResultData grammar
+        org.antlr.v4.runtime.CharStream input = org.antlr.v4.runtime.CharStreams.fromString(content);
+        ParserErrorListener errorListener = new ParserErrorListener(innerWalkerSourceInformation);
+        org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataLexerGrammar lexer =
+                new org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataLexerGrammar(input);
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(errorListener);
+        org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataParserGrammar parser =
+                new org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataParserGrammar(new CommonTokenStream(lexer));
+        parser.removeErrorListeners();
+        parser.addErrorListener(errorListener);
+
+        RelationResultDataTreeWalker treeWalker = new RelationResultDataTreeWalker(innerWalkerSourceInformation, sourceInformation);
+        org.finos.legend.engine.protocol.pure.v1.model.data.relation.RelationElement element = treeWalker.visit(parser.definition());
+
+        EqualToRelation equalToRelation = new EqualToRelation();
+        equalToRelation.expected = element;
+        equalToRelation.sourceInformation = sourceInformation;
+        return equalToRelation;
     }
 
     private EqualToJson createEqualToJSON(String contentType, String val, SourceInformation sourceInformation)
