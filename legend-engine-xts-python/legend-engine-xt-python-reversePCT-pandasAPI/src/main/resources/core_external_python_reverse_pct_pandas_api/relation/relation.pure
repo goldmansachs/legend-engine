@@ -6791,8 +6791,379 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
           noRev('|[^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=1, val1=1, val2=1, val3=1.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=2, val1=31, val2=23, val3=0.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=3, val1=7, val2=97, val3=72.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=4, val1=5, val2=3, val3=89.0)]->meta::pure::functions::relation::project(~[id:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|$v.id,plus:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|[$v.val1, $v.val2, $v.val3]->plus(),times:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|[$v.val1, $v.val2, $v.val3]->times(),minus:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|[$v.val1, $v.val2, $v.val3]->minus()])')
         ]
       )
-    ]->combine()
+    ]->combine(),
 
+    // ==========================================
+    // Rank (rank with method='min')
+    // ==========================================
+    meta::pure::functions::relation::tests::rank::testOLAPWithPartitionAndOrderRank_Function_1__Boolean_1_->testRev(
+      [
+        rev('|#TDS{\n'+
+              'id,grp,name\n'+
+              '1,2,A\n'+
+              '2,1,B\n'+
+              '3,3,C\n'+
+              '4,4,D\n'+
+              '5,2,E\n'+
+              '8,1,F\n'+
+              '7,3,G\n'+
+              '8,1,H\n'+
+              '9,5,I\n'+
+              '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~other:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::rank($w, $r)})',
+            '(lambda frame:' +
+             '  frame.assign(other=frame.groupby("grp")["id"].rank(method=\'min\', ascending=False))' +
+             ')(csv_frame("id,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n8,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
+      ]
+    ),
+
+    // ==========================================
+    // DenseRank (rank with method='dense')
+    // ==========================================
+    meta::pure::functions::relation::tests::denseRank::testOLAPWithPartitionAndOrderDenseRank_Function_1__Boolean_1_->testRev(
+      [
+        rev('|#TDS{\n'+
+              'id,grp,name\n'+
+              '1,2,A\n'+
+              '2,1,B\n'+
+              '3,3,C\n'+
+              '4,4,D\n'+
+              '5,2,E\n'+
+              '8,1,F\n'+
+              '7,3,G\n'+
+              '8,1,H\n'+
+              '9,5,I\n'+
+              '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~other:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::denseRank($w, $r)})',
+            '(lambda frame:' +
+             '  frame.assign(other=frame.groupby("grp")["id"].rank(method=\'dense\', ascending=False))' +
+             ')(csv_frame("id,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n8,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
+      ]
+    ),
+
+    // ==========================================
+    // PercentRank (rank with pct=True)
+    // ==========================================
+    meta::pure::functions::relation::tests::percentRank::testOLAPWithPartitionAndOrderPercentRank_Function_1__Boolean_1_->testRev(
+      [
+        rev('|#TDS{\n'+
+              'id,grp,name\n'+
+              '1,1,A\n'+
+              '3,1,B\n'+
+              '3,1,C\n'+
+              '4,4,D\n'+
+              '3,1,E\n'+
+              '6,1,F\n'+
+              '7,4,G\n'+
+              '8,1,H\n'+
+              '9,5,I\n'+
+              '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~other:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::percentRank($w, $r)})',
+            '(lambda frame:' +
+             '  frame.assign(other=frame.groupby("grp")["id"].rank(pct=True, ascending=False))' +
+             ')(csv_frame("id,grp,name\\n1,1,A\\n3,1,B\\n3,1,C\\n4,4,D\\n3,1,E\\n6,1,F\\n7,4,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
+      ]
+    ),
+
+    // ==========================================
+    // CumulativeDistribution (cume_dist_legend_ext)
+    // ==========================================
+    meta::pure::functions::relation::tests::cumulativeDistribution::testOLAPWithPartitionAndOrderCummulativeDistribution_Function_1__Boolean_1_->testRev(
+      [
+        rev('|#TDS{\n'+
+              'id,grp,name\n'+
+              '1,2,A\n'+
+              '2,1,B\n'+
+              '3,3,C\n'+
+              '4,4,D\n'+
+              '5,2,E\n'+
+              '6,1,F\n'+
+              '7,3,G\n'+
+              '8,1,H\n'+
+              '9,5,I\n'+
+              '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~other:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::cumulativeDistribution($w, $r)->meta::pure::functions::math::round(2)})',
+            '(lambda frame:' +
+             '  frame.assign(other=frame.groupby("grp")["id"].cume_dist_legend_ext(ascending=False).round(2))' +
+             ')(csv_frame("id,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n6,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
+      ]
+    ),
+
+    // ==========================================
+    // Ntile (ntile_legend_ext)
+    // ==========================================
+    meta::pure::functions::relation::tests::ntile::testOLAPWithPartitionAndOrderNTile_Function_1__Boolean_1_->testRev(
+      [
+        rev('|#TDS{\n'+
+              'id,grp,name\n'+
+              '1,1,A\n'+
+              '3,1,B\n'+
+              '3,1,C\n'+
+              '4,4,D\n'+
+              '3,1,E\n'+
+              '6,1,F\n'+
+              '7,4,G\n'+
+              '8,1,H\n'+
+              '9,5,I\n'+
+              '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~name->meta::pure::functions::relation::descending()), ~other:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::ntile($r, 2)})',
+            '(lambda frame:' +
+             '  frame.assign(other=frame.groupby("grp")["name"].ntile_legend_ext(num_buckets=2, ascending=False))' +
+             ')(csv_frame("id,grp,name\\n1,1,A\\n3,1,B\\n3,1,C\\n4,4,D\\n3,1,E\\n6,1,F\\n7,4,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
+      ]
+    ),
+
+    // ==========================================
+    // RowNumber (rank with method='first')
+    // ==========================================
+    meta::pure::functions::relation::tests::rowNumber::testOLAPWithPartitionAndRowNumber_Function_1__Boolean_1_->testRev(
+      [
+        rev('|#TDS{\n'+
+              'id,grp,name\n'+
+              '1,2,A\n'+
+              '2,1,B\n'+
+              '3,3,C\n'+
+              '4,4,D\n'+
+              '5,2,E\n'+
+              '6,1,F\n'+
+              '7,3,G\n'+
+              '8,1,H\n'+
+              '9,5,I\n'+
+              '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~other:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::rowNumber($r)})',
+            '(lambda frame:' +
+             '  frame.assign(other=frame.groupby("grp")["id"].rank(method=\'first\', ascending=False))' +
+             ')(csv_frame("id,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n6,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
+      ]
+    ),
+
+    // ==========================================
+    // Concatenate (concat_legend_ext)
+    // ==========================================
+    [
+      meta::pure::functions::relation::tests::concatenate::testSimpleConcatenateShared_Function_1__Boolean_1_->testRev(
+        [
+          rev('|#TDS{\n'+
+                'val,str\n'+
+                '1,a\n'+
+                '3,ewe\n'+
+                '4,qw}#->meta::pure::functions::relation::concatenate(#TDS{\n'+
+                'val,str\n'+
+                '5,qwea\n'+
+                '6,eeewe\n'+
+                '7,qqwew}#)',
+              '(lambda frame:' +
+               '  frame.concat_legend_ext(csv_frame("val,str\\n5,qwea\\n6,eeewe\\n7,qqwew"))' +
+               ')(csv_frame("val,str\\n1,a\\n3,ewe\\n4,qw"))')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::concatenate::testSimpleConcatenate_MultipleExpressions_Function_1__Boolean_1_->testRev(
+        [
+          rev('|let a = #TDS{\n'+
+                  'val,str\n'+
+                  '1,a\n'+
+                  '3,ewe\n'+
+                  '4,qw}#;\n'+
+                  ' let b = #TDS{\n'+
+                  'val,str\n'+
+                  '5,qwea\n'+
+                  '6,eeewe\n'+
+                  '7,qqwew}#;\n'+
+                  ' let c = $a->meta::pure::functions::relation::concatenate($b);\n'+
+                  ' $c->meta::pure::functions::relation::concatenate($b);\n'+
+                  '',
+                '(lambda frame:' +
+               '  frame.concat_legend_ext(csv_frame("val,str\\n5,qwea\\n6,eeewe\\n7,qqwew")).concat_legend_ext(csv_frame("val,str\\n5,qwea\\n6,eeewe\\n7,qqwew"))' +
+               ')(csv_frame("val,str\\n1,a\\n3,ewe\\n4,qw"))')
+        ]
+      )
+    ]->combine(),
+
+    // ==========================================
+    // Lateral (not supported yet)
+    // ==========================================
+    [
+      meta::pure::functions::relation::tests::lateral::testLateralJoin_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|let t1 = #TDS{\n'+
+                    'departmentId,departmentName\n'+
+                    '1,Engineering\n'+
+                    '2,Support\n'+
+                    '3,Sales}#;\n'+
+                    ' let t2 = #TDS{\n'+
+                    'employeeId,employeeName,department\n'+
+                    '101,Rafael,1\n'+
+                    '102,Pierre,1\n'+
+                    '103,Jake,1\n'+
+                    '104,John,2\n'+
+                    '105,Jane,2\n'+
+                    '106,Alice,3\n'+
+                    '107,Bob,3\n'+
+                    '108,Charlie,3\n'+
+                    '109,David,3\n'+
+                    '999,NonExistent,4}#;\n'+
+                    ' $t1->meta::pure::functions::relation::lateral(x: (departmentId:Integer[0..1], departmentName:String[0..1])[1]|$t2->meta::pure::functions::relation::filter(y: (employeeId:Integer[0..1], employeeName:String[0..1], department:Integer[0..1])[1]|$y.department == $x.departmentId));\n'+
+                    '')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::lateral::testLateralJoin_Chained_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|let t1 = #TDS{\n'+
+                    'departmentId,departmentName\n'+
+                    '1,Engineering\n'+
+                    '2,Support\n'+
+                    '3,Sales}#;\n'+
+                    ' let t2 = #TDS{\n'+
+                    'did,Budget,Program\n'+
+                    '1,0.5,1\n'+
+                    '1,1.0,2\n'+
+                    '2,0.5,3\n'+
+                    '3,3.0,4\n'+
+                    '3,5.0,5}#;\n'+
+                    ' let t3 = #TDS{\n'+
+                    'employeeId,employeeName,department\n'+
+                    '101,Rafael,1\n'+
+                    '102,Pierre,1\n'+
+                    '103,Jake,1\n'+
+                    '104,John,2\n'+
+                    '105,Jane,2\n'+
+                    '106,Alice,3\n'+
+                    '107,Bob,3\n'+
+                    '108,Charlie,3\n'+
+                    '109,David,3\n'+
+                    '999,NonExistent,4}#;\n'+
+                    ' $t1->meta::pure::functions::relation::lateral(x: (departmentId:Integer[0..1], departmentName:String[0..1])[1]|$t2->meta::pure::functions::relation::filter(y: (did:Integer[0..1], Budget:Float[0..1], Program:Integer[0..1])[1]|$y.did == $x.departmentId))->meta::pure::functions::relation::lateral(x: (departmentId:Integer[0..1], departmentName:String[0..1], did:Integer[0..1], Budget:Float[0..1], Program:Integer[0..1])[1]|$t3->meta::pure::functions::relation::filter(y: (employeeId:Integer[0..1], employeeName:String[0..1], department:Integer[0..1])[1]|$y.department == $x.departmentId));\n'+
+                    '')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::lateral::testLateralJoinAreInnerJoins_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|let t1 = #TDS{\n'+
+                    'departmentId,departmentName\n'+
+                    '1,Engineering\n'+
+                    '2,Support\n'+
+                    '3,Sales}#;\n'+
+                    ' let t2 = #TDS{\n'+
+                    'employeeId,employeeName,department\n'+
+                    '101,Rafael,1\n'+
+                    '102,Pierre,1\n'+
+                    '103,Jake,1\n'+
+                    '104,John,2\n'+
+                    '105,Jane,2\n'+
+                    '106,Alice,3\n'+
+                    '107,Bob,3\n'+
+                    '108,Charlie,3\n'+
+                    '109,David,3\n'+
+                    '999,NonExistent,4}#;\n'+
+                    ' $t2->meta::pure::functions::relation::lateral(x: (employeeId:Integer[0..1], employeeName:String[0..1], department:Integer[0..1])[1]|$t1->meta::pure::functions::relation::filter(y: (departmentId:Integer[0..1], departmentName:String[0..1])[1]|$x.department == $y.departmentId));\n'+
+                    '')
+        ]
+      )
+    ]->combine(),
+
+    // ==========================================
+    // AsOfJoin (not supported yet)
+    // ==========================================
+    [
+      meta::pure::functions::relation::tests::asOfJoin::testSimpleAsOfJoin_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() > $y.time2->meta::pure::functions::multiplicity::toOne()})'),
+          noRev('|$tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() < $y.time2->meta::pure::functions::multiplicity::toOne()})')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::asOfJoin::testSimpleAsOfJoin_MultipleExpressions_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|let tds1 = #TDS{\n'+
+                    'key,time,value\n'+
+                    '1,2000-10-25T06:30:00Z,5000\n'+
+                    '1,2000-10-25T06:31:00Z,4000\n'+
+                    '3,2000-10-25T06:32:00Z,3000\n'+
+                    '4,2000-10-25T06:33:00Z,1200\n'+
+                    '5,2000-10-25T06:34:00Z,3200\n'+
+                    '6,2000-10-25T06:35:00Z,4300}#;\n'+
+                    ' let tds2 = #TDS{\n'+
+                    'key2,time2,value2\n'+
+                    '2,2000-10-25T06:31:20Z,3000\n'+
+                    '1,2000-10-25T06:30:10Z,2000\n'+
+                    '4,2000-10-25T06:33:40Z,1400\n'+
+                    '3,2000-10-25T06:32:30Z,3200\n'+
+                    '6,2000-10-25T06:35:10Z,2900\n'+
+                    '5,2000-10-25T06:34:50Z,3200}#;\n'+
+                    ' $tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() > $y.time2->meta::pure::functions::multiplicity::toOne()});\n'+
+                    ''),
+          noRev('|let tds1 = #TDS{\n'+
+                    'key,time,value\n'+
+                    '1,2000-10-25T06:30:00Z,5000\n'+
+                    '1,2000-10-25T06:31:00Z,4000\n'+
+                    '3,2000-10-25T06:32:00Z,3000\n'+
+                    '4,2000-10-25T06:33:00Z,1200\n'+
+                    '5,2000-10-25T06:34:00Z,3200\n'+
+                    '6,2000-10-25T06:35:00Z,4300}#;\n'+
+                    ' let tds2 = #TDS{\n'+
+                    'key2,time2,value2\n'+
+                    '2,2000-10-25T06:31:20Z,3000\n'+
+                    '1,2000-10-25T06:30:10Z,2000\n'+
+                    '4,2000-10-25T06:33:40Z,1400\n'+
+                    '3,2000-10-25T06:32:30Z,3200\n'+
+                    '6,2000-10-25T06:35:10Z,2900\n'+
+                    '5,2000-10-25T06:34:50Z,3200}#;\n'+
+                    ' $tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() < $y.time2->meta::pure::functions::multiplicity::toOne()});\n'+
+                    '')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::asOfJoin::testAsOfJoinWithKeyMatch_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() > $y.time2->meta::pure::functions::multiplicity::toOne()}, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.key->meta::pure::functions::multiplicity::toOne() == $y.key2->meta::pure::functions::multiplicity::toOne()})'),
+          noRev('|$tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() < $y.time2->meta::pure::functions::multiplicity::toOne()}, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.key->meta::pure::functions::multiplicity::toOne() == $y.key2->meta::pure::functions::multiplicity::toOne()})')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::asOfJoin::testAsOfJoinWithKeyMatch_MultipleExpressions_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|let tds1 = #TDS{\n'+
+                    'key,time,value\n'+
+                    '1,2000-10-25T06:30:00Z,5000\n'+
+                    '1,2000-10-25T06:31:00Z,4000\n'+
+                    '3,2000-10-25T06:32:00Z,3000\n'+
+                    '4,2000-10-25T06:33:00Z,1200\n'+
+                    '5,2000-10-25T06:34:00Z,3200\n'+
+                    '6,2000-10-25T06:35:00Z,4300}#;\n'+
+                    ' let tds2 = #TDS{\n'+
+                    'key2,time2,value2\n'+
+                    '2,2000-10-25T06:31:20Z,3000\n'+
+                    '1,2000-10-25T06:30:10Z,2000\n'+
+                    '4,2000-10-25T06:33:40Z,1400\n'+
+                    '3,2000-10-25T06:32:30Z,3200\n'+
+                    '3,2000-10-25T06:33:30Z,3200\n'+
+                    '3,2000-10-25T06:34:30Z,3200\n'+
+                    '6,2000-10-25T06:35:10Z,2900\n'+
+                    '6,2000-10-25T06:35:50Z,2900\n'+
+                    '5,2000-10-25T06:34:50Z,3200}#;\n'+
+                    ' $tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() > $y.time2->meta::pure::functions::multiplicity::toOne()}, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.key->meta::pure::functions::multiplicity::toOne() == $y.key2->meta::pure::functions::multiplicity::toOne()});\n'+
+                    ''),
+          noRev('|let tds1 = #TDS{\n'+
+                    'key,time,value\n'+
+                    '1,2000-10-25T06:30:00Z,5000\n'+
+                    '1,2000-10-25T06:31:00Z,4000\n'+
+                    '3,2000-10-25T06:32:00Z,3000\n'+
+                    '4,2000-10-25T06:33:00Z,1200\n'+
+                    '5,2000-10-25T06:34:00Z,3200\n'+
+                    '6,2000-10-25T06:35:00Z,4300}#;\n'+
+                    ' let tds2 = #TDS{\n'+
+                    'key2,time2,value2\n'+
+                    '2,2000-10-25T06:31:20Z,3000\n'+
+                    '1,2000-10-25T06:30:10Z,2000\n'+
+                    '4,2000-10-25T06:33:40Z,1400\n'+
+                    '3,2000-10-25T06:32:30Z,3200\n'+
+                    '3,2000-10-25T06:33:30Z,3200\n'+
+                    '3,2000-10-25T06:34:30Z,3200\n'+
+                    '6,2000-10-25T06:35:10Z,2900\n'+
+                    '6,2000-10-25T06:35:50Z,2900\n'+
+                    '5,2000-10-25T06:34:50Z,3200}#;\n'+
+                    ' $tds1->meta::pure::functions::relation::asOfJoin($tds2, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.time->meta::pure::functions::multiplicity::toOne() < $y.time2->meta::pure::functions::multiplicity::toOne()}, {x: (key:Integer[0..1], time:Date[0..1], value:Integer[0..1])[1], y: (key2:Integer[0..1], time2:Date[0..1], value2:Integer[0..1])[1]|$x.key->meta::pure::functions::multiplicity::toOne() == $y.key2->meta::pure::functions::multiplicity::toOne()});\n'+
+                    '')
+        ]
+      )
+    ]->combine()
 
   ]
 }

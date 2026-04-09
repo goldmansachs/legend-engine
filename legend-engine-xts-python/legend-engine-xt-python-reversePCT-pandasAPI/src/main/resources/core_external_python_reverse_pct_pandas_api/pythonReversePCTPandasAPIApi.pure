@@ -108,7 +108,7 @@ function <<access.private>> meta::external::python::reversePCT::pandasAPI::getPu
     'from pylegend.extensions.tds.pandas_api.frames.pandas_api_csv_input_frame import PandasApiCsvNonExecutableInputTdsFrame as csv_frame\n'+
     'from pylegend.core.tds.pandas_api.frames.pandas_api_applied_function_tds_frame import PandasApiAppliedFunctionTdsFrame\n' +
     'from pylegend.core.tds.pandas_api.frames.pandas_api_window_tds_frame import PandasApiWindowTdsFrame\n' +
-    'from pylegend.core.language.pandas_api.pandas_api_window_series import WindowSeries' +
+    'from pylegend.core.language.pandas_api.pandas_api_window_series import WindowSeries\n' +
     'from pylegend.core.tds.tds_column import PrimitiveType\n' +
     '\n' +
     'def func():\n'+
