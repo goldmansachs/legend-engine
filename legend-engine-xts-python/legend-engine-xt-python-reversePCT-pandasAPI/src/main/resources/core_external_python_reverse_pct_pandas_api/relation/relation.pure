@@ -5952,86 +5952,6 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
         ]
       ),
 
-      // meta::pure::functions::relation::tests::composition::test_Pivot_Filter_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|#TDS{\n'+
-      //             'city,country,year,treePlanted\n'+
-      //             'NYC,USA,2011,5000\n'+
-      //             'NYC,USA,2000,5000\n'+
-      //             'SAN,USA,2000,2000\n'+
-      //             'SAN,USA,2011,100\n'+
-      //             'LDN,UK,2011,3000\n'+
-      //             'SAN,USA,2011,2500\n'+
-      //             'NYC,USA,2000,10000\n'+
-      //             'NYC,USA,2012,7600\n'+
-      //             'NYC,USA,2012,7600}#->meta::pure::functions::relation::pivot(~[year], ~[newCol:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.treePlanted:y: Integer[*]|$y->plus()])->meta::pure::functions::lang::cast(@meta::pure::metamodel::relation::Relation<(city:String[0..1], country:String[0..1], \'\\'2000__|__newCol\\'\':Integer[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])>)->meta::pure::functions::relation::filter(x: (city:String[0..1], country:String[0..1], \'\\'2000__|__newCol\\'\':Integer[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])[1]|$x.city == \'NYC\')'+
-      //             '',
-      //          '(lambda frame:' +
-      //          '  frame' +
-      //          ')(csv_frame("\\ncity,country,year,treePlanted\\nNYC,USA,2011,5000\\nNYC,USA,2000,5000\\nSAN,USA,2000,2000\\nSAN,USA,2011,100\\nLDN,UK,2011,3000\\nSAN,USA,2011,2500\\nNYC,USA,2000,10000\\nNYC,USA,2012,7600\\nNYC,USA,2012,7600"))')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::test_Extend_Filter_Select_ComplexGroupBy_Pivot_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|#TDS{\n'+
-      //             'city,country,year,treePlanted\n'+
-      //             'NYC,USA,2011,5000\n'+
-      //             'NYC,USA,2000,5000\n'+
-      //             'SAN,USA,2000,2000\n'+
-      //             'SAN,USA,2011,100\n'+
-      //             'LDN,UK,2011,3000\n'+
-      //             'SAN,USA,2011,2500\n'+
-      //             'NYC,USA,2000,10000\n'+
-      //             'NYC,USA,2012,7600\n'+
-      //             'NYC,USA,2012,7600}#->meta::pure::functions::relation::extend(~yr:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.year->meta::pure::functions::multiplicity::toOne() - 2000)->meta::pure::functions::relation::filter(x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1], yr:Integer[1])[1]|$x.yr > 10)->meta::pure::functions::relation::select(~[city,country,year,treePlanted])->meta::pure::functions::relation::groupBy(~[city,country], ~[year:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.year:x: Integer[*]|$x->plus(),treePlanted:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.treePlanted:x: Integer[*]|$x->plus()])->meta::pure::functions::relation::pivot(~[year], ~[newCol:x: (city:String[0..1], country:String[0..1], year:Integer[1], treePlanted:Integer[1])[1]|$x.treePlanted:x: Integer[*]|$x->plus()])->meta::pure::functions::lang::cast(@meta::pure::metamodel::relation::Relation<(city:String[0..1], country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'4022__|__newCol\\'\':Integer[0..1], \'\\'6035__|__newCol\\'\':Integer[0..1])>)->meta::pure::functions::relation::sort(~city->meta::pure::functions::relation::ascending())'+
-      //             '',
-      //          '(lambda frame:' +
-      //          '  frame' +
-      //          ')(csv_frame("\\ncity,country,year,treePlanted\\nNYC,USA,2011,5000\\nNYC,USA,2000,5000\\nSAN,USA,2000,2000\\nSAN,USA,2011,100\\nLDN,UK,2011,3000\\nSAN,USA,2011,2500\\nNYC,USA,2000,10000\\nNYC,USA,2012,7600\\nNYC,USA,2012,7600"))')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::test_Extend_Filter_Select_GroupBy_Pivot_Extend_Sort_Limit_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|#TDS{\n'+
-      //             'city,country,year,treePlanted\n'+
-      //             'NYC,USA,2011,5000\n'+
-      //             'NYC,USA,2000,5000\n'+
-      //             'SAN,USA,2000,2000\n'+
-      //             'SAN,USA,2011,100\n'+
-      //             'LDN,UK,2011,3000\n'+
-      //             'SAN,USA,2011,2500\n'+
-      //             'NYC,USA,2000,10000\n'+
-      //             'NYC,USA,2012,7600\n'+
-      //             'NYC,USA,2012,7600}#->meta::pure::functions::relation::extend(~yr:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.year->meta::pure::functions::multiplicity::toOne() - 2000)->meta::pure::functions::relation::filter(x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1], yr:Integer[1])[1]|$x.yr > 10)->meta::pure::functions::relation::select(~[city,country,year,treePlanted])->meta::pure::functions::relation::groupBy(~[year,city,country], ~treePlanted:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.treePlanted:x: Integer[*]|$x->plus())->meta::pure::functions::relation::pivot(~[year], ~[newCol:x: (year:Integer[0..1], city:String[0..1], country:String[0..1], treePlanted:Integer[1])[1]|$x.treePlanted:y: Integer[*]|$y->plus()])->meta::pure::functions::lang::cast(@meta::pure::metamodel::relation::Relation<(city:String[0..1], country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])>)->meta::pure::functions::relation::extend(~newCol:x: (city:String[0..1], country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])[1]|$x.city->meta::pure::functions::multiplicity::toOne() + \'_0\')->meta::pure::functions::relation::sort(~city->meta::pure::functions::relation::ascending())->meta::pure::functions::relation::limit(3)'+
-      //             '',
-      //          '(lambda frame:' +
-      //          '  frame' +
-      //          ')(csv_frame("\\ncity,country,year,treePlanted\\nNYC,USA,2011,5000\\nNYC,USA,2000,5000\\nSAN,USA,2000,2000\\nSAN,USA,2011,100\\nLDN,UK,2011,3000\\nSAN,USA,2011,2500\\nNYC,USA,2000,10000\\nNYC,USA,2012,7600\\nNYC,USA,2012,7600"))')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::test_Extend_Filter_Select_Pivot_GroupBy_Extend_Sort_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|#TDS{\n'+
-      //             'city,country,year,treePlanted\n'+
-      //             'NYC,USA,2011,5000\n'+
-      //             'NYC,USA,2000,5000\n'+
-      //             'SAN,USA,2000,2000\n'+
-      //             'SAN,USA,2011,100\n'+
-      //             'LDN,UK,2011,3000\n'+
-      //             'SAN,USA,2011,2500\n'+
-      //             'NYC,USA,2000,10000\n'+
-      //             'NYC,USA,2012,7600\n'+
-      //             'NYC,USA,2012,7600}#->meta::pure::functions::relation::extend(~yr:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.year->meta::pure::functions::multiplicity::toOne() - 2000)->meta::pure::functions::relation::filter(x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1], yr:Integer[1])[1]|$x.yr > 10)->meta::pure::functions::relation::select(~[city,country,year,treePlanted])->meta::pure::functions::relation::pivot(~[year], ~[newCol:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.treePlanted:x: Integer[*]|$x->plus()])->meta::pure::functions::lang::cast(@meta::pure::metamodel::relation::Relation<(city:String[0..1], country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])>)->meta::pure::functions::relation::groupBy(~[country], ~[\'\\'2011__|__newCol\\'\':x: (city:String[0..1], country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])[1]|$x.\'\\'2011__|__newCol\\'\':x: Integer[*]|$x->plus(),\'\\'2012__|__newCol\\'\':x: (city:String[0..1], country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1], \'\\'2012__|__newCol\\'\':Integer[0..1])[1]|$x.\'\\'2012__|__newCol\\'\':x: Integer[*]|$x->plus()])->meta::pure::functions::relation::extend(~newCol:x: (country:String[0..1], \'\\'2011__|__newCol\\'\':Integer[1], \'\\'2012__|__newCol\\'\':Integer[1])[1]|$x.country->meta::pure::functions::multiplicity::toOne() + \'_0\')->meta::pure::functions::relation::sort(~country->meta::pure::functions::relation::ascending())'+
-      //             '',
-      //          '(lambda frame:' +
-      //          '  frame' +
-      //          ')(csv_frame("\\ncity,country,year,treePlanted\\nNYC,USA,2011,5000\\nNYC,USA,2000,5000\\nSAN,USA,2000,2000\\nSAN,USA,2011,100\\nLDN,UK,2011,3000\\nSAN,USA,2011,2500\\nNYC,USA,2000,10000\\nNYC,USA,2012,7600\\nNYC,USA,2012,7600"))')
-      //   ]
-      // ),
-
       meta::pure::functions::relation::tests::composition::test_GroupBy_Filter_Function_1__Boolean_1_->testRev(
         [
           rev('|#TDS{\n'+
@@ -6430,12 +6350,7 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
 
       meta::pure::functions::relation::tests::composition::testVariantColumn_modelOutputNotSupported_Function_1__Boolean_1_->testRev(
         [
-          noRev('|#TDS{\n'+
-                  'id,payload\n'+
-                  '1,"{"name":"Jose"}"\n'+
-                  '2,"{"name":"Juan"}"\n'+
-                  '3,"{"name":"Pedro"}"}#->meta::pure::functions::relation::project(~[name:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::to(@meta::pure::functions::relation::tests::composition::Person)])'+
-                  '')
+          noRev('|#TDS{\nid,payload\n1,"{\"name\":\"Jose\"}"\n2,"{\"name\":\"Juan\"}"\n3,"{\"name\":\"Pedro\"}"}#->meta::pure::functions::relation::project(~[name:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::to(@meta::pure::functions::relation::tests::composition::Person)])')
         ]
       ),
 
@@ -6460,46 +6375,6 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
                   '')
         ]
       ),
-
-      // meta::pure::functions::relation::tests::composition::test_Static_Pivot_Filter_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|#TDS{\n'+
-      //             'city,country,year,treePlanted\n'+
-      //             'NYC,USA,2011,5000\n'+
-      //             'NYC,USA,2000,5000\n'+
-      //             'SAN,USA,2000,2000\n'+
-      //             'SAN,USA,2011,100\n'+
-      //             'LDN,UK,2011,3000\n'+
-      //             'SAN,USA,2011,2500\n'+
-      //             'NYC,USA,2000,10000\n'+
-      //             'NYC,USA,2012,7600\n'+
-      //             'NYC,USA,2012,7600}#->meta::pure::functions::relation::pivot(~year, [2000, 2011], ~newCol:x: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$x.treePlanted:y: Integer[*]|$y->plus())->meta::pure::functions::lang::cast(@meta::pure::metamodel::relation::Relation<(city:String[0..1], country:String[0..1], \'\\'2000__|__newCol\\'\':Integer[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1])>)->meta::pure::functions::relation::filter(x: (city:String[0..1], country:String[0..1], \'\\'2000__|__newCol\\'\':Integer[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1])[1]|$x.city == \'NYC\')'+
-      //             '',
-      //          '(lambda frame:' +
-      //          '  frame' +
-      //          ')(csv_frame("\\ncity,country,year,treePlanted\\nNYC,USA,2011,5000\\nNYC,USA,2000,5000\\nSAN,USA,2000,2000\\nSAN,USA,2011,100\\nLDN,UK,2011,3000\\nSAN,USA,2011,2500\\nNYC,USA,2000,10000\\nNYC,USA,2012,7600\\nNYC,USA,2012,7600"))')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::test_Project_Filter_Before_Static_Pivot_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|#TDS{\n'+
-      //             'city,country,year,treePlanted\n'+
-      //             'NYC,USA,2011,5000\n'+
-      //             'NYC,USA,2000,5000\n'+
-      //             'SAN,USA,2000,2000\n'+
-      //             'SAN,USA,2011,100\n'+
-      //             'LDN,UK,2011,3000\n'+
-      //             'SAN,USA,2011,2500\n'+
-      //             'NYC,USA,2000,10000\n'+
-      //             'NYC,USA,2012,7600\n'+
-      //             'NYC,USA,2012,7600}#->meta::pure::functions::relation::project(~[newCity:c: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$c.city->meta::pure::functions::multiplicity::toOne(),newCountry:c: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$c.country->meta::pure::functions::multiplicity::toOne(),newYear:c: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$c.year->meta::pure::functions::multiplicity::toOne(),newTreePlanted:c: (city:String[0..1], country:String[0..1], year:Integer[0..1], treePlanted:Integer[0..1])[1]|$c.treePlanted->meta::pure::functions::multiplicity::toOne()])->meta::pure::functions::relation::filter(x: (newCity:String[1], newCountry:String[1], newYear:Integer[1], newTreePlanted:Integer[1])[1]|$x.newCity == \'NYC\')->meta::pure::functions::relation::pivot(~newYear, [2000, 2011], ~newCol:x: (newCity:String[1], newCountry:String[1], newYear:Integer[1], newTreePlanted:Integer[1])[1]|$x.newTreePlanted:y: Integer[*]|$y->plus())->meta::pure::functions::lang::cast(@meta::pure::metamodel::relation::Relation<(newCity:String[0..1], newCountry:String[0..1], \'\\'2000__|__newCol\\'\':Integer[0..1], \'\\'2011__|__newCol\\'\':Integer[0..1])>)'+
-      //             '',
-      //          '(lambda frame:' +
-      //          '  frame' +
-      //          ')(csv_frame("\\ncity,country,year,treePlanted\\nNYC,USA,2011,5000\\nNYC,USA,2000,5000\\nSAN,USA,2000,2000\\nSAN,USA,2011,100\\nLDN,UK,2011,3000\\nSAN,USA,2011,2500\\nNYC,USA,2000,10000\\nNYC,USA,2012,7600\\nNYC,USA,2012,7600"))')
-      //   ]
-      // ),
 
       meta::pure::functions::relation::tests::composition::TestJoin_CurrentUserId_Function_1__Boolean_1_->testRev(
         [
@@ -6628,7 +6503,7 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
 
       meta::pure::functions::relation::tests::composition::testExtendFilterOutNull_Function_1__Boolean_1_->testRev(
         [
-          rev('|#TDS{\n'+
+          noRev('|#TDS{\n'+
                   'p,o,i\n'+
                   '0,1,10\n'+
                   '0,1,10\n'+
@@ -6646,17 +6521,13 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
                   '200,3,30\n'+
                   '300,1,10\n'+
                   '300,2,20}#->meta::pure::functions::relation::extend(~p->meta::pure::functions::relation::over(), ~newCol:{p: meta::pure::metamodel::relation::Relation<(p:Integer[0..1], o:Integer[0..1], i:Integer[0..1])>[1], w: meta::pure::functions::relation::_Window<(p:Integer[0..1], o:Integer[0..1], i:Integer[0..1])>[1], r: (p:Integer[0..1], o:Integer[0..1], i:Integer[0..1])[1]|$r.i}:y: Integer[*]|$y->plus())->meta::pure::functions::relation::filter(x: (p:Integer[0..1], o:Integer[0..1], i:Integer[0..1], newCol:Integer[1])[1]|$x.o->meta::pure::functions::collection::isNotEmpty())'+
-                  '',
-               '(lambda frame:' +
-               '  frame.__setitem__( "newCol", frame.groupby("p", sort=False)["i"].sum() )' +
-               '  or frame[frame["o"].is_not_null()]' +
-               ')(csv_frame("\\np,o,i\\n0,1,10\\n0,1,10\\n0,null,30\\n100,1,10\\n100,2,20\\n100,null,20\\n100,3,30\\n100,null,30\\n200,1,10\\n200,1,10\\n200,null,10\\n200,null,20\\n200,3,30\\n200,3,30\\n300,1,10\\n300,2,20"))')
+                  '')
         ]
       ),
 
       meta::pure::functions::relation::tests::composition::testExtendAddOnNull_Function_1__Boolean_1_->testRev(
         [
-          rev('|#TDS{\n'+
+          noRev('|#TDS{\n'+
                   'id,grp\n'+
                   '1,2\n'+
                   'null,1\n'+
@@ -6668,11 +6539,7 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
                   '8,1\n'+
                   '9,5\n'+
                   'null,0}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(), ~newCol:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1])[1]|$r.id}:y: Integer[*]|$y->plus())'+
-                  '',
-               '(lambda frame:' +
-               '  frame.__setitem__( "newCol", frame.groupby("grp", sort=False)["id"].sum() )' +
-               '  or frame' +
-               ')(csv_frame("\\nid,grp\\n1,2\\nnull,1\\n3,3\\n4,4\\n5,2\\nnull,1\\n7,3\\n8,1\\n9,5\\nnull,0"))')
+                  '')
         ]
       ),
 
@@ -6726,45 +6593,9 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
         ]
       ),
 
-      // meta::pure::functions::relation::tests::composition::testVariantArrayColumn_sort_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|$tds->meta::pure::functions::relation::extend(~sorted:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::toMany(@Integer)->meta::pure::functions::collection::sort()->meta::pure::functions::variant::convert::toVariant())',
-      //     '')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::testVariantArrayColumn_reverse_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|$tds->meta::pure::functions::relation::extend(~reversed:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::toMany(@Integer)->meta::pure::functions::collection::reverse()->meta::pure::functions::variant::convert::toVariant())',
-      //     '')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::testVariantColumn_extend_indexExtraction_filter_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|$tds->meta::pure::functions::relation::extend(~atCol0:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::navigation::get(0)->meta::pure::functions::variant::convert::to(@Integer))->meta::pure::functions::relation::filter(x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1], atCol0:Integer[0..1])[1]|$x.atCol0 < 7)',
-      //     '')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::testVariantColumn_functionComposition_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|$tds->meta::pure::functions::relation::filter(x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::toMany(@Integer)->meta::pure::functions::relation::tests::composition::testVariantColumn_functionComposition_filterValues())',
-      //     '')
-      //   ]
-      // ),
-
-      // meta::pure::functions::relation::tests::composition::testVariant_if_Function_1__Boolean_1_->testRev(
-      //   [
-      //     rev('|$tds->meta::pure::functions::relation::extend(~ifOutput:x: (id:Integer[0..1], array1:meta::pure::metamodel::variant::Variant[0..1], array2:meta::pure::metamodel::variant::Variant[0..1])[1]|meta::pure::functions::lang::if($x.id->meta::pure::functions::multiplicity::toOne()->meta::pure::functions::math::mod(2) == 0, |$x.array1, |$x.array2))',
-      //     '')
-      //   ]
-      // ),
-
       meta::pure::functions::relation::tests::composition::testGroupBy_Conflicting_Alias_With_Table_Columns_Function_1__Boolean_1_->testRev(
         [
-          rev('|$tds1->meta::pure::functions::relation::select(~[id,name])->meta::pure::functions::relation::join($tds2, meta::pure::functions::relation::JoinKind.INNER, {x: (id:String[0..1], name:String[0..1])[1], y: (id2:String[0..1], grp2:String[0..1], name2:String[0..1])[1]|$x.id == $y.id2})->meta::pure::functions::relation::project(~[name2:x: (id:String[0..1], name:String[0..1], id2:String[0..1], grp2:String[0..1], name2:String[0..1])[1]|$x.name->meta::pure::functions::multiplicity::toOne()->meta::pure::functions::string::toString()])->meta::pure::functions::relation::groupBy(~name2, ~[newCol:x: (name2:String[1])[1]|1:y: Integer[*]|$y->plus()])',
-          '')
+          noRev('|$tds1->meta::pure::functions::relation::select(~[id,name])->meta::pure::functions::relation::join($tds2, meta::pure::functions::relation::JoinKind.INNER, {x: (id:String[0..1], name:String[0..1])[1], y: (id2:String[0..1], grp2:String[0..1], name2:String[0..1])[1]|$x.id == $y.id2})->meta::pure::functions::relation::project(~[name2:x: (id:String[0..1], name:String[0..1], id2:String[0..1], grp2:String[0..1], name2:String[0..1])[1]|$x.name->meta::pure::functions::multiplicity::toOne()->meta::pure::functions::string::toString()])->meta::pure::functions::relation::groupBy(~name2, ~[newCol:x: (name2:String[1])[1]|1:y: Integer[*]|$y->plus()])')
         ]
       ),
 
@@ -6788,7 +6619,55 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
 
       meta::pure::functions::relation::tests::composition::testProjectNumbersPlusTimesMinus_Function_1__Boolean_1_->testRev(
         [
-          noRev('|[^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=1, val1=1, val2=1, val3=1.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=2, val1=31, val2=23, val3=0.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=3, val1=7, val2=97, val3=72.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=4, val1=5, val2=3, val3=89.0)]->meta::pure::functions::relation::project(~[id:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|$v.id,plus:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|[$v.val1, $v.val2, $v.val3]->plus(),times:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|[$v.val1, $v.val2, $v.val3]->times(),minus:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|[$v.val1, $v.val2, $v.val3]->minus()])')
+          noRev('|[^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=1, val1=1, val2=1, val3=1.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=2, val1=31, val2=23, val3=0.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=3, val1=7, val2=97, val3=72.0), ^meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests(id=4, val1=5, val2=3, val3=89.0)]->meta::pure::functions::relation::project(~[id:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|$v.id,plus:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|$v.val1 + $v.val2 + $v.val3,times:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|$v.val1 * $v.val2 * $v.val3,minus:v: meta::pure::functions::relation::tests::composition::SimpleNumbersTypeForCompositionTests[1]|$v.val1 - $v.val2 - $v.val3])')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testVariantArrayColumn_sort_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds->meta::pure::functions::relation::extend(~sorted:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::toMany(@Integer)->meta::pure::functions::collection::sort()->meta::pure::functions::variant::convert::toVariant())')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testVariantArrayColumn_reverse_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds->meta::pure::functions::relation::extend(~reversed:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::toMany(@Integer)->meta::pure::functions::collection::reverse()->meta::pure::functions::variant::convert::toVariant())')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testVariantColumn_extend_indexExtraction_filter_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds->meta::pure::functions::relation::extend(~atCol0:x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::navigation::get(0)->meta::pure::functions::variant::convert::to(@Integer))->meta::pure::functions::relation::filter(x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1], atCol0:Integer[0..1])[1]|$x.atCol0 < 7)')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testVariantColumn_functionComposition_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds->meta::pure::functions::relation::filter(x: (id:Integer[0..1], payload:meta::pure::metamodel::variant::Variant[0..1])[1]|$x.payload->meta::pure::functions::variant::convert::toMany(@Integer)->meta::pure::functions::relation::tests::composition::testVariantColumn_functionComposition_filterValues())')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testVariant_if_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|$tds->meta::pure::functions::relation::extend(~ifOutput:x: (id:Integer[0..1], array1:meta::pure::metamodel::variant::Variant[0..1], array2:meta::pure::metamodel::variant::Variant[0..1])[1]|meta::pure::functions::lang::if($x.id->meta::pure::functions::multiplicity::toOne()->meta::pure::functions::math::mod(2) == 0, |$x.array1, |$x.array2))')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testProjectExtendNestedIfLeadAdjust_Function_1__Boolean_1_->testRev(
+        [
+          noRev('|#TDS{\nid,fromDate,toDate\n1,2026-01-07T00:00:00.000000000+0000,2026-01-08T00:00:00.000000000+0000\n1,2026-01-08T00:00:00.000000000+0000,2026-01-10T00:00:00.000000000+0000\n1,2026-01-09T00:00:00.000000000+0000,2026-01-09T00:00:00.000000000+0000\n1,2026-01-10T00:00:00.000000000+0000,9999-12-31T00:00:00.000000000+0000}#->meta::pure::functions::relation::project(~[grp:x: (id:Integer[1], fromDate:Date[1], toDate:Date[1])[1]|$x.id,dateSeq:x: (id:Integer[1], fromDate:Date[1], toDate:Date[1])[1]|$x.fromDate,endDate:x: (id:Integer[1], fromDate:Date[1], toDate:Date[1])[1]|$x.toDate,startDate:x: (id:Integer[1], fromDate:Date[1], toDate:Date[1])[1]|$x.fromDate])->meta::pure::functions::relation::extend(~[grp]->meta::pure::functions::relation::over(~dateSeq->meta::pure::functions::relation::ascending()), ~[endDateSeq:{p: meta::pure::metamodel::relation::Relation<(grp:Integer[1], dateSeq:Date[1], endDate:Date[1], startDate:Date[1])>[1], w: meta::pure::functions::relation::_Window<(grp:Integer[1], dateSeq:Date[1], endDate:Date[1], startDate:Date[1])>[1], r: (grp:Integer[1], dateSeq:Date[1], endDate:Date[1], startDate:Date[1])[1]|meta::pure::functions::lang::if($r.endDate == $p->meta::pure::functions::relation::lead($r).startDate, |$p->meta::pure::functions::relation::lead($r).dateSeq, |meta::pure::functions::boolean::not($r.startDate == $r.endDate)->meta::pure::functions::lang::if(|$r.endDate, |$r.dateSeq->meta::pure::functions::date::adjust(1, meta::pure::functions::date::DurationUnit.SECONDS)))->meta::pure::functions::lang::cast(@Date)}])')
+        ]
+      ),
+
+      meta::pure::functions::relation::tests::composition::testExtendLeadAdjustDerivedOffset_Function_1__Boolean_1_->testRev(
+        [
+          noRev(
+            '|#TDS{\n'+
+            'id,fromDate,seq,toDate\n'+
+            '1,2026-01-07T00:00:00.000000000+0000,1,2026-01-07T00:00:00.000000000+0000\n'+
+            '1,2026-01-07T00:00:00.000000000+0000,2,2026-01-08T00:00:00.000000000+0000\n'+
+            '1,2026-01-08T00:00:00.000000000+0000,1,2026-01-08T00:00:00.000000000+0000\n'+
+            '1,2026-01-08T00:00:00.000000000+0000,2,9999-12-31T00:00:00.000000000+0000}#->meta::pure::functions::relation::extend(~[id,fromDate]->meta::pure::functions::relation::over([~fromDate->meta::pure::functions::relation::ascending(), ~seq->meta::pure::functions::relation::ascending()]), ~[toDateSeq:{p: meta::pure::metamodel::relation::Relation<(id:Integer[1], fromDate:Date[1], seq:Integer[1], toDate:Date[1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[1], fromDate:Date[1], seq:Integer[1], toDate:Date[1])>[1], r: (id:Integer[1], fromDate:Date[1], seq:Integer[1], toDate:Date[1])[1]|meta::pure::functions::lang::if($r.fromDate == $r.toDate, |$p->meta::pure::functions::relation::lead($r).fromDate->meta::pure::functions::multiplicity::toOne()->meta::pure::functions::lang::cast(@Date)->meta::pure::functions::date::adjust($p->meta::pure::functions::relation::lead($r).seq->meta::pure::functions::multiplicity::toOne() - 1, meta::pure::functions::date::DurationUnit.SECONDS), |$r.toDate)->meta::pure::functions::lang::cast(@Date)}])')
         ]
       )
     ]->combine(),
