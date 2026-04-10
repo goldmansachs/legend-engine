@@ -5782,7 +5782,7 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
                   '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~newCol:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::last($w, $r).id})'+
                   '',
                '(lambda frame:' +
-               '  frame.__setitem__("newCol", frame.groupby("grp").window_frame_legend_ext(order_by="id", ascending=False)["id"].last())' +
+               '  frame.__setitem__("newCol", frame.groupby("grp").window_frame_legend_ext(frame_spec=None, order_by="id", ascending=False)["id"].last())' +
                '  or frame' +
                ')(csv_frame("\\nid,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n6,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
         ]
@@ -5830,7 +5830,7 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
                   '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~newCol:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::nth($w, $r, 1).id})'+
                   '',
                '(lambda frame:' +
-               '  frame.__setitem__("newCol", frame.groupby("grp").window_frame_legend_ext(order_by="id", ascending=False)["id"].window_func_legend_ext(lambda p,w,r: p.nth(w,r,1)["id"]))' +
+               '  frame.__setitem__("newCol", frame.groupby("grp").window_frame_legend_ext(order_by="id", ascending=False)["id"].window_extend_legend_ext(lambda p,w,r: p.nth(w,r,1)["id"]))' +
                '  or frame' +
                ')(csv_frame("\\nid,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n6,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
         ]
@@ -5852,7 +5852,7 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesE
                   '10,0,J}#->meta::pure::functions::relation::extend(~grp->meta::pure::functions::relation::over(~id->meta::pure::functions::relation::descending()), ~newCol:{p: meta::pure::metamodel::relation::Relation<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], w: meta::pure::functions::relation::_Window<(id:Integer[0..1], grp:Integer[0..1], name:String[0..1])>[1], r: (id:Integer[0..1], grp:Integer[0..1], name:String[0..1])[1]|$p->meta::pure::functions::relation::nth($w, $r, 2).id})'+
                   '',
                '(lambda frame:' +
-               '  frame.__setitem__("newCol", frame.groupby("grp").window_frame_legend_ext(order_by="id", ascending=False)["id"].window_func_legend_ext(lambda p,w,r: p.nth(w,r,2)["id"]))' +
+               '  frame.__setitem__("newCol", frame.groupby("grp").window_frame_legend_ext(frame_spec=None, order_by="id", ascending=False)["id"].window_extend_legend_ext(lambda p,w,r: p.nth(w,r,2)["id"]))' +
                '  or frame' +
                ')(csv_frame("\\nid,grp,name\\n1,2,A\\n2,1,B\\n3,3,C\\n4,4,D\\n5,2,E\\n6,1,F\\n7,3,G\\n8,1,H\\n9,5,I\\n10,0,J"))')
         ]
