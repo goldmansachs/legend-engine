@@ -3711,7 +3711,13 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
           // Exclude join-based bindings (e.g. location: Binding ... : @Join | ...) because the disableAutoFlatten
           // strategy does not support array operations across joins.
           let ownerClass = $prop.owner->toOne();
-          let isSemiStructuredMapping = $isClassType && $state.mapping->isNotEmpty() &&
+          let hasNonSemiStructuredMapping = $isClassType && $state.mapping->isNotEmpty() &&
+            $state.mapping->toOne()->classMappings()
+              ->filter(cm | $cm->instanceOf(RelationalInstanceSetImplementation) && $cm.class == $ownerClass)
+              ->cast(@RelationalInstanceSetImplementation)
+              .propertyMappings
+              ->exists(pm | !$pm->instanceOf(SemiStructuredRelationalPropertyMapping) && $pm.property == $prop);
+          let isSemiStructuredMapping = !$hasNonSemiStructuredMapping && $isClassType && $state.mapping->isNotEmpty() &&
             $state.mapping->toOne()->classMappings()
               ->filter(cm | $cm->instanceOf(RelationalInstanceSetImplementation))
               ->cast(@RelationalInstanceSetImplementation)
@@ -5420,11 +5426,11 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
 
    let newLastNode = if ($leftSide.currentTreeNode->isEmpty(),|[] ,|$leftSide.currentTreeNode->toOne()->findOneNode($leftSide.select.data->toOne(), $mergedWithCollapsedFilteringOperation.data->toOne()));
 
-    // --- compute lateral join flag before we mutate filteringOperation ---
-   let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false])
+   let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false]);
+   let isFilterOnSemiStructuredLateralJoin = $isFilterOnLateralJoin
                              && ($leftSideOp.currentPropertyMapping->size() >= 1)
-                             && $leftSideOp.currentPropertyMapping->forAll(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping));  // Only clear filteringOperation (move to savedFilteringOperation) for projection context when NOT a lateral join
-  let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty() && !$isFilterOnLateralJoin,
+                             && $leftSideOp.currentPropertyMapping->forAll(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping));
+  let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty() && !$isFilterOnSemiStructuredLateralJoin,
          |^$mergedWithCollapsedFilteringOperation
            (
               filteringOperation = [],
