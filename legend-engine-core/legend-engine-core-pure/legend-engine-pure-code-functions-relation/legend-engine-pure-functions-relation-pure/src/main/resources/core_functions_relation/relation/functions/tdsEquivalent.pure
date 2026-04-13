@@ -79,17 +79,17 @@ function <<test.Test>> meta::pure::functions::relation::tests::tdsEquivalent::te
 {
   assertTdsEquivalent(
       #TDS
-        name:String[1], ts:DateTime[1]
-        a, 2026-01-10T00:00:00
-        b, 2026-01-10T12:00:00
+        name:String[1], ts:Date[1]
+        a, 2026-01-07T00:00:00.000+0000
+        b, 2026-01-07T00:01:00.000+0000
       #,
       #TDS
-        name:String[1], ts:DateTime[1]
-        a, 2026-01-10T00:00:01
-        b, 2026-01-10T12:00:02
+        name:String[1], ts:Date[1]
+        a, 2026-01-07T00:00:00.001+0000
+        b, 2026-01-07T00:01:00.000+0000
       #,
-      0.001,
-      2
+      1,
+      0
   )
 }
 
@@ -97,16 +97,16 @@ function <<test.Test>> meta::pure::functions::relation::tests::tdsEquivalent::te
 {
   assertTdsEquivalent(
       #TDS
-        val:Integer[1], name:String[1], ts:DateTime[1]
-        1, a, 2026-01-10T00:00:00
-        2, b, 2026-01-10T12:00:00
+        val:Integer[1], name:String[1], ts:Date[1]
+        1, a, 2026-01-07T00:00:00.000+0000
+        2, b, 2026-01-07T00:01:00.000+0000
       #,
       #TDS
-        val:Integer[1], name:String[1], ts:DateTime[1]
-        1, a, 2026-01-10T00:00:01
-        2, b, 2026-01-10T12:00:01
+        val:Integer[1], name:String[1], ts:Date[1]
+        0, a, 2026-01-07T00:00:00.002+0000
+        3, b, 2026-01-07T00:00:59.998+0000
       #,
       2,
-      0
+      1
   )
 }
