@@ -48,9 +48,9 @@ import static org.junit.Assert.assertNotNull;
  * - SELECT * queries (with no modifications) can use pre-generated execution plans,
  * skipping SQL-to-Pure transformation and plan generation for simple SELECT * queries.
  */
-public class SelectStarExecutionIntegrationTest
+public class SelectStarExecutionRegressionTest
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SelectStarExecutionIntegrationTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SelectStarExecutionRegressionTest.class);
     private static final ObjectMapper OM = new ObjectMapper();
 
     static
