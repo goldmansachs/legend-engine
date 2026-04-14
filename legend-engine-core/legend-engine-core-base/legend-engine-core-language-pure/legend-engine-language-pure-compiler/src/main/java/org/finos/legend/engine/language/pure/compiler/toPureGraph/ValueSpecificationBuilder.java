@@ -19,6 +19,7 @@ import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function3;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
+import org.eclipse.collections.api.map.MutableMap;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.utility.Iterate;
 import org.eclipse.collections.impl.utility.LazyIterate;
@@ -422,7 +423,39 @@ public class ValueSpecificationBuilder implements ValueSpecificationVisitor<Valu
     {
         ProcessorSupport processorSupport = this.context.pureModel.getExecutionSupport().getProcessorSupport();
 
+        // Pre-compile shared lambda parameters once so that buildLambdaWithContext can reuse them
+        // instead of recompiling the same parameter definition for every ColSpec in the array.
+        // Uses a dedicated map on ProcessingContext (separate from inferredVariableList) to avoid
+        // incorrectly reusing same-named variables from outer scopes.
+        if (!value.colSpecs.isEmpty())
+        {
+            ColSpec firstWithFunction = ListIterate.detect(value.colSpecs, cs -> cs.function1 != null);
+            if (firstWithFunction != null && firstWithFunction.function1.parameters != null)
+            {
+                MutableMap<String, VariableExpression> preCompiled = org.eclipse.collections.impl.map.mutable.UnifiedMap.newMap();
+                for (Variable param : firstWithFunction.function1.parameters)
+                {
+                    if (param.genericType != null && param.multiplicity != null)
+                    {
+                        VariableExpression ve = new Root_meta_pure_metamodel_valuespecification_VariableExpression_Impl("", SourceInformationHelper.toM3SourceInformation(param.sourceInformation), this.context.pureModel.getClass(M3Paths.VariableExpression))
+                                ._name(param.name)
+                                ._genericType(context.newGenericType(param.genericType))
+                                ._multiplicity(this.context.pureModel.getMultiplicity(param.multiplicity));
+                        preCompiled.put(param.name, ve);
+                    }
+                }
+                if (preCompiled.notEmpty())
+                {
+                    processingContext.setPreCompiledLambdaParameters(preCompiled);
+                }
+            }
+        }
+
         MutableList<ValueSpecification> cols = ListIterate.collect(value.colSpecs, this::proccessColSpec);
+
+        // Clean up pre-compiled parameters
+        processingContext.clearPreCompiledLambdaParameters();
+
         RichIterable<?> processedValues = cols.flatCollect(v -> ((InstanceValue) v)._values());
         Object resO = processedValues.getFirst();
 
