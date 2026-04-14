@@ -18,6 +18,7 @@ import meta::external::dataquality::datarecon::*;
 import meta::external::dataquality::tests::*;
 import meta::pure::functions::hash::*;
 import meta::pure::functions::relation::*;
+import meta::pure::functions::meta::*;
 import meta::external::dataquality::*;
 import meta::pure::precisePrimitives::*;
 
@@ -281,6 +282,47 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
   };
 
   testRecon($lambda, $runtime, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], false, 100);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_parameterizedSourceAndTarget():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {sourceFilter:String[1] | #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $sourceFilter)->from($runtime)};
+  let target = {targetFilter:String[1] | #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $targetFilter)->from($runtime)};
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], false));
+
+  // Verify the lambda has the correct merged parameters with source_/target_ prefixes
+  let params = $actual->functionType().parameters->evaluateAndDeactivate();
+  assert($params->size() == 2);
+  assert($params->at(0).name == 'source_sourceFilter');
+  assert($params->at(1).name == 'target_targetFilter');
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_parameterizedSourceOnly():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {sourceFilter:String[1] | #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $sourceFilter)->from($runtime)};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], false));
+
+  // Verify the lambda has only the source parameter
+  let params = $actual->functionType().parameters->evaluateAndDeactivate();
+  assert($params->size() == 1);
+  assert($params->at(0).name == 'source_sourceFilter');
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_sameParamName():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {filterValue:String[1] | #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $filterValue)->from($runtime)};
+  let target = {filterValue:String[1] | #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $filterValue)->from($runtime)};
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], false));
+
+  // Verify both parameters are present with different prefixes, even though they share the same original name
+  let params = $actual->functionType().parameters->evaluateAndDeactivate();
+  assert($params->size() == 2);
+  assert($params->at(0).name == 'source_filterValue');
+  assert($params->at(1).name == 'target_filterValue');
 }
 
 function meta::external::dataquality::tests::testRecon(expected:FunctionDefinition<Any>[1], runtime: PackageableRuntime[1], keys: String[*], aggregatedHash: Boolean[1], colsForHash: String[*], sourceHashCol: String[0..1], targetHashCol: String[0..1], includeColumnValues: Boolean[1]):Boolean[1]
