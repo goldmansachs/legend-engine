@@ -75,5 +75,13 @@
             <artifactId>eclipse-collections</artifactId>
         </dependency>
         <!-- ECLIPSE COLLECTIONS -->
+
+        <dependency>
+            <groupId>software.amazon.jdbc</groupId>
+            <artifactId>aws-advanced-jdbc-wrapper</artifactId>
+            <version>3.3.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
     </dependencies>
 </project>
