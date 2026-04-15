@@ -24,5 +24,12 @@ Class meta::relational::metamodel::data::RelationalCSVTable
   schema: String[1];
   table: String[1];
   values: String[1];
+  columnTypes: meta::relational::metamodel::data::RelationalCSVTableColumnType[*];
+}
+
+Class meta::relational::metamodel::data::RelationalCSVTableColumnType
+{
+  name: String[1];
+  type: String[1];
 }
 

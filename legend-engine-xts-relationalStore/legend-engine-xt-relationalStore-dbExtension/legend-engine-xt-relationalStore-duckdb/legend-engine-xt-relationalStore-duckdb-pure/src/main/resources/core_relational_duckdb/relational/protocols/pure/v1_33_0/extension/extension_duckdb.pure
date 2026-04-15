@@ -1,4 +1,4 @@
-// Copyright 2024 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-function <<meta::protocols::pure::vX_X_X::extension::RelationalModule.SerializerExtension>>
-meta::protocols::pure::vX_X_X::transformation::fromPureGraph::connection::duckDBSerializerExtension(): meta::protocols::pure::vX_X_X::extension::RelationalModuleSerializerExtension[1]
+function <<meta::protocols::pure::v1_33_0::extension::RelationalModule.SerializerExtension>>
+meta::protocols::pure::v1_33_0::transformation::fromPureGraph::connection::duckDBSerializerExtension(): meta::protocols::pure::v1_33_0::extension::RelationalModuleSerializerExtension[1]
 {
-  ^meta::protocols::pure::vX_X_X::extension::RelationalModuleSerializerExtension(
+  ^meta::protocols::pure::v1_33_0::extension::RelationalModuleSerializerExtension(
     module = 'duckDB',
     transfers_connection_transformDatasourceSpecification = [
         d:meta::pure::alloy::connections::alloy::specification::DuckDBDatasourceSpecification[1] |
-                  ^meta::protocols::pure::vX_X_X::metamodel::store::relational::connection::alloy::specification::DuckDBDatasourceSpecification(
+                  ^meta::protocols::pure::v1_33_0::metamodel::store::relational::connection::alloy::specification::DuckDBDatasourceSpecification(
                       _type = 'duckDB',
                       path = $d.path,
                       testDataSetupCsv = $d.testDataSetupCsv,
@@ -30,9 +30,8 @@ meta::protocols::pure::vX_X_X::transformation::fromPureGraph::connection::duckDB
         pair('duckDB', 'DuckDBDatasourceSpecification')
     ],
     reverse_transfers_connection_transformDatasourceSpecification = [
-        d:meta::protocols::pure::vX_X_X::metamodel::store::relational::connection::alloy::specification::DuckDBDatasourceSpecification[1] |
+        d:meta::protocols::pure::v1_33_0::metamodel::store::relational::connection::alloy::specification::DuckDBDatasourceSpecification[1] |
                   ^meta::pure::alloy::connections::alloy::specification::DuckDBDatasourceSpecification(
-                      // _type = 'duckDB',
                       path = $d.path,
                       testDataSetupCsv = $d.testDataSetupCsv,
                       testDataSetupSqls = $d.testDataSetupSqls
@@ -40,3 +39,4 @@ meta::protocols::pure::vX_X_X::transformation::fromPureGraph::connection::duckDB
     ]
   )
 }
+

@@ -1,4 +1,4 @@
-// Copyright 2022 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,19 @@
 
 package org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.data;
 
-import java.util.List;
-
-import org.finos.legend.engine.protocol.pure.m3.SourceInformation;
-
-public class RelationalCSVTable
+public class RelationalCSVTableColumnType
 {
-    public String schema;
-    public String table;
-    public String values;
-    public List<RelationalCSVTableColumnType> columnTypes;
-    public SourceInformation sourceInformation;
+    public String name;
+    public String type;
+
+    public RelationalCSVTableColumnType()
+    {
+    }
+
+    public RelationalCSVTableColumnType(String name, String type)
+    {
+        this.name = name;
+        this.type = type;
+    }
 }
+

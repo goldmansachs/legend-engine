@@ -1,4 +1,4 @@
-// Copyright 2024 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,57 +16,41 @@ package org.finos.legend.engine.plan.execution.stores.relational.ds.specificatio
 
 import org.finos.legend.engine.plan.execution.stores.relational.connection.ds.DataSourceSpecificationKey;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
-public class DuckDBDataSourceSpecificationKey implements DataSourceSpecificationKey
+/**
+ * DataSourceSpecificationKey for local in-memory DuckDB test connections.
+ * Includes test data setup SQLs in equals/hashCode to ensure different test
+ * suites get different connection pools, providing concurrency isolation.
+ */
+public class LocalDuckDBDataSourceSpecificationKey implements DataSourceSpecificationKey
 {
-    private final String path;
     private final List<String> testDataSetupSqls;
     private final long setupCheckSum;
 
-    public DuckDBDataSourceSpecificationKey(String path)
+    public LocalDuckDBDataSourceSpecificationKey(List<String> testDataSetupSqls)
     {
-        this(path, Collections.emptyList());
-    }
-
-    public DuckDBDataSourceSpecificationKey(String path, List<String> testDataSetupSqls)
-    {
-        this.path = path;
-        this.testDataSetupSqls = testDataSetupSqls != null ? testDataSetupSqls : Collections.emptyList();
+        this.testDataSetupSqls = testDataSetupSqls;
         Checksum crc32 = new CRC32();
-        byte[] bytes = String.join(";", this.testDataSetupSqls).getBytes();
+        byte[] bytes = this.testDataSetupSqls.stream().collect(Collectors.joining(";")).getBytes();
         crc32.update(bytes, 0, bytes.length);
         this.setupCheckSum = crc32.getValue();
     }
 
-    public String getPath()
-    {
-        return path;
-    }
-
     public List<String> getTestDataSetupSqls()
     {
-        return testDataSetupSqls;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "DuckDBDataSourceSpecificationKey{" +
-                "path='" + path + '\'' +
-                '}';
+        return this.testDataSetupSqls;
     }
 
     @Override
     public String shortId()
     {
-        return "DuckDB_" +
-                "path:" + path +
-                (testDataSetupSqls.isEmpty() ? "" : "_sqlCS:" + setupCheckSum);
+        return "LocalDuckDB_" +
+                "sqlCS:" + setupCheckSum;
     }
 
     @Override
@@ -80,14 +64,22 @@ public class DuckDBDataSourceSpecificationKey implements DataSourceSpecification
         {
             return false;
         }
-        DuckDBDataSourceSpecificationKey that = (DuckDBDataSourceSpecificationKey) o;
-        return Objects.equals(path, that.path)
-                && Objects.equals(testDataSetupSqls, that.testDataSetupSqls);
+        LocalDuckDBDataSourceSpecificationKey that = (LocalDuckDBDataSourceSpecificationKey) o;
+        return Objects.equals(testDataSetupSqls, that.testDataSetupSqls);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(path, testDataSetupSqls);
+        return Objects.hash(testDataSetupSqls);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "LocalDuckDBDataSourceSpecificationKey{" +
+                "setupCheckSum=" + setupCheckSum +
+                '}';
     }
 }
+

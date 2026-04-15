@@ -76,10 +76,8 @@ public class DuckDBConnectionExtension implements ConnectionExtension, Strategic
         {
             if (datasourceSpecification instanceof DuckDBDatasourceSpecification)
             {
-                DuckDBDatasourceSpecification databricksSpecification = (DuckDBDatasourceSpecification) datasourceSpecification;
-                return new DuckDBDataSourceSpecificationKey(
-                        databricksSpecification.path
-                );
+                DuckDBDatasourceSpecification duckDBSpec = (DuckDBDatasourceSpecification) datasourceSpecification;
+                return new DuckDBDataSourceSpecificationKey(duckDBSpec.path, duckDBSpec.testDataSetupSqls);
             }
             return null;
         };

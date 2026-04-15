@@ -1,4 +1,4 @@
-// Copyright 2024 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,22 @@ package org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.
 
 import java.util.List;
 
-public class DuckDBDatasourceSpecification extends DatasourceSpecification
+/**
+ * Protocol-level datasource specification for local in-memory DuckDB test connections.
+ * Analogous to LocalH2DatasourceSpecification but for DuckDB.
+ */
+public class LocalDuckDBDatasourceSpecification extends DatasourceSpecification
 {
-    public String path;
-
-    public String testDataSetupCsv;
     public List<String> testDataSetupSqls;
+
+    public LocalDuckDBDatasourceSpecification()
+    {
+    }
+
+    public LocalDuckDBDatasourceSpecification(List<String> testDataSetupSqls)
+    {
+        this.testDataSetupSqls = testDataSetupSqls;
+    }
 
     @Override
     public <T> T accept(DatasourceSpecificationVisitor<T> datasourceSpecificationVisitor)
@@ -29,3 +39,4 @@ public class DuckDBDatasourceSpecification extends DatasourceSpecification
         return datasourceSpecificationVisitor.visit(this);
     }
 }
+
