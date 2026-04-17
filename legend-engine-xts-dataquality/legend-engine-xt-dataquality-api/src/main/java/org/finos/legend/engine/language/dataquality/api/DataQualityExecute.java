@@ -59,6 +59,8 @@ import org.finos.legend.engine.shared.core.ObjectMapperFactory;
 import org.finos.legend.engine.shared.core.api.result.ManageConstantResult;
 import org.finos.legend.engine.shared.core.identity.Identity;
 import org.finos.legend.engine.shared.core.kerberos.ProfileManagerHelper;
+import org.finos.legend.engine.shared.core.operational.errorManagement.EngineException;
+import org.finos.legend.engine.shared.core.operational.errorManagement.ExceptionCategory;
 import org.finos.legend.engine.shared.core.operational.errorManagement.ExceptionTool;
 import org.finos.legend.engine.shared.core.operational.http.InflateInterceptor;
 import org.finos.legend.engine.shared.core.operational.logs.LogInfo;
@@ -69,6 +71,7 @@ import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualit
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_datarecon_DataQualityReconInput;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_rule_suggestions_RuleSuggestion;
 import org.finos.legend.pure.generated.Root_meta_pure_extension_Extension;
+import org.finos.legend.pure.generated.core_dataquality_generation_dataquality;
 import org.finos.legend.pure.generated.core_dataquality_generation_datarecon;
 import org.finos.legend.pure.generated.core_dataquality_generation_rule_suggestions;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement;
@@ -346,13 +349,24 @@ public class DataQualityExecute
     {
         LOGGER.info(new LogInfo(identity.getName(), DataQualityLoggingEventType.DATAQUALITY_RECON_START).toString());
 
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction dqLambdaFunction;
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> sourceLambdaFunction = HelperValueSpecificationBuilder.buildLambda(input.source, pureModel.getContext());
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> targetLambdaFunction = HelperValueSpecificationBuilder.buildLambda(input.target, pureModel.getContext());
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> dqLambdaFunction;
+
+        if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(sourceLambdaFunction, pureModel.getExecutionSupport()))
+        {
+            throw new EngineException("The source query for the Data Quality Recon Input does not end with a 'from' so unable to execute it.", ExceptionCategory.USER_EXECUTION_ERROR);
+        }
+        if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(targetLambdaFunction, pureModel.getExecutionSupport()))
+        {
+            throw new EngineException("The target query for the Data Quality Recon Input does not end with a 'from' so unable to execute it.", ExceptionCategory.USER_EXECUTION_ERROR);
+        }
         MutableMap<String, Object> lambdaParameterMap = Maps.mutable.empty();
 
         if (input.runSourceQuery)
         {
             // return source query results directly
-            dqLambdaFunction = HelperValueSpecificationBuilder.buildLambda(input.source, pureModel.getContext());
+            dqLambdaFunction = sourceLambdaFunction;
             if (input.sourceLambdaParameterValues != null)
             {
                 input.sourceLambdaParameterValues.forEach(p -> lambdaParameterMap.put(p.name, p.value.accept(new PrimitiveValueSpecificationToObjectVisitor())));
@@ -361,7 +375,7 @@ public class DataQualityExecute
         else if (input.runTargetQuery)
         {
             // return target query results directly
-            dqLambdaFunction = HelperValueSpecificationBuilder.buildLambda(input.target, pureModel.getContext());
+            dqLambdaFunction = targetLambdaFunction;
             if (input.targetLambdaParameterValues != null)
             {
                 input.targetLambdaParameterValues.forEach(p -> lambdaParameterMap.put(p.name, p.value.accept(new PrimitiveValueSpecificationToObjectVisitor())));
@@ -370,8 +384,8 @@ public class DataQualityExecute
         else
         {
             // 1. create DQ recon input
-            Root_meta_external_dataquality_datarecon_DataQualityReconInput reconInput = core_dataquality_generation_datarecon.Root_meta_external_dataquality_datarecon_createReconInput_LambdaFunction_1__LambdaFunction_1__String_MANY__Boolean_1__String_MANY__String_$0_1$__String_$0_1$__Boolean_1__Integer_$0_1$__DataQualityReconInput_1_(
-                    HelperValueSpecificationBuilder.buildLambda(input.source, pureModel.getContext()), HelperValueSpecificationBuilder.buildLambda(input.target, pureModel.getContext()), Sets.immutable.ofAll(input.keys), input.aggregatedHash, Sets.immutable.ofAll(input.colsForHash), input.sourceHashCol, input.targetHashCol, input.includeColumnValues, input.defectLimit, pureModel.getExecutionSupport()
+            Root_meta_external_dataquality_datarecon_DataQualityReconInput reconInput = core_dataquality_generation_datarecon.Root_meta_external_dataquality_datarecon_createReconInput_LambdaFunction_1__LambdaFunction_1__String_MANY__Boolean_1__String_MANY__String_$0_1$__String_$0_1$__Boolean_1__Integer_$0_1$__Boolean_1__DataQualityReconInput_1_(
+                    sourceLambdaFunction, targetLambdaFunction, Sets.immutable.ofAll(input.keys), input.aggregatedHash, Sets.immutable.ofAll(input.colsForHash), input.sourceHashCol, input.targetHashCol, input.includeColumnValues, input.defectLimit, false, pureModel.getExecutionSupport()
             );
             // 2. call DQ PURE func to generate recon lambda
             dqLambdaFunction = DataQualityReconLambdaGenerator.generateLambda(pureModel, reconInput);
