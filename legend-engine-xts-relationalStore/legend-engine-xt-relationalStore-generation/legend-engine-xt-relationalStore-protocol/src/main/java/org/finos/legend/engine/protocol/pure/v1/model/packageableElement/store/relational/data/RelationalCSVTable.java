@@ -14,8 +14,6 @@
 
 package org.finos.legend.engine.protocol.pure.v1.model.packageableElement.store.relational.data;
 
-import java.util.List;
-
 import org.finos.legend.engine.protocol.pure.m3.SourceInformation;
 
 public class RelationalCSVTable
@@ -23,6 +21,5 @@ public class RelationalCSVTable
     public String schema;
     public String table;
     public String values;
-    public List<RelationalCSVTableColumnType> columnTypes;
     public SourceInformation sourceInformation;
 }
