@@ -59,7 +59,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::duckD
                      )
                   )
                ),
-            d:meta::pure::alloy::connections::alloy::specification::DatasourceSpecification[1] | fail('Unsupported data source specification; expected DuckDBDatasourceSpecification but received %s'->format($d->type()->toString())); [];
+            d:meta::pure::alloy::connections::alloy::specification::DatasourceSpecification[1] | [];
          ])
       }
    );
