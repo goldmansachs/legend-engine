@@ -5573,6 +5573,8 @@ function meta::relational::functions::pureToSqlQuery::processExists(expression:F
     let leftSide = $leftSideOp.element->toOne()->cast(@SelectWithCursor);
 
     let select = $leftSide.select;
+    print(if(!$context.debug, |'',
+            | $context.space+'   (S)Exists left side select>  '+$select->printDebugQuery($context.space, $extensions)));
 
     // Rebuild old query (it may have been mutated by adding keys in Union)
     let node = $operation.currentTreeNode->toOne()->findNode($operation.select.data->toOne(), $select.data->toOne())->toOne();
@@ -5592,6 +5594,10 @@ function meta::relational::functions::pureToSqlQuery::processExists(expression:F
                                 currentTreeNode=$nNode,
                                 positionBeforeLastApplyJoinTreeNode = if($operation.positionBeforeLastApplyJoinTreeNode->isEmpty(),|[],|$operation.positionBeforeLastApplyJoinTreeNode->toOne()->findNode($operation.select.data->toOne(), $nSelect.data->toOne())->toOne())
                             );
+
+    let opSel = $nOperation.select;
+    print(if(!$context.debug, |'',
+            | $context.space+'   (O)Exists pruned left side operation>  '+$opSel->printDebugQuery($context.space, $extensions)));
 
     let opMapping = $leftSideOp.currentPropertyMapping;
     if (!$opMapping->isEmpty() && $opMapping->at(0)->instanceOf(EmbeddedRelationalInstanceSetImplementation)
@@ -8815,7 +8821,6 @@ function meta::relational::functions::pureToSqlQuery::merge(parentTargetTreeNode
                         let parentSavedFilters = $mergeNodes.savedFilteringOperation;
                         let parentExtraFiler = $mergeNodes.extraFilteringOperation;
                         let parentGroupBy = $mergeNodes.groupBy;
-
                         let nodesToAdd = $a.node->children()->filter(c|$c != $commonNode);
                         let newOriginalNode = ^$mergedOriginalNode
                                               (
