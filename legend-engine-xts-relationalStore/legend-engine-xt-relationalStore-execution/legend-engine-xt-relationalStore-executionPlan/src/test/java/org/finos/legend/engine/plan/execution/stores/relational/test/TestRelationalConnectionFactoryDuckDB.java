@@ -84,8 +84,8 @@ public class TestRelationalConnectionFactoryDuckDB
         Assert.assertTrue(relConn.datasourceSpecification instanceof DuckDBDatasourceSpecification);
         DuckDBDatasourceSpecification duckDBSpec = (DuckDBDatasourceSpecification) relConn.datasourceSpecification;
         Assert.assertEquals("", duckDBSpec.path);
-        Assert.assertNotNull(duckDBSpec.testDataSetupSqls);
-        Assert.assertFalse("testDataSetupSqls should contain CREATE + INSERT statements", duckDBSpec.testDataSetupSqls.isEmpty());
+        Assert.assertNotNull(duckDBSpec.testDataSetupCsv);
+        Assert.assertTrue("testDataSetupCsv should contain table data", duckDBSpec.testDataSetupCsv.contains("PersonTable"));
     }
 
     @Test
@@ -125,8 +125,8 @@ public class TestRelationalConnectionFactoryDuckDB
         Assert.assertTrue(result.isPresent());
         DuckDBDatasourceSpecification duckDBSpec = (DuckDBDatasourceSpecification) ((RelationalDatabaseConnection) result.get().getOne()).datasourceSpecification;
         Assert.assertEquals("", duckDBSpec.path);
-        Assert.assertNotNull(duckDBSpec.testDataSetupSqls);
-        Assert.assertFalse("testDataSetupSqls should contain statements for both tables", duckDBSpec.testDataSetupSqls.isEmpty());
+        Assert.assertNotNull(duckDBSpec.testDataSetupCsv);
+        Assert.assertTrue("testDataSetupCsv should contain data for both tables", duckDBSpec.testDataSetupCsv.contains("PersonTable") && duckDBSpec.testDataSetupCsv.contains("FirmTable"));
     }
 
     @Test

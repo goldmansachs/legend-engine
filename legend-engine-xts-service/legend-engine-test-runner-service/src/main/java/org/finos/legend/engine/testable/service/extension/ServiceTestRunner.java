@@ -127,7 +127,7 @@ public class ServiceTestRunner implements TestRunner
                 Root_meta_legend_service_metamodel_PureExecution pureExecution = (Root_meta_legend_service_metamodel_PureExecution) pureService._execution();
                 if (TestReturnTypeHelper.isRelationReturnType(pureExecution._func(), pureModel))
                 {
-                    hints = TestConnectionBuildParameters.newBuilder().withIsRelation(true).withPureModelContextData(data).build();
+                    hints = TestConnectionBuildParameters.newBuilder().withIsRelation(true).build();
                 }
             }
         }

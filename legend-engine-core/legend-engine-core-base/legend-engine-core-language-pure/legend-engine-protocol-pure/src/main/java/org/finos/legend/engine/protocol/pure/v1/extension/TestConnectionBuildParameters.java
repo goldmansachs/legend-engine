@@ -14,29 +14,20 @@
 
 package org.finos.legend.engine.protocol.pure.v1.extension;
 
-import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
-
 public class TestConnectionBuildParameters
 {
     public static final TestConnectionBuildParameters NONE = newBuilder().build();
 
     private final boolean isRelation;
-    private final PureModelContextData pureModelContextData;
 
     private TestConnectionBuildParameters(Builder builder)
     {
         this.isRelation = builder.isRelation;
-        this.pureModelContextData = builder.pureModelContextData;
     }
 
     public boolean isRelation()
     {
         return isRelation;
-    }
-
-    public PureModelContextData getPureModelContextData()
-    {
-        return pureModelContextData;
     }
 
     public static Builder newBuilder()
@@ -47,7 +38,6 @@ public class TestConnectionBuildParameters
     public static class Builder
     {
         private boolean isRelation = false;
-        private PureModelContextData pureModelContextData = null;
 
         private Builder()
         {
@@ -56,12 +46,6 @@ public class TestConnectionBuildParameters
         public Builder withIsRelation(boolean isRelation)
         {
             this.isRelation = isRelation;
-            return this;
-        }
-
-        public Builder withPureModelContextData(PureModelContextData pureModelContextData)
-        {
-            this.pureModelContextData = pureModelContextData;
             return this;
         }
 
