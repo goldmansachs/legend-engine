@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function3;
 import org.eclipse.collections.api.factory.Lists;
+import org.eclipse.collections.api.factory.Maps;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.map.MutableMap;
 import org.eclipse.collections.impl.list.mutable.FastList;
@@ -350,11 +351,11 @@ public class ValueSpecificationBuilder implements ValueSpecificationVisitor<Valu
             }
             case "colSpec":
             {
-                return proccessColSpec((ColSpec) iv.value);
+                return processColSpec((ColSpec) iv.value);
             }
             case "colSpecArray":
             {
-                return proccessColSpecArray((ColSpecArray) iv.value);
+                return processColSpecArray((ColSpecArray) iv.value);
             }
             case "propertyGraphFetchTree":
             {
@@ -419,7 +420,7 @@ public class ValueSpecificationBuilder implements ValueSpecificationVisitor<Valu
         }
     }
 
-    private ValueSpecification proccessColSpecArray(ColSpecArray value)
+    private ValueSpecification processColSpecArray(ColSpecArray value)
     {
         ProcessorSupport processorSupport = this.context.pureModel.getExecutionSupport().getProcessorSupport();
 
@@ -446,10 +447,7 @@ public class ValueSpecificationBuilder implements ValueSpecificationVisitor<Valu
             }
         }
 
-        MutableList<ValueSpecification> cols = ListIterate.collect(value.colSpecs, this::proccessColSpec);
-
-        // Clean up pre-compiled parameters
-        processingContext.clearPreCompiledLambdaParameters();
+        MutableList<ValueSpecification> cols = ListIterate.collect(value.colSpecs, c -> processColSpec(c, preCompiledLambdaParam));
 
         RichIterable<?> processedValues = cols.flatCollect(v -> ((InstanceValue) v)._values());
         Object resO = processedValues.getFirst();
@@ -528,12 +526,12 @@ public class ValueSpecificationBuilder implements ValueSpecificationVisitor<Valu
                 ._typeArguments(args);
     }
 
-    private ValueSpecification proccessColSpec(ColSpec colSpec)
+    private ValueSpecification processColSpec(ColSpec colSpec)
     {
-        return proccessColSpec(colSpec, Maps.mutable.empty());
+        return processColSpec(colSpec, Maps.mutable.empty());
     }
 
-    private ValueSpecification proccessColSpec(ColSpec colSpec, MutableMap<String, VariableExpression> function1Parameters)
+    private ValueSpecification processColSpec(ColSpec colSpec, MutableMap<String, VariableExpression> function1Parameters)
     {
         ProcessorSupport processorSupport = this.context.pureModel.getExecutionSupport().getProcessorSupport();
         if (colSpec.function1 == null)
