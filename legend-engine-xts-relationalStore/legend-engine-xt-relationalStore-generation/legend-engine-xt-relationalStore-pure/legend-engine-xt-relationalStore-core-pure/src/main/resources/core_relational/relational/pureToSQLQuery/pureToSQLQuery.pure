@@ -3731,8 +3731,8 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
           );
       ]);,
     rvs: RoutedValueSpecification[1] |
-      $rvs.value->isSemiStructuredArrayExpression($vars, $state);,
-    a: Any[1] | false;
+      $rvs.value->isSemiStructuredArrayExpression($vars, $state),
+    a: Any[1] | false
   ]);
 }
 
@@ -5388,7 +5388,6 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
                                                                                 | let byPassedLeft = $leftSidePure->byPassRouterInfo();
                                                                                   let isDataTypeInput = $byPassedLeft.genericType.rawType->isNotEmpty() && $byPassedLeft.genericType.rawType->toOne()->instanceOf(DataType);
                                                                                   let isSemiStructuredPropertyMapping = ($leftSideOp.currentPropertyMapping->size() >= 1) && $leftSideOp.currentPropertyMapping->forAll(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping));
-                                                                                  print('[DEBUG processFilter] isDataTypeInput=' + $isDataTypeInput->toString() + ' isSemiStructuredPropertyMapping=' + $isSemiStructuredPropertyMapping->toString() + ' leftSide.select.columns.size=' + $leftSide.select.columns->size()->toString() + '\n');
                                                                                   if ($isDataTypeInput || $isSemiStructuredPropertyMapping, | $leftSide.select.columns, | []);)),
                                   //extraFilteringOperation = $leftSide.select.extraFilteringOperation,
                                   savedFilteringOperation = $savedFilteringOp,
@@ -5426,10 +5425,10 @@ function meta::relational::functions::pureToSqlQuery::processFilter(expression:F
    let newLastNode = if ($leftSide.currentTreeNode->isEmpty(),|[] ,|$leftSide.currentTreeNode->toOne()->findOneNode($leftSide.select.data->toOne(), $mergedWithCollapsedFilteringOperation.data->toOne()));
 
     // --- compute lateral join flag before we mutate filteringOperation ---
-      let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false])
-                                && ($leftSideOp.currentPropertyMapping->size() >= 1)
-                                && $leftSideOp.currentPropertyMapping->forAll(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping));  // Only clear filteringOperation (move to savedFilteringOperation) for projection context when NOT a lateral join
-     let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty() && !$isFilterOnLateralJoin,
+   let isFilterOnLateralJoin = $newLastNode->match([j:JoinTreeNode[1] | $j.lateral == true, a:Any[0..1] | false])
+                             && ($leftSideOp.currentPropertyMapping->size() >= 1)
+                             && $leftSideOp.currentPropertyMapping->forAll(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping));  // Only clear filteringOperation (move to savedFilteringOperation) for projection context when NOT a lateral join
+   let managedFilteredPosition = if ($state.inProjectFunctions && $state.qualifierBase->isEmpty() && !$mergedWithCollapsedFilteringOperation.filteringOperation->isEmpty() && !$isFilterOnLateralJoin,
          |^$mergedWithCollapsedFilteringOperation
            (
               filteringOperation = [],
@@ -5550,7 +5549,7 @@ function meta::relational::functions::pureToSqlQuery::findOneNode(oldTarget:Rela
 
 function meta::relational::functions::pureToSqlQuery::processExists(functionExpression:FunctionExpression[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
 {
-    processExists($functionExpression,false, $currentPropertyMapping, $operation, $vars, $state, $nodeId, $aggFromMap, $context, $extensions);
+    processExists($functionExpression,false, $currentPropertyMapping, $operation, $vars, $state, $nodeId, $aggFromMap, $context, $extensions)
 }
 
 function meta::relational::functions::pureToSqlQuery::processNotExists(functionExpression:FunctionExpression[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
