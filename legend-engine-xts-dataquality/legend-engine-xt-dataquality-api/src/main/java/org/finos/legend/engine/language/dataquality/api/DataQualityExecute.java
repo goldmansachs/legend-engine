@@ -67,7 +67,10 @@ import org.finos.legend.engine.shared.core.operational.logs.LogInfo;
 import org.finos.legend.engine.shared.core.operational.logs.LoggingEventType;
 import org.finos.legend.engine.shared.core.operational.prometheus.MetricsHandler;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQuality;
+import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityRelationComparison;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQualityRelationValidation;
+import org.finos.legend.pure.generated.Root_meta_external_dataquality_MD5HashStrategy;
+import org.finos.legend.pure.generated.Root_meta_external_dataquality_ReconStrategy;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_datarecon_DataQualityReconInput;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_rule_suggestions_RuleSuggestion;
 import org.finos.legend.pure.generated.Root_meta_pure_extension_Extension;
@@ -96,6 +99,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
 @Api(tags = "DataQuality - Execution")
@@ -349,8 +353,9 @@ public class DataQualityExecute
     {
         LOGGER.info(new LogInfo(identity.getName(), DataQualityLoggingEventType.DATAQUALITY_RECON_START).toString());
 
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> sourceLambdaFunction = HelperValueSpecificationBuilder.buildLambda(input.source, pureModel.getContext());
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> targetLambdaFunction = HelperValueSpecificationBuilder.buildLambda(input.target, pureModel.getContext());
+        Root_meta_external_dataquality_DataQualityRelationComparison dqComparisonElement = getDqComparisonElement(pureModel, input.packagePath);
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> sourceLambdaFunction = dqComparisonElement == null ? HelperValueSpecificationBuilder.buildLambda(input.source, pureModel.getContext()) : dqComparisonElement._source();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> targetLambdaFunction = dqComparisonElement == null ? HelperValueSpecificationBuilder.buildLambda(input.target, pureModel.getContext()) : dqComparisonElement._target();
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> dqLambdaFunction;
 
         if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(sourceLambdaFunction, pureModel.getExecutionSupport()))
@@ -384,9 +389,7 @@ public class DataQualityExecute
         else
         {
             // 1. create DQ recon input
-            Root_meta_external_dataquality_datarecon_DataQualityReconInput reconInput = core_dataquality_generation_datarecon.Root_meta_external_dataquality_datarecon_createReconInput_LambdaFunction_1__LambdaFunction_1__String_MANY__Boolean_1__String_MANY__String_$0_1$__String_$0_1$__Boolean_1__Integer_$0_1$__Boolean_1__DataQualityReconInput_1_(
-                    sourceLambdaFunction, targetLambdaFunction, Sets.immutable.ofAll(input.keys), input.aggregatedHash, Sets.immutable.ofAll(input.colsForHash), input.sourceHashCol, input.targetHashCol, input.includeColumnValues, input.defectLimit, false, pureModel.getExecutionSupport()
-            );
+            Root_meta_external_dataquality_datarecon_DataQualityReconInput reconInput = createReconInput(pureModel, dqComparisonElement, input, sourceLambdaFunction, targetLambdaFunction);
             // 2. call DQ PURE func to generate recon lambda
             dqLambdaFunction = DataQualityReconLambdaGenerator.generateLambda(pureModel, reconInput);
             // 3. build parameter map with source_/target_ prefixes for the recon lambda
@@ -405,6 +408,51 @@ public class DataQualityExecute
         LOGGER.info(new LogInfo(identity.getName(), DataQualityLoggingEventType.DATAQUALITY_RECON_END, System.currentTimeMillis() - start).toString());
         // 4. Execute plan
         return executePlanToResult(request, identity, singleExecutionPlan, lambdaParameterMap);
+    }
+
+    private static Root_meta_external_dataquality_datarecon_DataQualityReconInput createReconInput(PureModel pureModel, Root_meta_external_dataquality_DataQualityRelationComparison dqComparisonElement, DataQualityReconInput input, org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> sourceLambdaFunction, org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> targetLambdaFunction)
+    {
+        if (dqComparisonElement == null)
+        {
+            return core_dataquality_generation_datarecon.Root_meta_external_dataquality_datarecon_createReconInput_LambdaFunction_1__LambdaFunction_1__String_MANY__Boolean_1__String_MANY__String_$0_1$__String_$0_1$__Boolean_1__Integer_$0_1$__Boolean_1__DataQualityReconInput_1_(
+                    sourceLambdaFunction, targetLambdaFunction, Sets.immutable.ofAll(input.keys), input.aggregatedHash, Sets.immutable.ofAll(input.colsForHash), input.sourceHashCol, input.targetHashCol, input.includeColumnValues, input.defectLimit, false, pureModel.getExecutionSupport()
+            );
+        }
+        return core_dataquality_generation_datarecon.Root_meta_external_dataquality_datarecon_createReconInput_LambdaFunction_1__LambdaFunction_1__String_MANY__Boolean_1__String_MANY__String_$0_1$__String_$0_1$__Boolean_1__Integer_$0_1$__Boolean_1__DataQualityReconInput_1_(
+                dqComparisonElement._source(), dqComparisonElement._target(), dqComparisonElement._keys(), input.aggregatedHash, dqComparisonElement._columnsToCompare(), getSourceHashColumn(dqComparisonElement._strategy()), getTargetHashColumn(dqComparisonElement._strategy()), input.includeColumnValues, input.defectLimit, false, pureModel.getExecutionSupport()
+        );
+    }
+
+    private static String getSourceHashColumn(Root_meta_external_dataquality_ReconStrategy reconStrategy)
+    {
+        if (reconStrategy instanceof Root_meta_external_dataquality_MD5HashStrategy)
+        {
+            return ((Root_meta_external_dataquality_MD5HashStrategy) reconStrategy)._sourceHashColumn();
+        }
+        return null;
+    }
+
+    private static String getTargetHashColumn(Root_meta_external_dataquality_ReconStrategy reconStrategy)
+    {
+        if (reconStrategy instanceof Root_meta_external_dataquality_MD5HashStrategy)
+        {
+            return ((Root_meta_external_dataquality_MD5HashStrategy) reconStrategy)._targetHashColumn();
+        }
+        return null;
+    }
+
+    private static Root_meta_external_dataquality_DataQualityRelationComparison getDqComparisonElement(PureModel pureModel, String packagePath)
+    {
+        if (packagePath != null)
+        {
+            PackageableElement packageableElement = pureModel.getPackageableElement(packagePath);
+            if (packageableElement instanceof Root_meta_external_dataquality_DataQualityRelationComparison)
+            {
+                return (Root_meta_external_dataquality_DataQualityRelationComparison) packageableElement;
+            }
+            throw new EngineException(format("Expected package path to point to DataQualityRelationComparison but found %s", packageableElement.getClass().getSimpleName()), ExceptionCategory.USER_EXECUTION_ERROR);
+        }
+        return null;
     }
 
     private SingleExecutionPlan generateExecutionPlan(DataQualityExecuteTrialInput dataQualityExecuteInput, Identity identity, boolean rowCount, String queryType)
