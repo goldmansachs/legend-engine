@@ -33,15 +33,11 @@ import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.*;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.relation.RelationFunctionInstanceSetImplementation;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.relation.RelationFunctionPropertyMapping;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.FunctionDefinition;
-import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.relation.Column;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.relation.RelationType;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.FunctionType;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.generics.GenericType;
 import org.finos.legend.pure.m3.navigation.M3Paths;
 import org.finos.legend.pure.m3.navigation.ProcessorSupport;
-import org.finos.legend.pure.m3.navigation.relation._Column;
-import org.finos.legend.pure.m3.navigation.relation._RelationType;
-import org.finos.legend.pure.m4.exception.PureCompilationException;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -352,23 +348,7 @@ public class MappingValidator
         {
             if (pm instanceof RelationFunctionPropertyMapping)
             {
-                RelationFunctionPropertyMapping propertyMapping = (RelationFunctionPropertyMapping) pm;
-                try
-                {
-                    Column<?, ?> column = (Column<?, ?>) _RelationType.findColumn(relationType, propertyMapping._column()._name(), propertyMapping.getSourceInformation(), processorSupport);
-                    if (propertyMapping._transformer() != null)
-                    {
-                        return;
-                    }
-                    if (!org.finos.legend.pure.m3.navigation.generictype.GenericType.subTypeOf(_Column.getColumnType(column), _Column.getColumnType(propertyMapping._column()), processorSupport))
-                    {
-                        throw new EngineException("Mismatching property and relation column types. Property type is " + _Column.getColumnType(propertyMapping._column())._rawType()._name() + ", but relation column it is mapped to has type " + _Column.getColumnType(column)._rawType()._name() + ".", SourceInformationHelper.fromM3SourceInformation(propertyMapping.getSourceInformation()), EngineErrorType.COMPILATION);
-                    }
-                }
-                catch (PureCompilationException e)
-                {
-                    throw new EngineException(e.getInfo(), SourceInformationHelper.fromM3SourceInformation(e.getSourceInformation()), EngineErrorType.COMPILATION);
-                }
+                validateRelationFunctionPropertyMapping((RelationFunctionPropertyMapping) pm, processorSupport);
             }
             else if (pm instanceof EmbeddedSetImplementation)
             {
@@ -376,5 +356,72 @@ public class MappingValidator
             }
         });
     }
-    
+
+    /**
+     * Validate the {@code _valueFn} of a relation property mapping against the property's declared
+     * type and multiplicity.  Mirrors {@code RelationFunctionInstanceSetImplementationValidator} in
+     * legend-pure:
+     * <ul>
+     *   <li>The lambda body's inferred multiplicity must be subsumed by the property multiplicity.</li>
+     *   <li>The lambda body's inferred generic type must be a subtype of the property type — unless
+     *       an {@link org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.EnumerationMapping} or
+     *       {@link org.finos.legend.pure.generated.Root_meta_external_format_shared_binding_BindingTransformer}
+     *       is in play, in which case the transformer is responsible for the conversion.</li>
+     * </ul>
+     * Skipped if {@code _valueFn} is null — that indicates the compiler couldn't build the lambda
+     * (will have surfaced as a separate COMPILATION error already).
+     */
+    private void validateRelationFunctionPropertyMapping(RelationFunctionPropertyMapping pm, ProcessorSupport processorSupport)
+    {
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> valueFn = pm._valueFn();
+        if (valueFn == null)
+        {
+            return;
+        }
+        org.eclipse.collections.api.list.MutableList<? extends org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.valuespecification.ValueSpecification> exprs =
+                Lists.mutable.withAll(valueFn._expressionSequence());
+        if (exprs.isEmpty())
+        {
+            return;
+        }
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.valuespecification.ValueSpecification lastExpr = exprs.getLast();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.property.Property<?, ?> property = pm._property();
+
+        // Multiplicity subsumption: the property's declared multiplicity must subsume the body's.
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.multiplicity.Multiplicity propertyMultiplicity = property._multiplicity();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.multiplicity.Multiplicity bodyMultiplicity = lastExpr._multiplicity();
+        if (!org.finos.legend.pure.m3.navigation.multiplicity.Multiplicity.subsumes(propertyMultiplicity, bodyMultiplicity))
+        {
+            // Use the bracketed Multiplicity.print(m) overload (defaults to printBrackets=true) so
+            // the error wording matches legend-pure's RelationFunctionInstanceSetImplementationValidator
+            // verbatim ("multiplicity range of [1]" rather than "multiplicity range of 1").
+            throw new EngineException(
+                    "Multiplicity Error: The property '" + org.finos.legend.pure.m3.navigation.property.Property.getPropertyName(property) +
+                            "' has a multiplicity range of " + org.finos.legend.pure.m3.navigation.multiplicity.Multiplicity.print(propertyMultiplicity) +
+                            " when the given expression has a multiplicity range of " + org.finos.legend.pure.m3.navigation.multiplicity.Multiplicity.print(bodyMultiplicity),
+                    SourceInformationHelper.fromM3SourceInformation(pm.getSourceInformation()),
+                    EngineErrorType.COMPILATION);
+        }
+
+        // Type subtyping check is skipped when a transformer (Binding or EnumerationMapping) is present —
+        // the transformer is responsible for converting the body's type to the property type.
+        if (pm._transformer() != null)
+        {
+            return;
+        }
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Type propertyType = property._genericType()._rawType();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Type bodyType = lastExpr._genericType()._rawType();
+        if (propertyType == null || bodyType == null)
+        {
+            return;
+        }
+        if (!processorSupport.type_subTypeOf(bodyType, propertyType))
+        {
+            throw new EngineException(
+                    "Type Error: '" + bodyType._name() + "' not a subtype of '" + propertyType._name() + "'",
+                    SourceInformationHelper.fromM3SourceInformation(pm.getSourceInformation()),
+                    EngineErrorType.COMPILATION);
+        }
+    }
+
 }

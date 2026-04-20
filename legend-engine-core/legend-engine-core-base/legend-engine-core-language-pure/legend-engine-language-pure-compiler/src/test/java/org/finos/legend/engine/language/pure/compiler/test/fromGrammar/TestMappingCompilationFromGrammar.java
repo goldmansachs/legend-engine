@@ -3203,9 +3203,13 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
             "  employees: my::Person[*];\n" +
             "  firm: my::Firm[1];\n" +
             "}\n" +
+            // Columns carry explicit `[1]` multiplicities — the post-RFPM validator
+            // requires the property multiplicity to subsume the lambda body multiplicity,
+            // and an unannotated column type defaults to `[0..1]`, which would clash with
+            // the `[1]` properties above.  This mirrors legend-pure's RelationMappingShared.
             "function my::personFunction():meta::pure::metamodel::relation::Relation<Any>[1]\n" +
             "{\n" +
-            "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String, AGE:Integer, FIRMID:Integer, CITY:String)>);\n" +
+            "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String[1], AGE:Integer[1], FIRMID:Integer[1], CITY:String[1])>);\n" +
             "}\n";
 
     public void testRelationMapping(String grammar)
@@ -3258,7 +3262,7 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "import meta::pure::metamodel::relation::*;\n" +
                 "function my::personFunctionWithQuotedCol():meta::pure::metamodel::relation::Relation<Any>[1]\n" +
                 "{\n" +
-                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String, AGE:Integer, 'FIRM ID':Integer, CITY:String)>);\n" +
+                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String[1], AGE:Integer[1], 'FIRM ID':Integer[1], CITY:String[1])>);\n" +
                 "}\n" +
                 "###Mapping\n" +
                 "Mapping my::testMapping\n" +
@@ -3327,6 +3331,14 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
     @Test
     public void testRelationFunctionMappingWithInvalidRelationColumn()
     {
+        // After the RFPM valueFn refactor, bare-column-form property mappings are lowered to
+        // `$src.<col>` lambdas at SecondPass and compiled through the standard property
+        // accessor pipeline.  Column-not-found errors therefore surface via legend-pure's
+        // `FunctionExpressionProcessor` with the new wording "The column 'X' can't be found
+        // in the relation (...)" rather than the old `_RelationType.findColumn` wording
+        // "The system can't find the column ...".  The relation row-type tail is also rendered
+        // with explicit multiplicity (`(FIRSTNAME:String[1], ...)`), which is engine-specific
+        // and not worth pinning — match the leading sentence instead.
         testRelationMapping("###Mapping\n" +
                 "Mapping my::testMapping\n" +
                 "(\n" +
@@ -3336,7 +3348,7 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "    firstName: FOO,\n" +
                 "    age: AGE\n" +
                 "  }\n" +
-                ")\n", "COMPILATION error at [37:5-18]: The system can't find the column FOO in the Relation (FIRSTNAME:String, AGE:Integer, FIRMID:Integer, CITY:String)");
+                ")\n", "COMPILATION error at [37:5-18]: The column 'FOO' can't be found in the relation");
     }
 
     @Test
@@ -3351,16 +3363,21 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "    firstName: AGE,\n" +
                 "    age: AGE\n" +
                 "  }\n" +
-                ")\n", "COMPILATION error at [37:5-18]: Mismatching property and relation column types. Property type is String, but relation column it is mapped to has type Integer.");
+                ")\n", "COMPILATION error at [37:5-18]: Type Error: 'Integer' not a subtype of 'String'");
     }
 
     @Test
     public void testRelationFunctionMappingWithInvalidMultiplicityProperty()
     {
+        // After the valueFn refactor, the property multiplicity simply must subsume the lambda
+        // body multiplicity (rather than being constrained to [1] or [0..1]).  A property with
+        // multiplicity [*] mapped to a column with multiplicity [1] is now valid because [*] subsumes [1].
+        // (Originally this test referenced a non-existent NAME column; updated to FIRSTNAME which is
+        // declared as String[1] in the shared fixture, so the subsumption check is the only relevant one.)
         testRelationMapping("###Pure\n" +
                 "Class my::Person1\n" +
                 "{\n" +
-                "  name: String[*];\n" +
+                "  names: String[*];\n" +
                 "  age: Integer[1];\n" +
                 "}\n" +
                 "\n" +
@@ -3370,10 +3387,10 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "  my::Person1: Relation \n" +
                 "  {\n" +
                 "    ~func my::personFunction():Relation<Any>[1]\n" +
-                "    name: NAME,\n" +
+                "    names: FIRSTNAME,\n" +
                 "    age: AGE\n" +
                 "  }\n" +
-                ")\n", "COMPILATION error at [44:5-14]: Properties in relation mappings can only have multiplicity 1 or 0..1, but the property 'name' has multiplicity [*].");
+                ")\n");
     }
     
     @Test

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import meta::relational::mutation::*;
-import meta::pure::mapping::xStore::*;
 import meta::relational::contract::*;
 import meta::pure::router::metamodel::*;
 import meta::pure::router::systemMapping::tests::*;
@@ -46,12 +45,6 @@ function meta::relational::contract::relationalStoreContract():StoreContract[1]
      planExecution = meta::relational::contract::planExecution_StoreQuery_1__RoutedValueSpecification_$0_1$__Mapping_$0_1$__Runtime_$0_1$__ExecutionContext_1__Extension_MANY__DebugContext_1__ExecutionNode_1_,
      planGraphFetchExecution = meta::relational::contract::planGraphFetchExecution_StoreMappingLocalGraphFetchExecutionNodeGenerationInput_1__LocalGraphFetchExecutionNode_1_,
      planCrossGraphFetchExecution = meta::relational::contract::planCrossGraphFetchExecution_StoreMappingCrossLocalGraphFetchExecutionNodeGenerationInput_1__LocalGraphFetchExecutionNode_1_,
-     localizeXStoreAssociation = {
-      x : XStoreAssociationImplementation[1], setImpl : SetImplementation[*] |
-        [
-          d: Database[*]| meta::external::store::relational::modelJoins::localizeXStoreAssociation($x, $setImpl, $d);
-        ]
-     },
      connectionEquality = { b : Connection [1] |
                                [
                                  d: RelationalDatabaseConnection[1]|
@@ -186,7 +179,8 @@ function meta::relational::contract::relationalStoreContract():StoreContract[1]
      instance_equals = {a:Any[1], b:Any[1] |
                           $a->getHiddenPayload()->cast(@meta::relational::mapping::KeyInformation).pk == $b->getHiddenPayload()->toOne()->cast(@meta::relational::mapping::KeyInformation).pk;
                        },
-     splitGraphFetchTreeForPropertyUnion = true
+     splitGraphFetchTreeForPropertyUnion = true,
+     canLocalizeXStoreAssociation        = true
    );
 }
 
@@ -197,25 +191,63 @@ function meta::relational::contract::execution(sq:meta::pure::mapping::StoreQuer
 }
 
 // Functions supported by relational execution
+//
+// Called from clustering via StoreContract.supports. The State passed in is the stub
+// `defaultState([], newMap([]))` built in relationalStoreContract above — it has empty
+// inScopeVars, empty mapping, no disableAutoFlatten, no functionReferenceScope, etc.
+// `isFunctionSupportedForCluster` therefore intentionally consults only (a) the static
+// `supportedFunctions` map — real processors only — and (b) `getClusteringContextPredicates`,
+// whose fe-only predicates are safe to evaluate against a stub State (the narrower
+// function type statically enforces state-safety at this call site).
+//
+// The full `contextBasedSupportedFunctions` registry (with `{fe, vars, state -> Boolean}`
+// predicates) is NOT consulted here; its predicates would inspect empty State fields and
+// give wrong answers (and produce surprising println / fail side-effects). Context-only
+// functions that need clustering claim carry either an fe-only AST predicate (`canProcessAt`,
+// `canProcessMatch`, `canProcessTypeName`, `isNewPairFunction`) or an unconditional-true
+// entry in `getClusteringContextPredicates` (today: `fold`, `isNotEmpty_Any_MANY`,
+// `indexOf`, `instanceOf`). Mis-claims via the unconditional-true path fall through to
+// `processContextOnlyFunctionFallback` at PureToSQL time and fail loudly.
+//
+// `at()` is claimed via its AST-only `canProcessAt` predicate, which correctly returns
+// false when the receiver is an already-routed (non-`NoSet`) `RoutedValueSpecification`
+// — so the cluster correctly defers to the platform cluster for plain relational
+// `->at(0).property` chains (see test `testPlatformExpressionDependencyOnAFromExpression`).
+//
+// See docs/copilot/2026-07-01-unify-context-supported-functions-single-registry-plan.md.
+//
+// clusteringEscapeFunctions covers the remaining cases where the function is not in
+// either registry but should still be claimed by the relational cluster (router quirks).
+// Each entry in that list should eventually be migrated into one of the registries — see
+// docs/copilot/2026-06-25-ssdbg-firing-during-clustering-decouple-findSupportedFunction-plan.md.
 function meta::relational::contract::supports(f:FunctionExpression[1], state: State[1]):Boolean[1]
 {
   if($f->meta::pure::router::utils::isUnionOnGraphFetch(true),
     | false,
-    |
-      meta::relational::functions::pureToSqlQuery::findSupportedFunction(
-                              $f,
-                              newMap([]->cast(@Pair<VariableExpression, ValueSpecification>)),
-                              $state
-                          )->isNotEmpty()
-      //These are here because the router does not go deep enough, should remove
-      || [
-            meta::pure::functions::math::sum_Float_MANY__Float_1_,
-            meta::pure::functions::math::sum_Integer_MANY__Integer_1_,
-            meta::pure::functions::math::sum_Number_MANY__Number_1_,
-            meta::pure::tds::func_String_1__FunctionDefinition_1__TdsOlapAggregation_1_,
-            meta::pure::functions::relation::write_Relation_1__RelationElementAccessor_1__Integer_1_
-         ]->contains($f.func);
+    | meta::relational::functions::pureToSqlQuery::isFunctionSupportedForCluster($f, $state)
+      || $f.func->in(meta::relational::contract::clusteringEscapeFunctions())
   );
+}
+
+// Functions that are *not* registered in either the static or context-based registries
+// but must still be claimed by the relational cluster at routing time. These exist
+// because the router / pre-evaluation pipeline does not currently descend into them
+// deeply enough for the regular registry lookup to fire, and there is a PureToSQL
+// processor (or upstream interception) that handles them.
+//
+// `fold` and `indexOf` were historically in this list; they are now caught automatically
+// by isFunctionSupportedForCluster because they carry unconditional-true entries in
+// `getClusteringContextPredicates` (paired with catchall handlers in
+// `getContextBasedSupportedFunctions`).
+function meta::relational::contract::clusteringEscapeFunctions():meta::pure::metamodel::function::Function<Any>[*]
+{
+  [
+     meta::pure::functions::math::sum_Float_MANY__Float_1_,
+     meta::pure::functions::math::sum_Integer_MANY__Integer_1_,
+     meta::pure::functions::math::sum_Number_MANY__Number_1_,
+     meta::pure::tds::func_String_1__FunctionDefinition_1__TdsOlapAggregation_1_,
+     meta::pure::functions::relation::write_Relation_1__RelationElementAccessor_1__Integer_1_
+  ];
 }
 
 function meta::relational::contract::supportsStream(f:FunctionExpression[1]):Boolean[1]

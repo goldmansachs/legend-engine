@@ -327,7 +327,12 @@ function meta::protocols::pure::vX_X_X::transformation::fromPureGraph::buildBase
                         ->concatenate($stores->map(store|$store->meta::protocols::pure::vX_X_X::transformation::fromPureGraph::store::transformStore($extensions)))
                         ->concatenate($extensions->map(e|$e.serializerExtension('vX_X_X')->cast(@meta::protocols::pure::vX_X_X::extension::SerializerExtension_vX_X_X).scan_buildBasePureModel_getExtraElementsFromStores->map(z|$z->eval($stores,$extensions))))
                         ->concatenate($allMappings->map(m|$m.classMappings->filter(cm|$cm->instanceOf(RelationFunctionInstanceSetImplementation) && !$cm->instanceOf(EmbeddedSetImplementation))->map(cm|$cm->match([
-                                                                                                r:RelationFunctionInstanceSetImplementation[1]|$r.relationFunction->cast(@ConcreteFunctionDefinition<Any>)->transformFunction($extensions),
+                                                                                                r:RelationFunctionInstanceSetImplementation[1]| $r.relationFunction->match(
+                                                                                                                                                  [
+                                                                                                                                                    c:ConcreteFunctionDefinition<Any>[1]| $c->transformFunction($extensions),
+                                                                                                                                                    l:FunctionDefinition<Any>[1]| []
+                                                                                                                                                  ]
+                                                                                                                                                ),
                                                                                                 a:Any[1]|[]
                                                                                               ]))))
         )

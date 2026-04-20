@@ -59,44 +59,164 @@ function meta::pure::router::store::routing::getRoutingStrategyFromMappingAndRun
     );
 }
 
+// Walk the mapping include tree and replace every same-connection
+// XStoreAssociationImplementation in place with a ModelJoinAssociationImplementation
+// (see convertXStoreToModelJoin below for the conversion itself).
+//
+// Unlike the previous implementation, this walker:
+//   - preserves the include-tree shape (no flatten-and-rebuild at the top);
+//     each association stays inside the Mapping that declared it, so the per-
+//     Mapping scoping that class-mapping override resolution depends on is
+//     untouched;
+//   - is store-agnostic: produces a ModelJoinAssociationImplementation
+//     regardless of which store backs the participating class mappings, so any
+//     store that grows a processModelJoinPropertyMapping translator (today:
+//     Relational) picks this up automatically — no per-store SPI required;
+//   - leaves true cross-store XStores untouched (locality check identical to
+//     the previous code).
 function <<access.private>> meta::pure::router::store::routing::modifyMappingBasedOnRuntimeLocality(mapping:Mapping[1], runtime:Runtime[1], extensions: meta::pure::extension::Extension[*]):Mapping[1]
 {
-  let allMappings = $mapping->getIncludedMappingsRecursively();
-  let classMappings = $allMappings.classMappings;
-  let associationMappings = $allMappings.associationMappings->map(associationMap|$associationMap->match(
-    [
-        x:meta::pure::mapping::xStore::XStoreAssociationImplementation[1]|
-          let mappingIds = $x.propertyMappings.sourceSetImplementationId->concatenate($x.propertyMappings.targetSetImplementationId);
-          let inScopeClassMappings = $classMappings->filter(x|$x.id->in($mappingIds))->distinct();
-          let inScopeStores = $inScopeClassMappings->map(setImpl |  $setImpl->match([
-                                                                                      r:RelationFunctionInstanceSetImplementation[1]|$runtime.connectionStores.element->cast(@meta::pure::store::Store)->toOne('Relation mapping only supported for queries having a single store definitions!'),
-                                                                                      a:SetImplementation[1]|meta::pure::router::clustering::storeContractForSetImplementation($setImpl, $mapping, $extensions).second;
-                                                                                    ]));
-          if(
-            $runtime.connectionStores->size() >= 1,
-            | let connection = $inScopeStores->map(s|$runtime->connectionByElementFailSafe($s));
-            if(
-                ($connection->size() == 2 && $connection->distinct()->size() == 1) || ($connection->size() == 0 && $runtime.preprocessFunction->isNotEmpty()),
-                | $inScopeStores->match(
-                    $extensions.availableStores.localizeXStoreAssociation
-                    ->map(e|$e->eval($x, $inScopeClassMappings))
-                    ->concatenate([a:Store[*] | $x;])->toOneMany()
-                );,
-                | $x
-            );,
-            | $x
-          );,
+  // Compute the full transitive class-mapping visibility set once from the top.
+  // This matches the previous behaviour (every XStore was resolved against the
+  // *full* tree's class mappings, regardless of which mapping declared it) and
+  // preserves cross-include class-mapping lookups by ID.
+  let allClassMappings = $mapping->getIncludedMappingsRecursively().classMappings;
+  $mapping->convertLocalizableXStoresInMapping($mapping, $allClassMappings, $runtime, $extensions);
+}
 
-        a:AssociationImplementation[1]|$a
-    ]
-  ));
-  if(
-    $associationMappings->equal($allMappings.associationMappings),
-    | $mapping,
-    | let newMapping = ^Mapping(name=$mapping.name, includes=[], associationMappings=$associationMappings);
-    let includedMappings = $allMappings->map(map|^$map(associationMappings=[]))->map(map|^MappingInclude(owner=$newMapping,included=$map));
-    $newMapping->mutateAdd('includes', $includedMappings);
+function <<access.private>> meta::pure::router::store::routing::convertLocalizableXStoresInMapping(m:Mapping[1], topMapping:Mapping[1], classMappings:SetImplementation[*], runtime:Runtime[1], extensions:meta::pure::extension::Extension[*]):Mapping[1]
+{
+  // 1. Recurse into includes first (bottom-up). Keep the original MappingInclude
+  //    paired with the rewritten 'included' so we can rebuild the include nodes
+  //    later while preserving any extra fields (e.g. storeSubstitutions).
+  let newIncludePairs = $m.includes->map(i | pair($i, $i.included->convertLocalizableXStoresInMapping($topMapping, $classMappings, $runtime, $extensions)));
+  let includesChanged = $newIncludePairs->exists(p | !$p.second->equal($p.first.included));
+
+  // 2. Replace this mapping's own XStore associations in place.
+  let newAssocs = $m.associationMappings->map(a | $a->match([
+    x:meta::pure::mapping::xStore::XStoreAssociationImplementation[1] | $x->maybeConvertXStoreToModelJoin($topMapping, $runtime, $extensions, $classMappings),
+    a:AssociationImplementation[1]                                    | $a
+  ]));
+  let assocsChanged = !$newAssocs->equal($m.associationMappings);
+
+  if(!$includesChanged && !$assocsChanged,
+     | $m,
+     | // Re-stitch: rebuild $m with new associations + re-pointed includes.
+       let rebuilt = ^$m(associationMappings = $newAssocs, includes = []);
+       let newIncludes = $newIncludePairs->map(p | let oldI = $p.first; ^$oldI(owner = $rebuilt, included = $p.second););
+       $rebuilt->mutateAdd('includes', $newIncludes);
   );
+}
+
+function <<access.private>> meta::pure::router::store::routing::maybeConvertXStoreToModelJoin(x:meta::pure::mapping::xStore::XStoreAssociationImplementation[1], topMapping:Mapping[1], runtime:Runtime[1], extensions:meta::pure::extension::Extension[*], classMappings:SetImplementation[*]):AssociationImplementation[1]
+{
+  let mappingIds       = $x.propertyMappings.sourceSetImplementationId->concatenate($x.propertyMappings.targetSetImplementationId);
+  let inScopeClassMaps = $classMappings->filter(c | $c.id->in($mappingIds))->distinct();
+  let inScopeStores    = $inScopeClassMaps->map(setImpl | $setImpl->match([
+    r:RelationFunctionInstanceSetImplementation[1] | $runtime.connectionStores.element->cast(@meta::pure::store::Store)->toOne('Relation mapping only supported for queries having a single store definitions!'),
+    a:SetImplementation[1]                         | meta::pure::router::clustering::storeContractForSetImplementation($setImpl, $topMapping, $extensions).second
+  ]));
+
+  // A localize step rewrites this XStore as a ModelJoinAssociationImplementation, which is
+  // only safe when *every* participating store has a translator that can compile a
+  // ModelJoinPropertyMapping into a real cross-set join (today: Relational only - see
+  // pureToSQLQuery::processModelJoinPropertyMapping). Stores like ServiceStore expose
+  // per-endpoint REST resources and cannot compose multiple sets into one join even when
+  // their per-set 'connections' share a base URL, so they opt out via
+  // StoreContract.canLocalizeXStoreAssociation (default false). Only attempt the
+  // conversion when every in-scope store opts in.
+  let allStoresCanLocalize = $inScopeStores->forAll(s | $extensions->meta::pure::extension::storeContractFromStore($s).canLocalizeXStoreAssociation);
+
+  let sameConnection = if($runtime.connectionStores->size() >= 1,
+                          | let connections = $inScopeStores->map(s | $runtime->connectionByElementFailSafe($s));
+                            ($connections->size() == 2 && $connections->distinct()->size() == 1)
+                               || ($connections->size() == 0 && $runtime.preprocessFunction->isNotEmpty());,
+                          | false);
+
+  if($allStoresCanLocalize && $sameConnection,
+     | $x->convertXStoreToModelJoin(),
+     | $x);
+}
+
+// XStore -> ModelJoin in-place conversion.
+//
+// Replaces an XStoreAssociationImplementation with an equivalent
+// ModelJoinAssociationImplementation so the rest of the routing /
+// plan-generation pipeline can use the more capable ModelJoin path (which
+// understands MxN union expansion, nested $this.x.y access, arbitrary lambda
+// operators, milestoning, filters etc. - see
+// docs/engineering/architecture/model-join.md for the gory details of why
+// the previous hand-rolled relational synthesis was rejected).
+//
+// The two metamodel shapes are isomorphic (legend-pure
+// platform_dsl_mapping/grammar/mapping.pure):
+//   XStoreAssociationImplementation    extends AssociationImplementation { }
+//   ModelJoinAssociationImplementation extends AssociationImplementation { }
+//   XStorePropertyMapping.crossExpression  : LambdaFunction<{Nil[1],Nil[1]->Boolean[1]}>[1]
+//   ModelJoinPropertyMapping.joinCondition : LambdaFunction<{Nil[1],Nil[1]->Boolean[1]}>[1]
+// so the conversion is mechanical: copy every field verbatim, rename lambda
+// variable references $this -> $_mj_src and $that -> $_mj_tgt so the body
+// matches the convention enforced by:
+//   - core/pure/router/store/builder.pure  (ModelJoinPropertyMapping arm)
+//   - core_relational/.../pureToSQLQuery/relationalModelJoins.pure
+//
+// NOTE: MxN expansion (when the participating classes have multiple set
+// implementations) is intentionally NOT replicated here. XStore today produces
+// exactly one PropertyMapping per direction (2 PMs per binary association),
+// and the downstream MJ machinery handles the 1-pair case identically to the
+// hand-rolled relational synthesis it replaces. Gaining union support for
+// previously-XStore associations is a worthwhile follow-up but should land
+// as a separate change with its own test fixtures (mirroring what users
+// write directly with ModelJoin grammar today).
+function <<access.private>> meta::pure::router::store::routing::convertXStoreToModelJoin(x:meta::pure::mapping::xStore::XStoreAssociationImplementation[1]):meta::pure::mapping::modelJoin::ModelJoinAssociationImplementation[1]
+{
+  let mj = ^meta::pure::mapping::modelJoin::ModelJoinAssociationImplementation(
+    id          = $x.id,
+    association = $x.association,
+    stores      = $x.stores,
+    parent      = $x.parent,
+    superSetImplementationId = $x.superSetImplementationId
+  );
+  let newPms = $x.propertyMappings
+    ->cast(@meta::pure::mapping::xStore::XStorePropertyMapping)
+    ->map(xpm | $xpm->convertXStorePropertyMapping($mj));
+  ^$mj(propertyMappings = $newPms);
+}
+
+function <<access.private>> meta::pure::router::store::routing::convertXStorePropertyMapping(xpm:meta::pure::mapping::xStore::XStorePropertyMapping[1], newOwner:meta::pure::mapping::modelJoin::ModelJoinAssociationImplementation[1]):meta::pure::mapping::modelJoin::ModelJoinPropertyMapping[1]
+{
+  ^meta::pure::mapping::modelJoin::ModelJoinPropertyMapping(
+    property                          = $xpm.property,
+    sourceSetImplementationId         = $xpm.sourceSetImplementationId,
+    targetSetImplementationId         = $xpm.targetSetImplementationId,
+    localMappingProperty              = $xpm.localMappingProperty,
+    localMappingPropertyType          = $xpm.localMappingPropertyType,
+    localMappingPropertyMultiplicity  = $xpm.localMappingPropertyMultiplicity,
+    store                             = $xpm.store,
+    owner                             = $newOwner,
+    joinCondition                     = $xpm.crossExpression->renameXStoreLambdaVars()
+  );
+}
+
+// Rewrite an XStore join-condition lambda's VariableExpression references
+// from $this / $that to $_mj_src / $_mj_tgt so the body matches the
+// convention enforced by builder.pure's ModelJoinPropertyMapping routing arm
+// and pureToSQLQuery.pure's processModelJoinPropertyMapping.
+//
+// Only the body (expressionSequence) is rewritten; the lambda's
+// classifierGenericType (i.e. the FunctionType's parameter names) is left
+// alone. Downstream consumers read VariableExpression references out of the
+// body alone and resolve them against either an initialVars map (router) or
+// a varToSelect map (pureToSQL) keyed on _mj_src / _mj_tgt, so the now-stale
+// parameter names are never read.
+function <<access.private>> meta::pure::router::store::routing::renameXStoreLambdaVars(lambda:LambdaFunction<{Nil[1],Nil[1]->Boolean[1]}>[1]):LambdaFunction<{Nil[1],Nil[1]->Boolean[1]}>[1]
+{
+  let nameMap = newMap([
+                         pair('this', '_mj_src'),
+                         pair('that', '_mj_tgt')
+                      ]);
+  $lambda->meta::pure::functions::meta::reprocessVariableExpressionsNameInLambda($nameMap)
+         ->cast(@LambdaFunction<{Nil[1],Nil[1]->Boolean[1]}>);
 }
 
 function <<access.private>> meta::pure::router::store::routing::getIncludedMappingsRecursively(m : Mapping[1]): Mapping[*]
@@ -908,11 +1028,30 @@ function meta::pure::router::store::routing::isAutoMappedRelationFunctionPropert
 {
   $set->match([
     r:RelationFunctionInstanceSetImplementation[1] | $r->_propertyMappingsByPropertyName($p.name->toOne())->match([
-      pm: RelationFunctionPropertyMapping[1] | $pm.transformer->isNotEmpty() && $pm.transformer->toOne()->instanceOf(BindingTransformer),
+      pm: RelationFunctionPropertyMapping[1] |
+        // Legacy: BindingTransformer-driven RFPMs are resolved at plan time via the
+        // binding's content-type — routing must skip so plan-gen owns the embedded
+        // set synthesis.
+        ($pm.transformer->isNotEmpty() && $pm.transformer->toOne()->instanceOf(BindingTransformer))
+        // Lift router (pureToSQLQuery.pure:1906): Class-target RFPMs (incl. Variant
+        // and any user-defined Class) are resolved at plan time via dynamic synthesis
+        // of a wrapper PM (SemiStructuredEmbeddedRelationalInstanceSetImplementation
+        // for user classes; SemiStructuredRelationalPropertyMapping for Variant).
+        // Routing has no class mapping to look up at this point, so it must skip and
+        // emit NoSetRoutedValueSpecification. Primitive-target RFPMs continue routing
+        // — they don't require class-mapping lookup downstream and are handled by the
+        // lift router as plain column relops.
+        // See docs/copilot/2026-06-10-rfpm-router-auto-map-class-target.md.
+        || $p->isClassTargetedRelationFunctionProperty(),
       a: Any[*] | false
     ]),
     a: Any[*] | false
   ])
+}
+
+function meta::pure::router::store::routing::isClassTargetedRelationFunctionProperty(p: AbstractProperty<Any>[1]): Boolean[1]
+{
+  $p.genericType.rawType->toOne()->instanceOf(Class)
 }
 
 function meta::pure::router::routing::getClassMappings(c:Class<Any>[1], r:RoutingState[1]):SetImplementation[*]

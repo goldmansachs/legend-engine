@@ -184,6 +184,134 @@ meta::pure::router::routeFunction(
 )
 ```
 
+### 2.9 Two-Layer Function Support Check: Clustering vs PureToSQL
+
+The relational `StoreContract.supports(fe)` is called by the router/clusterer
+(`meta::pure::router::clustering::isFunctionSupportedByCluster`) to answer *"is the
+relational store willing to take this `FunctionExpression`?"* — a binary, coarse-grained
+decision that drives cluster assignment. Plan generation later asks a different, finer
+question: *"which Pure→SQL processor handles this `FunctionExpression` given the current
+processing State?"* These two questions are intentionally answered by two separate
+functions in `pureToSQLQuery.pure`:
+
+| Question | Function | Caller | State context |
+|---|---|---|---|
+| Is `fe.func` registered with the relational store at all? | `isFunctionSupportedForCluster(fe, state)` | `StoreContract.supports` (clustering) | Stub `defaultState([], newMap([]))` |
+| Which processor handles `fe` *and* applies under the current State? | `findSupportedFunction(fe, vars, state)` | Plan generation in PureToSQL | Fully-threaded `State` |
+
+#### Registries (unified 2026‑07‑01)
+
+Function-to-processor bindings live in three registries:
+
+| Registry | Predicate signature | Evaluated at clustering? |
+|---|---|---|
+| `getSupportedFunctions` (static) | n/a — direct `Function → processor` map | Yes (membership only) |
+| `getContextBasedSupportedFunctions` | `{FunctionExpression, Map<Var,VS>, State -> Boolean}` | No (would read stub State) |
+| `getClusteringContextPredicates` | `{FunctionExpression -> Boolean}` | Yes (predicate is safe; no `State` in scope by type) |
+
+`getContextBasedSupportedFunctions` is the single source of truth for context-based
+dispatch. Per FE key it maps to a list of `(predicate, handler)` pairs, evaluated in
+registration order; the first predicate that fires selects the handler. Its full
+`{fe, vars, state}` signature accommodates state-reading predicates such as
+`isVariantInput*`, `isAutomapWithVariantInput`, `isSemiStructuredArrayInputWithAutoFlattenDisabled`.
+State-free predicates simply ignore the extra args (see the `at`, `match`, `typeName`,
+`new(Pair)` entries which delegate to fe-only `canProcess*` / `isNewPairFunction`
+helpers via a wrapper lambda).
+
+`getClusteringContextPredicates` is a curated subset of fe-only predicates keyed by
+FE that need to be evaluated at clustering time. Its narrower `{fe -> Boolean}` type
+statically prevents accidental state reads at this call site (the parameter just isn't
+there). It carries two flavours:
+
+* **AST-shape predicates** (e.g. `canProcessAt`, `canProcessMatch`, `canProcessTypeName`,
+  `isNewPairFunction`) — the cluster claims the FE only when the predicate fires true.
+  If it fires false the FE falls through to another cluster.
+* **Unconditional-true predicates** `{fe | true}` for context-only functions whose sole
+  handler lives in `getContextBasedSupportedFunctions` and would otherwise not be visible
+  to the cluster-membership check. Today the always-claim entries are `fold`,
+  `isNotEmpty_Any_MANY`, `indexOf`, `instanceOf`.
+
+#### Clustering rule
+
+```
+isFunctionSupportedForCluster(fe, state) :=
+    state.supportedFunctions->get(fe.func)->isNotEmpty()
+ || getClusteringContextPredicates()->get(fe.func).values
+        ->exists(pred | pred->eval(fe))
+```
+
+The context-registry is deliberately **not** consulted at clustering. Context-only keys
+that need to be claimed at clustering carry a matching entry in `getClusteringContextPredicates`.
+Concretely, today's four `{fe | true}` entries claim these keys unconditionally at
+clustering:
+
+| Function | Why it needs an always-claim entry |
+|---|---|
+| `fold_T_MANY__Function_1__V_m__V_m_` | only handler is the variant-aware `processVariantFold` |
+| `isNotEmpty_Any_MANY__Boolean_1_` | only handler is the variant-aware `processVariantIsNotEmpty` |
+| `indexOf_T_MANY__T_1__Integer_1_` | only handler is the variant-aware `processVariantIndexOf` |
+| `instanceOf_Any_1__Type_1__Boolean_1_` | only handler is the variant-aware `processVariantInstanceOf` |
+
+**`at_T_MANY__Integer_1__T_1_` is deliberately claimed via its AST predicate `canProcessAt`,
+NOT an unconditional-true entry.** The `at` FE also lives in `getContextBasedSupportedFunctions`
+with variant handlers, but `canProcessAt` correctly returns `false` when the receiver is
+an already-routed (non-`NoSet`) `RoutedValueSpecification`, so the clustering rule above
+defers to the platform cluster for plain relational chains such as
+`Firm.all()->from(...)->at(0).legalName`. Adding a `{fe | true}` entry for `at` would
+force unconditional claim — see test `testPlatformExpressionDependencyOnAFromExpression`.
+
+Functions registered **only** via an AST predicate in `getClusteringContextPredicates`
+(today: `match`, `typeName`, `new(Class…)`) are claimed at clustering only when their
+predicate fires true. When it fires false, the FE falls through to the platform cluster,
+which executes those builtins natively.
+
+#### PureToSQL rule (two-tier dispatch)
+
+```
+findSupportedFunction(fe, vars, state) :=
+   tier 1: state.contextBasedSupportedFunctions->get(fe.func)
+           — first matching (predicate, handler) pair (registration order)
+   tier 2: state.supportedFunctions->get(fe.func) — real processor
+```
+
+Within tier 1 the per-function `(predicate, handler)` list is walked in registration
+order. Context-only functions carry a `{fe, vars, state | true}` catchall at the tail of
+their list pointing at `processContextOnlyFunctionFallback` — so if none of the earlier
+predicates fired, the fallback fires a self-describing error rather than producing
+silently-wrong SQL.
+
+#### Authoring a new context-based function
+
+1. **Add an entry in `getContextBasedSupportedFunctions`.** Registration signature is
+   `{fe, vars, state -> Boolean}`. If your predicate is state-free, ignore `vars`/`state`
+   or delegate to an fe-only helper via a wrapper lambda.
+
+2. **Decide whether the cluster must claim the FE.** If yes, add a matching entry in
+   `getClusteringContextPredicates`:
+   * If your applicability is shape-only (AST-based), register the fe-only predicate
+     directly. The narrower type will statically reject any accidental state read.
+   * If your handler is context-only and must always be claimed, register `{fe | true}`.
+     Ensure your `getContextBasedSupportedFunctions` entry has a `{fe, vars, state | true}`
+     catchall pointing at `processContextOnlyFunctionFallback` so mis-claims fail loudly.
+
+3. **Do NOT register a fe-only AST predicate as `{fe | true}`.** That would break the
+   deferral-to-platform path — the AST predicate is precisely what tells clustering
+   *not* to claim certain shapes. `at` is the canonical example.
+
+4. **Verify any non-registry callers.** If your fe-only predicate is also invoked from
+   inside a processor (e.g. `isNewPairFunction` from `processTo`), make sure the call
+   site matches the fe-only signature.
+
+#### Escape list (`clusteringEscapeFunctions`)
+
+A small set of functions in `storeContract.pure` are not in either registry but are
+still claimed by the relational cluster because the router does not currently descend
+into them deeply enough for the regular registry lookup to fire (`sum_*`,
+`func_TdsOlapAggregation`, `write_Relation_*`). Each entry should eventually be
+migrated into one of the registries with a real processor; see
+`docs/copilot/2026-06-25-ssdbg-firing-during-clustering-decouple-findSupportedFunction-plan.md`
+and `docs/copilot/2026-07-01-unify-context-supported-functions-single-registry-plan.md`.
+
 ---
 
 ## 3. From Router Output to SQLExecutionNode

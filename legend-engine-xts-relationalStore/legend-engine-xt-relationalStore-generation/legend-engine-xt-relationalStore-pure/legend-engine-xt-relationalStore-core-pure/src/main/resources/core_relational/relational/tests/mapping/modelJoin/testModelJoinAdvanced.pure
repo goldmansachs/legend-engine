@@ -832,7 +832,7 @@ function <<test.Test, test.AlloyOnly>> meta::relational::tests::mapping::modelJo
     'left outer join (select "root".FIRSTNAME as "firstName", "root".LASTNAME as "lastName", "root".AGE as "age", ' +
          '"root".ID as "id", "root".FIRMID as "firmId", "root".FIRMID as FIRMID, "root".FIRSTNAME as FIRSTNAME ' +
          'from (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, ' +
-         '"root".FIRMID as FIRMID, "root".AGE as AGE from personTable as "root" ' +
+         '"root".FIRMID as FIRMID, "root".AGE as AGE, "root".SALARY as SALARY from personTable as "root" ' +
          'inner join profileTable as "profiletable_0" on ("root".ID = "profiletable_0".PERSONID) ' +
          'where "profiletable_0".RANK = \'US\') as "root") as "persontable_0" ' +
     'on ("persontable_0".FIRMID = "root".ID)';
@@ -901,7 +901,7 @@ function <<test.Test, test.AlloyOnly>> meta::relational::tests::mapping::modelJo
     '"persontable_1"."LASTNAME" as "LASTNAME", "persontable_1"."FIRMID" as "FIRMID", "persontable_1"."AGE" as "AGE", ' +
     '"persontable_1"."CITY" as "CITY", "persontable_1"."COUNTRY" as "COUNTRY" from (select * from ' +
     '(select "persontable_3".ID as "ID", "persontable_3".FIRSTNAME as "FIRSTNAME", "persontable_3".LASTNAME as "LASTNAME", ' +
-    '"persontable_3".FIRMID as "FIRMID", "persontable_3".AGE as "AGE" from personTable as "persontable_3") as "persontable_2" ' +
+    '"persontable_3".FIRMID as "FIRMID", "persontable_3".AGE as "AGE", "persontable_3".SALARY as "SALARY" from personTable as "persontable_3") as "persontable_2" ' +
     'left outer join (select "addresstable_1".PERSONID as "PERSONID", "addresstable_1".CITY as "CITY", ' +
     '"addresstable_1".COUNTRY as "COUNTRY" from addressTable as "addresstable_1") as "addresstable_0" ' +
     'on ("persontable_2"."ID" = "addresstable_0"."PERSONID")) as "persontable_1") as "persontable_0" ' +
@@ -1130,8 +1130,8 @@ function <<test.Test, test.AlloyOnly>> meta::relational::tests::mapping::modelJo
     'default\n' +
     'headquartersTable\n' +
     'ID,FIRMID,CITY,COUNTRY\n' +
-    '1,1,US,\n' +
-    '2,2,UK,\n';
+    '1,1,NYC,US\n' +
+    '2,2,London,UK\n';
 
   let db = meta::relational::tests::mapping::modelJoin::store::Db;
   let runtime = meta::external::store::relational::tests::testRuntime($db);
@@ -1156,7 +1156,7 @@ function <<test.Test, test.AlloyOnly>> meta::relational::tests::mapping::modelJo
     '"root".CITY as "city", "root".ID as "id", "root".CITY as CITY, "headquarterstable_0".CITY as CITY_1, ' +
     '"root".LEGALNAME as LEGALNAME from firmTable as "root" left outer join headquartersTable as "headquarterstable_0" ' +
     'on ("root".ID = "headquarterstable_0".FIRMID)) as "firmtable_0" ' +
-    'on ("addresstable_0".CITY = "firmtable_0".CITY and "addresstable_0".COUNTRY = "firmtable_0".CITY_1)';
+    'on ("addresstable_0".CITY = "firmtable_0".CITY and "addresstable_0".CITY = "firmtable_0".CITY_1)';
   assertEquals($expectedSql, $result->sql());
 
   assertEquals(

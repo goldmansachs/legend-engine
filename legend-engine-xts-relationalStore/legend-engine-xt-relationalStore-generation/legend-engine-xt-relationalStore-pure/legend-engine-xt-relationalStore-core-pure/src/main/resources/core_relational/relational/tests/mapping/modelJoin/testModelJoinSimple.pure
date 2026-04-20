@@ -535,3 +535,52 @@ function <<test.Test, test.AlloyOnly>> meta::relational::tests::mapping::modelJo
     #->toString(),
     $result.values->at(0)->sort([~'Legal Name'->ascending(), ~'Employee First Name'->ascending()])->toString());
 }
+
+// =============================================================================
+// Nullable-column → [0..1]-property mapping under the strict multiplicity check.
+// SALARY is the lone nullable column on personTable; PersonWithOptionalSalary.salary
+// is Float[0..1]. The bare-column `salary: SALARY` lowers (in legend-pure) to
+// `{src | $src.SALARY}` which preserves the [0..1] inferred multiplicity end to end.
+// Uses NullableSalaryMapping, which references personTableWithSalary().
+// =============================================================================
+function <<test.Test, test.AlloyOnly>> meta::relational::tests::mapping::modelJoin::simple::testNullableSalaryMapping():Boolean[1]
+{
+  let personCsv =
+    'default\n' +
+    'personTable\n' +
+    'ID,FIRSTNAME,LASTNAME,FIRMID,AGE,SALARY\n' +
+    '1,Alice,Smith,1,30,1000.5\n' +
+    '2,Bob,Jones,1,25,24.87\n' +
+    '3,Charlie,Brown,2,35,2500.75\n';
+
+  let db = meta::relational::tests::mapping::modelJoin::store::Db;
+  let runtime = meta::external::store::relational::tests::testRuntime($db);
+  meta::relational::tests::mapping::modelJoin::setupTestData([$personCsv], $db, $runtime);
+
+  let result = execute(
+    |PersonWithOptionalSalary.all()->project(
+      ~[
+        'First Name': x|$x.firstName,
+        'Salary':     x|$x.salary
+       ]
+    ),
+    NullableSalaryMapping,
+    $runtime,
+    meta::relational::extension::relationalExtensions()
+  );
+
+  let expectedSql =
+    'select "persontable_0".FIRSTNAME as "First Name", "persontable_0".SALARY as "Salary" ' +
+    'from (select "persontable_1".ID as ID, "persontable_1".FIRSTNAME as FIRSTNAME, "persontable_1".LASTNAME as LASTNAME, ' +
+         '"persontable_1".FIRMID as FIRMID, "persontable_1".AGE as AGE, "persontable_1".SALARY as SALARY ' +
+         'from personTable as "persontable_1") as "persontable_0"';
+  assertEquals($expectedSql, $result->sql());
+
+  assertEquals( '#TDS\n' +
+            '   \'First Name\',Salary\n' +
+            '   Alice,1000.5\n' +
+            '   Bob,24.87\n' +
+            '   Charlie,2500.75\n' +
+            '#',
+            $result.values->at(0)->sort([~'First Name'->ascending()])->toString());
+}
