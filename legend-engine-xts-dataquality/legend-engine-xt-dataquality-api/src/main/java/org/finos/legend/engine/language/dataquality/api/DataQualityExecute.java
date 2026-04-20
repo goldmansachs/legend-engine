@@ -419,8 +419,17 @@ public class DataQualityExecute
             );
         }
         return core_dataquality_generation_datarecon.Root_meta_external_dataquality_datarecon_createReconInput_LambdaFunction_1__LambdaFunction_1__String_MANY__Boolean_1__String_MANY__String_$0_1$__String_$0_1$__Boolean_1__Integer_$0_1$__Boolean_1__DataQualityReconInput_1_(
-                dqComparisonElement._source(), dqComparisonElement._target(), dqComparisonElement._keys(), input.aggregatedHash, dqComparisonElement._columnsToCompare(), getSourceHashColumn(dqComparisonElement._strategy()), getTargetHashColumn(dqComparisonElement._strategy()), input.includeColumnValues, input.defectLimit, false, pureModel.getExecutionSupport()
+                dqComparisonElement._source(), dqComparisonElement._target(), dqComparisonElement._keys(), getAggregatedHash(dqComparisonElement._strategy()), dqComparisonElement._columnsToCompare(), getSourceHashColumn(dqComparisonElement._strategy()), getTargetHashColumn(dqComparisonElement._strategy()), input.includeColumnValues, input.defectLimit, false, pureModel.getExecutionSupport()
         );
+    }
+
+    private static boolean getAggregatedHash(Root_meta_external_dataquality_ReconStrategy reconStrategy)
+    {
+        if (reconStrategy instanceof Root_meta_external_dataquality_MD5HashStrategy)
+        {
+            return ((Root_meta_external_dataquality_MD5HashStrategy) reconStrategy)._aggregatedHash();
+        }
+        return false;
     }
 
     private static String getSourceHashColumn(Root_meta_external_dataquality_ReconStrategy reconStrategy)
