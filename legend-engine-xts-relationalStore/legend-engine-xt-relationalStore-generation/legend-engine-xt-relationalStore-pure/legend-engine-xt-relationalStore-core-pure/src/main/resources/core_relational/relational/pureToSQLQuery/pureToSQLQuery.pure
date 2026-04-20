@@ -3723,24 +3723,16 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
               ->exists(pm | $pm->instanceOf(SemiStructuredRelationalPropertyMapping)
                             && $pm.property.genericType.rawType->toOne() == $ownerClass
                             && !$pm->cast(@SemiStructuredRelationalPropertyMapping).relationalOperationElement->instanceOf(RelationalOperationElementWithJoin));
-          print('[DEBUG isSemiStructuredArrayExpr] PROPERTY path: prop=' + $prop.name->toOne() + ' ownerClass=' + $ownerClass->toString() +
-                ' isToMany=' + $isToMany->toString() + ' isClassType=' + $isClassType->toString() +
-                ' hasMapping=' + $hasMapping->toString() + ' classMappingsForOwner.size=' + $classMappingsForOwner->size()->toString() +
-                ' hasNonSSMapping=' + $hasNonSemiStructuredMapping->toString() +
-                ' isSemiStructuredMapping=' + $isSemiStructuredMapping->toString() +
-                ' RESULT=' + ($isToMany && $isClassType && $isSemiStructuredMapping)->toString() + '\n');
           $isToMany && $isClassType && $isSemiStructuredMapping;,
         a: Any[1] |
-          print('[DEBUG isSemiStructuredArrayExpr] NON-PROPERTY func: funcName=' + $fe.functionName->orElse('anonymous') + ' funcType=' + $a->type()->toString() + ' -> recursing into parametersValues[0]\n');
           if ($fe.parametersValues->evaluateAndDeactivate()->isNotEmpty(),
             | $fe.parametersValues->evaluateAndDeactivate()->at(0)->byPassRouterInfo()->isSemiStructuredArrayExpression($vars, $state),
             | false
           );
       ]);,
     rvs: RoutedValueSpecification[1] |
-      print('[DEBUG isSemiStructuredArrayExpr] RoutedValueSpecification -> unwrapping\n');
       $rvs.value->isSemiStructuredArrayExpression($vars, $state);,
-    a: Any[1] | print('[DEBUG isSemiStructuredArrayExpr] CATCH-ALL: type=' + $a->type()->toString() + ' -> returning false\n'); false;
+    a: Any[1] | false;
   ]);
 }
 
@@ -5581,8 +5573,6 @@ function meta::relational::functions::pureToSqlQuery::processExists(expression:F
     let leftSide = $leftSideOp.element->toOne()->cast(@SelectWithCursor);
 
     let select = $leftSide.select;
-    print(if(!$context.debug, |'',
-            | $context.space+'   (S)Exists Left side Select>  '+$select->printDebugQuery($context.space, $extensions)));
 
     // Rebuild old query (it may have been mutated by adding keys in Union)
     let node = $operation.currentTreeNode->toOne()->findNode($operation.select.data->toOne(), $select.data->toOne())->toOne();
@@ -5602,11 +5592,6 @@ function meta::relational::functions::pureToSqlQuery::processExists(expression:F
                                 currentTreeNode=$nNode,
                                 positionBeforeLastApplyJoinTreeNode = if($operation.positionBeforeLastApplyJoinTreeNode->isEmpty(),|[],|$operation.positionBeforeLastApplyJoinTreeNode->toOne()->findNode($operation.select.data->toOne(), $nSelect.data->toOne())->toOne())
                             );
-
-    let opSel = $nOperation.select;
-    print(if(!$context.debug, |'',
-            | $context.space+'   (O)Exists Left side Operation>  '+$opSel->printDebugQuery($context.space, $extensions)));
-
 
     let opMapping = $leftSideOp.currentPropertyMapping;
     if (!$opMapping->isEmpty() && $opMapping->at(0)->instanceOf(EmbeddedRelationalInstanceSetImplementation)
@@ -8831,13 +8816,6 @@ function meta::relational::functions::pureToSqlQuery::merge(parentTargetTreeNode
                         let parentExtraFiler = $mergeNodes.extraFilteringOperation;
                         let parentGroupBy = $mergeNodes.groupBy;
 
-                        let reprocessedFilters = if($parentFilters == [] || $parentFilters->isEmpty(),|[], |$parentFilters->reprocessAliases($val));
-                        print('[DEBUG merge] commonNode path: parentFilters.size=' + $parentFilters->size()->toString() +
-                              ' val=[' + $val->map(v|$v.first + '->' + $v.second.name)->joinStrings(', ') + ']' +
-                              ' reprocessedFilters.size=' + $reprocessedFilters->size()->toString() +
-                              ' childNode.join.name=' + $childNode.join.name +
-                              '\n');
-
                         let nodesToAdd = $a.node->children()->filter(c|$c != $commonNode);
                         let newOriginalNode = ^$mergedOriginalNode
                                               (
@@ -8851,11 +8829,7 @@ function meta::relational::functions::pureToSqlQuery::merge(parentTargetTreeNode
                         (
                            node = $newOriginalNode,
                            columns = $mergeNodes.columns->reprocessAliases($val),
-                           filteringOperation = if($reprocessedFilters->isEmpty(),|[],
-                                                   |if($reprocessedFilters->size() > 1,
-                                                       |print('[DEBUG merge] MULTI-FILTER: reprocessedFilters has ' + $reprocessedFilters->size()->toString() + ' elements\n');
-                                                        $reprocessedFilters->toOne();,
-                                                       |$reprocessedFilters->toOne())),
+                           filteringOperation = if($parentFilters == [] || $parentFilters->isEmpty(),|[], |$parentFilters->reprocessAliases($val)->toOne()),
                            savedFilteringOperation = $parentSavedFilters->map(p|pair(if($p.first==$a.node ,|$newOriginalNode,|$p.first), $p.second->reprocessAliases($val));),
                            extraFilteringOperation = $parentExtraFiler->reprocessAliases($val),
                            groupBy = if($parentGroupBy->isEmpty(), |[], |$parentGroupBy->reprocessAliases($val)),
