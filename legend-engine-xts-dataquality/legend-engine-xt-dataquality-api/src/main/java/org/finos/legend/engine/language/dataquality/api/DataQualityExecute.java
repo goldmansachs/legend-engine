@@ -275,7 +275,7 @@ public class DataQualityExecute
     {
         LOGGER.info(new LogInfo(identity.getName(), DataQualityLoggingEventType.DATAQUALITY_PROFILE_START).toString());
         // 2. call DQ PURE func to generate lambda
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction dqLambdaFunction =  DataQualityProfilingLambdaGenerator.generateLambda(pureModel, dataQualityProfilingInput.packagePath);
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> dqLambdaFunction = generateProfilingLambda(pureModel, dataQualityProfilingInput);
         // 3. Generate Plan from the lambda generated in the previous step
         SingleExecutionPlan singleExecutionPlan = PlanGenerator.generateExecutionPlan(dqLambdaFunction, null, null, null, pureModel, dataQualityProfilingInput.clientVersion, PlanPlatform.JAVA, null, this.extensions.apply(pureModel), this.transformers);
         // 4. Execute plan
@@ -283,6 +283,25 @@ public class DataQualityExecute
 
         LOGGER.info(new LogInfo(identity.getName(), DataQualityLoggingEventType.DATAQUALITY_PROFILE_END, System.currentTimeMillis() - start).toString());
         return executePlanToResult(request, identity, singleExecutionPlan, lambdaParameterMap);
+    }
+
+    private org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> generateProfilingLambda(PureModel pureModel, DataQualityProfileInput input)
+    {
+        if (input.packagePath == null && input.query == null)
+        {
+            throw new EngineException("Either 'packagePath' or 'query' must be provided",
+                    ExceptionCategory.USER_EXECUTION_ERROR);
+        }
+        if (input.packagePath != null && input.query != null)
+        {
+            throw new EngineException("Only one of 'packagePath' or 'query' may be provided, not both",
+                    ExceptionCategory.USER_EXECUTION_ERROR);
+        }
+        if (input.packagePath != null)
+        {
+            return DataQualityProfilingLambdaGenerator.generateLambda(pureModel, input.packagePath);
+        }
+        return DataQualityProfilingLambdaGenerator.generateLambdaFromQuery(pureModel, input.query);
     }
 
     @POST

@@ -74,6 +74,7 @@ public class TestDataQualityApi
 
     private static final ObjectMapper objectMapper = ObjectMapperFactory.getNewStandardObjectMapperWithPureProtocolExtensionSupports();
     private static final PureModelContextData pureModelContextData = GrammarParseTestUtils.loadPureModelContextFromResource("inputs/test-data.pure", TestDataQualityApi.class);
+    private static final String PERSON_QUERY = "|demo::Person.all()->project(~[id: x|$x.id, fullName: x|$x.fullName, age: x|$x.age, emailAddress: x|$x.emailAddress, annualSalary: x|$x.annualSalary, dateOfBirth: x|$x.dateOfBirth])->from(demo::PersonMap, demo::PersonRuntime)";
 
     @ClassRule
     public static final ResourceTestRule resources = getResourceTestRule();
@@ -109,7 +110,7 @@ public class TestDataQualityApi
     }
 
     @Test
-    public void testDataQualityProfiling() throws IOException
+    public void testDataQualityProfilingWithPackagePath()
     {
         DataQualityProfileInput input = new DataQualityProfileInput();
         input.clientVersion = "vX_X_X";
@@ -123,6 +124,123 @@ public class TestDataQualityApi
         assertEquals(200, response.getStatus());
         String resultAsString = response.readEntity(String.class);
         assertNotNull(resultAsString);
+    }
+
+    @Test
+    public void testDataQualityProfilingWithQuery()
+    {
+        DataQualityProfileInput input = new DataQualityProfileInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.query = lambda(PERSON_QUERY);
+
+        Response response = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(input));
+
+        assertEquals(200, response.getStatus());
+        String resultAsString = response.readEntity(String.class);
+        assertNotNull(resultAsString);
+    }
+
+    @Test
+    public void testDataQualityProfilingWithFunctionPath()
+    {
+        DataQualityProfileInput input = new DataQualityProfileInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.packagePath = "demo::personRelationFunction__Any_MANY_";
+
+        Response response = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(input));
+
+        assertEquals(200, response.getStatus());
+        String resultAsString = response.readEntity(String.class);
+        assertNotNull(resultAsString);
+    }
+
+    @Test
+    public void testDataQualityProfilingQueryOutputContainsExpectedColumns()
+    {
+        DataQualityProfileInput input = new DataQualityProfileInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.query = lambda(PERSON_QUERY);
+
+        Response response = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(input));
+
+        assertEquals(200, response.getStatus());
+        String resultAsString = response.readEntity(String.class);
+        // Profiling output should contain standard profiling columns
+        assertTrue("Response should contain column_name", resultAsString.contains("column_name"));
+        assertTrue("Response should contain count", resultAsString.contains("count"));
+        assertTrue("Response should contain count_distinct", resultAsString.contains("count_distinct"));
+    }
+
+    @Test
+    public void testDataQualityProfilingQueryAndPackagePathMutuallyExclusive()
+    {
+        DataQualityProfileInput input = new DataQualityProfileInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.packagePath = "demo::simplePersonValidation";
+        input.query = lambda(PERSON_QUERY);
+
+        Response response = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(input));
+
+        assertEquals(500, response.getStatus());
+    }
+
+    @Test
+    public void testDataQualityProfilingNeitherQueryNorPackagePathFails()
+    {
+        DataQualityProfileInput input = new DataQualityProfileInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+
+        Response response = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(input));
+
+        assertEquals(500, response.getStatus());
+    }
+
+    @Test
+    public void testDataQualityProfilingQueryMatchesPackagePathResult() throws IOException
+    {
+        // Profile via packagePath (DQ relation validation)
+        DataQualityProfileInput pathInput = new DataQualityProfileInput();
+        pathInput.clientVersion = "vX_X_X";
+        pathInput.packagePath = "demo::simplePersonValidation";
+        pathInput.model = new PureModelContextPointer();
+
+        Response pathResponse = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(pathInput));
+        assertEquals(200, pathResponse.getStatus());
+        String pathResult = pathResponse.readEntity(String.class);
+
+        // Profile via query (same lambda as the DQ relation validation uses)
+        DataQualityProfileInput queryInput = new DataQualityProfileInput();
+        queryInput.clientVersion = "vX_X_X";
+        queryInput.model = new PureModelContextPointer();
+        queryInput.query = lambda(PERSON_QUERY);
+
+        Response queryResponse = resources.target("pure/v1/dataquality/profile")
+                .request()
+                .post(Entity.json(queryInput));
+        assertEquals(200, queryResponse.getStatus());
+        String queryResult = queryResponse.readEntity(String.class);
+
+        // Both should produce the same profiling data (compare result portion only, ignoring activities with unique trace IDs)
+        JsonNode pathJson = objectMapper.readTree(pathResult).get("result");
+        JsonNode queryJson = objectMapper.readTree(queryResult).get("result");
+        assertEquals(pathJson, queryJson);
     }
 
     @Test
@@ -197,7 +315,7 @@ public class TestDataQualityApi
 
     @Ignore
     @Test
-    public void testDataQualityGetPropertyPathTree_WithNullDataQualityValidation() throws IOException
+    public void testDataQualityGetPropertyPathTree_WithNullDataQualityValidation()
     {
         PureModelContextData pureModelContextData = GrammarParseTestUtils.loadPureModelContextFromResource("inputs/modelWithNullDataQualityValidation.pure", TestDataQualityApi.class);
         CompilerExtensionLoader.logExtensionList();
@@ -219,8 +337,6 @@ public class TestDataQualityApi
         input.maxNumberOfSampleValues = maxNumberOfSampleValues;
         return input;
     }
-
-    private static final String PERSON_QUERY = "|demo::Person.all()->project(~[id: x|$x.id, fullName: x|$x.fullName, age: x|$x.age, emailAddress: x|$x.emailAddress, annualSalary: x|$x.annualSalary, dateOfBirth: x|$x.dateOfBirth])->from(demo::PersonMap, demo::PersonRuntime)";
 
     @Test
     public void testSampleValuesEndpointReturns200()

@@ -89,6 +89,23 @@ Class demo::SampleData
   boolCol: Boolean[0..1];
 }
 
+function demo::personRelationFunction(): Any[*]
+{
+  demo::Person.all()->project(
+    ~[
+       id: x|$x.id,
+       fullName: x|$x.fullName,
+       age: x|$x.age,
+       emailAddress: x|$x.emailAddress,
+       annualSalary: x|$x.annualSalary,
+       dateOfBirth: x|$x.dateOfBirth
+     ]
+  )->from(
+    demo::PersonMap,
+    demo::PersonRuntime
+  )
+}
+
 ###Mapping
 Mapping demo::PersonMap
 (

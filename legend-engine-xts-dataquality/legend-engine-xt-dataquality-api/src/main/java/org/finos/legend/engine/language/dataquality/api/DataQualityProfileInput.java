@@ -29,8 +29,20 @@ public class DataQualityProfileInput
     public PureModelContext model;
 
     public List<ParameterValue> lambdaParameterValues;
+
+    /**
+     * Fully-qualified path to a DataQualityRelationValidation or a ConcreteFunctionDefinition
+     * that returns a Relation. Mutually exclusive with {@link #query}.
+     */
     @JsonProperty
     public String packagePath;
+
+    /**
+     * Inline relation query lambda. Mutually exclusive with {@link #packagePath}.
+     * The lambda must return a Relation (i.e. end with a from()).
+     */
+    @JsonProperty
+    public org.finos.legend.engine.protocol.pure.m3.function.LambdaFunction query;
 }
 
 
