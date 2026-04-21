@@ -426,3 +426,205 @@ function flatten::semiStructuredArrayFilterFirstInIfElse(): TabularDataSet[1]
         col(x | $x.conditionalAddressName, 'Conditional Address Name')
     ])
 }
+
+
+// ===========================================================================
+// Semi-structured array model with multiple to-many bound arrays
+//
+// Tests the case where multiple array properties are bound directly on the
+// root class from a SEMISTRUCTURED column via Binding, with nested
+// if/exists UDFs called as scalar projection columns + olapGroupBy.
+// ===========================================================================
+
+###Pure
+Class flatten::model::Tag
+{
+  code: String[1];
+  category: String[1];
+}
+
+Class flatten::model::Participant
+{
+  role: String[1];
+  participantId: String[1];
+}
+
+Class flatten::model::LineItem
+{
+  itemId: String[1];
+  itemVersion: Integer[1];
+}
+
+Class flatten::model::SemiRecord
+{
+  firstName: String[1];
+  recordId: String[0..1];
+  recordVersion: Integer[0..1];
+  revision: Integer[0..1];
+  section: String[0..1];
+  batchId: String[0..1];
+  action: String[0..1];
+  tags: flatten::model::Tag[*];
+  participants: flatten::model::Participant[*];
+  lineItems: flatten::model::LineItem[*];
+}
+
+###Relational
+Database flatten::store::SemiDB
+(
+  Schema SEMI_SCHEMA
+  (
+    Table RECORD_TABLE
+    (
+      ID INTEGER PRIMARY KEY,
+      FIRSTNAME VARCHAR(100),
+      CONTENT SEMISTRUCTURED
+    )
+  )
+)
+
+###ExternalFormat
+Binding flatten::store::TagBinding
+{
+  contentType: 'application/json';
+  modelIncludes: [
+    flatten::model::Tag
+  ];
+}
+
+Binding flatten::store::ParticipantBinding
+{
+  contentType: 'application/json';
+  modelIncludes: [
+    flatten::model::Participant
+  ];
+}
+
+Binding flatten::store::LineItemBinding
+{
+  contentType: 'application/json';
+  modelIncludes: [
+    flatten::model::LineItem
+  ];
+}
+
+###Mapping
+Mapping flatten::mapping::SemiRecordMapping
+(
+  flatten::model::SemiRecord: Relational
+  {
+    ~primaryKey
+    (
+      [flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.ID
+    )
+    ~mainTable [flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE
+    firstName: [flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.FIRSTNAME,
+    recordId: extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.recordId', 'VARCHAR'),
+    recordVersion: extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.recordVersion', 'INTEGER'),
+    revision: extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.revision', 'INTEGER'),
+    section: extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.section', 'VARCHAR'),
+    batchId: extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.batchId', 'VARCHAR'),
+    action: extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.action', 'VARCHAR'),
+    tags: Binding flatten::store::TagBinding : parseJson(extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.tags', 'VARCHAR')),
+    participants: Binding flatten::store::ParticipantBinding : parseJson(extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.participants', 'VARCHAR')),
+    lineItems: Binding flatten::store::LineItemBinding : parseJson(extractFromSemiStructured([flatten::store::SemiDB]SEMI_SCHEMA.RECORD_TABLE.CONTENT, 'payload.lineItems', 'VARCHAR'))
+  }
+)
+
+###Pure
+
+// UDF: nested if/exists ranking on tags by category
+function flatten::rankTagCategories(items: flatten::model::Tag[*]): Integer[1]
+{
+    if($items->exists(t1 | $t1.category == 'Primary'),
+      |1,
+      |if($items->exists(t2 | $t2.category == 'Secondary'),
+        |2,
+        |999
+      )
+    )
+}
+
+// UDF: nested if/exists ranking on participants by role
+function flatten::rankParticipantRoles(items: flatten::model::Participant[*]): Integer[1]
+{
+    if($items->exists(p1 | $p1.role == 'Active'),
+      |1,
+      |if($items->exists(p2 | $p2.role == 'Passive'),
+        |2,
+        |999
+      )
+    )
+}
+
+// Query: multiple to-many arrays with navigation + nested if/exists UDFs
+// + scalar columns from same CONTENT + 4 olapGroupBy + post-window filter + distinct
+function flatten::multiArrayOlapWithNestedIfExists(): TabularDataSet[1]
+{
+    flatten::model::SemiRecord.all()
+    ->project(
+      [
+        x | $x.recordId,
+        x | $x.recordVersion,
+        x | $x.revision,
+        x | $x.section,
+        x | $x.batchId,
+        x | $x.action,
+        x | $x.tags.code,
+        x | $x.tags.category,
+        x | $x.tags->flatten::rankTagCategories(),
+        x | $x.participants.participantId,
+        x | $x.participants->flatten::rankParticipantRoles(),
+        x | $x.lineItems.itemId,
+        x | $x.lineItems.itemVersion
+      ],
+      [
+        'recordId',
+        'recordVersion',
+        'revision',
+        'section',
+        'batchId',
+        'action',
+        'tagCode',
+        'tagCategory',
+        '_tagCategoryRanking',
+        'participantId',
+        '_participantRoleRanking',
+        'itemId',
+        'itemVersion'
+      ]
+    )
+    ->olapGroupBy(
+      ['recordId', 'section', 'batchId', 'recordVersion'],
+      desc('revision'),
+      x | $x->rank(),
+      '_revisionRecencyIndex'
+    )
+    ->olapGroupBy(
+      ['recordId', 'section', 'batchId'],
+      desc('recordVersion'),
+      x | $x->rank(),
+      '_versionRecencyIndex'
+    )
+    ->olapGroupBy(
+      ['recordId', 'section', 'batchId'],
+      asc('_tagCategoryRanking'),
+      x | $x->rank(),
+      '_tagCategoryRankingIndex'
+    )
+    ->olapGroupBy(
+      ['recordId', 'section', 'batchId'],
+      asc('_participantRoleRanking'),
+      x | $x->rank(),
+      '_participantRoleRankingIndex'
+    )
+    ->filter(
+      row |
+        ($row.getNumber('_versionRecencyIndex') == 1) &&
+        (($row.getNumber('_revisionRecencyIndex') == 1) &&
+        (($row.getNumber('_tagCategoryRankingIndex') == 1) &&
+        ($row.getNumber('_participantRoleRankingIndex') == 1)))
+    )
+    ->distinct()
+}
+
