@@ -250,15 +250,6 @@ function <<paramTest.Test>> meta::relational::tests::semistructured::flattening:
 // Model: SemiRecord has 3 array properties (tags, participants, lineItems)
 // bound directly from a SEMISTRUCTURED column via Binding.
 // Two UDFs use nested if(exists(...)) to rank array elements by category/role.
-// The query projects scalar + array columns, applies 4 olapGroupBy windows,
-// filters to rank==1, and calls distinct().
-//
-// This exercises the fix where exists() on a semi-structured array in a
-// projection context must correctly place the predicate in columns rather
-// than losing it when isFilterOnLateralJoin keeps it in filteringOperation.
-//
-// Failure symptom without fix:
-//   "Cannot cast a collection of size 2 to multiplicity [1]"
 // ===========================================================================
 
 function meta::relational::tests::semistructured::flattening::semiRecordExecute(conn: Connection[1], func: String[1], expected: String[1]):Boolean[1]
