@@ -36,7 +36,8 @@ import org.finos.legend.engine.language.pure.grammar.from.antlr4.graphFetchTree.
 import org.finos.legend.engine.language.pure.grammar.from.antlr4.navigation.NavigationLexerGrammar;
 import org.finos.legend.engine.language.pure.grammar.from.antlr4.navigation.NavigationParserGrammar;
 import org.finos.legend.engine.language.pure.grammar.from.data.embedded.HelperEmbeddedDataGrammarParser;
-import org.finos.legend.engine.language.pure.grammar.from.data.embedded.RelationResultDataTreeWalker;
+import org.finos.legend.engine.language.pure.grammar.from.data.embedded.RelationElementsEmbeddedDataTreeWalker;
+import org.finos.legend.engine.protocol.pure.v1.model.data.relation.RelationElement;
 import org.finos.legend.engine.language.pure.grammar.from.extension.EmbeddedPureParser;
 import org.finos.legend.engine.language.pure.grammar.from.runtime.PackageableElementPointerFactory;
 import org.finos.legend.engine.language.pure.grammar.to.HelperValueSpecificationGrammarComposer;
@@ -639,7 +640,9 @@ public class DomainParseTreeWalker
         {
             builder.setLength(builder.length() - 2);
         }
-        String content = builder.toString();
+        // Prepend 'relation' to trigger TABLE_START in lexer, entering TABLE_MODE for flat CSV parsing
+        // No ';' suffix needed — tableCSV rule ends at EOF, unlike the path-based table rule which uses TABLE_END
+        String content = "relation " + builder.toString().trim();
 
         // Set up source information
         TerminalNode islandOpen = embeddedDataCtx.ISLAND_OPEN();
@@ -649,20 +652,28 @@ public class DomainParseTreeWalker
         ParseTreeWalkerSourceInformation innerWalkerSourceInformation = new ParseTreeWalkerSourceInformation.Builder(walkerSourceInformation).withLineOffset(lineOffset).withColumnOffset(columnOffset).build();
         SourceInformation sourceInformation = walkerSourceInformation.getSourceInformation(embeddedDataCtx);
 
-        // Parse using RelationResultData grammar
+        // Parse using existing RelationElementsData grammar
         org.antlr.v4.runtime.CharStream input = org.antlr.v4.runtime.CharStreams.fromString(content);
         ParserErrorListener errorListener = new ParserErrorListener(innerWalkerSourceInformation);
-        org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataLexerGrammar lexer =
-                new org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataLexerGrammar(input);
+        org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relation.RelationElementsDataLexerGrammar lexer =
+                new org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relation.RelationElementsDataLexerGrammar(input);
         lexer.removeErrorListeners();
         lexer.addErrorListener(errorListener);
-        org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataParserGrammar parser =
-                new org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relationResult.RelationResultDataParserGrammar(new CommonTokenStream(lexer));
+        org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relation.RelationElementsDataParserGrammar parser =
+                new org.finos.legend.engine.language.pure.grammar.from.antlr4.data.embedded.relation.RelationElementsDataParserGrammar(new CommonTokenStream(lexer));
         parser.removeErrorListeners();
         parser.addErrorListener(errorListener);
 
-        RelationResultDataTreeWalker treeWalker = new RelationResultDataTreeWalker(innerWalkerSourceInformation, sourceInformation);
-        org.finos.legend.engine.protocol.pure.v1.model.data.relation.RelationElement element = treeWalker.visit(parser.definition());
+        // The grammar produces a definition with one relationElement (pathless)
+        RelationElementsEmbeddedDataTreeWalker treeWalker = new RelationElementsEmbeddedDataTreeWalker(innerWalkerSourceInformation, sourceInformation, null);
+        org.finos.legend.engine.protocol.pure.v1.model.data.relation.RelationElementsData elementsData = treeWalker.visit(parser.definition());
+
+        if (elementsData.relationElements == null || elementsData.relationElements.isEmpty())
+        {
+            throw new EngineException("Expected at least one relation element in Relation assertion", sourceInformation, EngineErrorType.PARSER);
+        }
+
+        RelationElement element = elementsData.relationElements.get(0);
 
         EqualToRelation equalToRelation = new EqualToRelation();
         equalToRelation.expected = element;
