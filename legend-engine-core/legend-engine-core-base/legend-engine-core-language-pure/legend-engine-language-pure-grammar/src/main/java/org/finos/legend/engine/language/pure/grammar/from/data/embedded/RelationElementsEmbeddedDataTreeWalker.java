@@ -31,14 +31,10 @@ import java.util.stream.Collectors;
 public class RelationElementsEmbeddedDataTreeWalker
 {
     private final ParseTreeWalkerSourceInformation walkerSourceInformation;
-    private final SourceInformation sourceInformation;
-    private final PureGrammarParserExtensions extensions;
 
     public RelationElementsEmbeddedDataTreeWalker(ParseTreeWalkerSourceInformation walkerSourceInformation, SourceInformation sourceInformation, PureGrammarParserExtensions extensions)
     {
         this.walkerSourceInformation = walkerSourceInformation;
-        this.sourceInformation = sourceInformation;
-        this.extensions = extensions;
     }
 
     public RelationElementsData visit(RelationElementsDataParserGrammar.DefinitionContext ctx)
