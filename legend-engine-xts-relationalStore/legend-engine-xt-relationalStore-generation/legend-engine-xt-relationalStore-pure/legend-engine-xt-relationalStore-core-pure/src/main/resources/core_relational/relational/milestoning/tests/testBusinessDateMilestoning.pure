@@ -1299,3 +1299,72 @@ function <<access.private>> meta::relational::tests::milestoning::businessdate::
 {
   Product.all($d)
 }
+
+// Nested exists with embedded mapping through multi-hop join chain
+function <<test.Test>> meta::relational::tests::milestoning::businessdate::testNestedExists_NestedExistsWithEmbeddedMapping():Boolean[1]
+{
+   let businessDate = %2015-10-16;
+   let result = execute(
+      |ParentEntity.all($businessDate)
+         ->filter(item | $item.children->exists(c | $c.leaves->exists(l |
+            $l.leafValue == 'test')))
+         ->project(
+            [x | $x.parentName, x | $x.children.leaves.leafValue],
+            ['parentName', 'leafValue']
+         ),
+      nestedExistsEmbeddedMapping,
+      meta::external::store::relational::tests::testRuntime(),
+      meta::relational::extension::relationalExtensions()
+   );
+   let tds = $result.values->at(0);
+   assertEquals(['Parent1,test'], $tds.rows->map(r|$r.values->makeString(',')));
+}
+
+// Non-inFilter variant: exists projected as boolean column
+function <<test.Test>> meta::relational::tests::milestoning::businessdate::testNestedExists_NestedExistsWithEmbeddedMappingInProject():Boolean[1]
+{
+   let businessDate = %2015-10-16;
+   let result = execute(
+      |ParentEntity.all($businessDate)
+         ->project(
+            [x | $x.parentName, x | $x.children->exists(c | $c.leaves->exists(l | $l.leafValue == 'test'))],
+            ['parentName', 'hasTestLeaf']
+         ),
+      nestedExistsEmbeddedMapping,
+      meta::external::store::relational::tests::testRuntime(),
+      meta::relational::extension::relationalExtensions()
+   );
+   let tds = $result.values->at(0);
+   assertEquals(['Parent1,true', 'Parent2,false', 'Parent3,false'], $tds.rows->map(r|$r.values->makeString(','))->sort());
+}
+
+function <<test.Test>> meta::relational::tests::milestoning::businessdate::testDerivedPropertyOnNonTemporalClassWithMilestonedChain():Boolean[1]
+{
+   let derivedResult = execute(
+      |RootEntity.all()
+         ->project(
+            [x | $x.rootId, x | $x.childLeafValueDerived],
+            ['Id', 'LeafValue']
+         ),
+      derivedPropertyAssociationMilestoningMap,
+      meta::external::store::relational::tests::testRuntime(),
+      meta::relational::extension::relationalExtensions()
+   );
+   let derivedTds = $derivedResult.values->at(0).rows->map(r|$r.values->makeString(','));
+
+   let inlineResult = execute(
+      |RootEntity.all()
+         ->project(
+            [x | $x.rootId, x | $x.rootChild(today()).leaves(today()).leafValue],
+            ['Id', 'LeafValue']
+         ),
+      derivedPropertyAssociationMilestoningMap,
+      meta::external::store::relational::tests::testRuntime(),
+      meta::relational::extension::relationalExtensions()
+   );
+   let inlineTds = $inlineResult.values->at(0).rows->map(r|$r.values->makeString(','));
+   assertEquals(['R1,test', 'R2,other', 'R3,test'],$inlineTds);
+
+   assertEquals($inlineTds, $derivedTds);
+}
+

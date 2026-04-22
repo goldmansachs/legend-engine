@@ -616,7 +616,7 @@ function meta::relational::functions::pureToSqlQuery::processFunctionExpression(
                                     a:Any[1]| processFunctionExpressionForNonPropertyFunction($functionExpression, $currentPropertyMapping, $operation, $vars, $state, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions);
                                    ]);
 
-  print(if(!$context.debug, |'', | $context.space+'>End Process Function Expression: '+ $functionExpression.func.name->orElse('LambdaFunction') + '\n  ' + $context.space + $res.element->match([s:SelectWithCursor[*]|$s.select->map(s | $s->printDebugQuery($context.space, $extensions))->joinStrings(', '), a:Any[*]|'No SQL'])));
+  print(if(!$context.debug, |'', | $context.space+'>End Process Function Expression: '+ $functionExpression.func.name->orElse('LambdaFunction') + '\n  ' + $context.space + $res.element->match([s:SelectWithCursor[*]|$s.select->map(s | $s->printDebugQuery($context.space, $extensions))->joinStrings(', '), w:WindowColumn[1]|^SelectSQLQuery(columns=$w)->map(s | $s->printDebugQuery($context.space, $extensions))->joinStrings(', ')])));
   $res;
 }
 
@@ -4890,10 +4890,7 @@ function meta::relational::functions::pureToSqlQuery::processDynaFunction(name:S
                         positionBeforeLastApplyJoinTreeNode = []
                      );
 
-   let otherParams = $processedParams.first.values->filter(x | !$x->instanceOf(SelectWithCursor) && !$x->instanceOf(Literal));
-   let columns = $res.select.columns->concatenate($otherParams)->removeDuplicates();
-   let select = $res.select;
-   $processedParams.second->eval(^$res(select = ^$select(columns = $columns)));
+   $processedParams.second->eval($res);
 }
 
 function <<access.private>> meta::relational::functions::pureToSqlQuery::unwrapAlias<|N>(params: RelationalOperationElement[N]): RelationalOperationElement[N]
@@ -5564,58 +5561,113 @@ function meta::relational::functions::pureToSqlQuery::processNotExists(functionE
                   );
 }
 
-function meta::relational::functions::pureToSqlQuery::processExists(expression:FunctionExpression[1],negate:Boolean[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
+function meta::relational::functions::pureToSqlQuery::processExists(
+    expression:FunctionExpression[1],
+    negate:Boolean[1],
+    currentPropertyMapping:PropertyMapping[*],
+    operation:SelectWithCursor[1],
+    vars:Map<VariableExpression, ValueSpecification>[1],
+    state:State[1],
+    nodeId:String[1],
+    aggFromMap:List<ColumnGroup>[1],
+    context:DebugContext[1],
+    extensions:Extension[*]
+):RelationalOperationElement[1]
 {
-    let existsState=^$state(shouldIsolateNestedFilter=false);
-    let leftSideOp = processValueSpecificationReturnPropertyMapping($expression.parametersValues->at(0), $currentPropertyMapping, $operation, $vars, $existsState, JoinType.LEFT_OUTER, $nodeId, $aggFromMap, $context, $extensions);
-    let leftSide = $leftSideOp.element->toOne()->cast(@SelectWithCursor);
+    let existsState = ^$state(shouldIsolateNestedFilter = false);
+    let leftSideResult = processValueSpecificationReturnPropertyMapping(
+        $expression.parametersValues->at(0), $currentPropertyMapping, $operation, $vars,
+        $existsState, JoinType.LEFT_OUTER, $nodeId, $aggFromMap, $context, $extensions
+    );
+    let leftSideCursor = $leftSideResult.element->toOne()->cast(@SelectWithCursor);
 
-    let select = $leftSide.select;
-    print(if(!$context.debug, |'',
-            | $context.space+'   (S)Exists Left side Select>  '+$select->printDebugQuery($context.space, $extensions)));
+    let leftSideSelect = $leftSideCursor.select;
+    let operationJoinTree = $operation.select.data->toOne();
+    let leftSideJoinTree = $leftSideSelect.data->toOne();
+    print(if (!$context.debug,
+        | '',
+        | $context.space + '   Exists left side select>  ' + $leftSideSelect->printDebugQuery($context.space, $extensions)
+    ));
 
     // Rebuild old query (it may have been mutated by adding keys in Union)
-    let node = $operation.currentTreeNode->toOne()->findNode($operation.select.data->toOne(), $select.data->toOne())->toOne();
-    let nNode = ^$node(childrenData=[]);
-    let newData=  $select.data->toOne()->replaceTreeNode($node, $nNode)->cast(@RootJoinTreeNode);
-    let nSelect = ^$select(
-                      data=$newData,
-                      savedFilteringOperation = $select.savedFilteringOperation->map(p| let foundNode = $p.first->findNode($operation.select.data->toOne(), $select.data->toOne());
-                                                                                        if ($foundNode->isEmpty(), | [], | pair($foundNode->toOne(), $p.second));),
-                      leftSideOfFilter =  if ($select.leftSideOfFilter->isEmpty(),
-                                              |[],
-                                              |let res = $select.leftSideOfFilter->toOne()->findNode($operation.select.data->toOne(), $select.data->toOne());
-                                               if ($res->isEmpty(),|[],|$res->toOne());
-                                          )
-                  );
-    let nOperation = ^$leftSide(select=$nSelect,
-                                currentTreeNode=$nNode,
-                                positionBeforeLastApplyJoinTreeNode = if($operation.positionBeforeLastApplyJoinTreeNode->isEmpty(),|[],|$operation.positionBeforeLastApplyJoinTreeNode->toOne()->findNode($operation.select.data->toOne(), $nSelect.data->toOne())->toOne())
+    let originalTreeNode = $operation.currentTreeNode->toOne()->findNode($operationJoinTree, $leftSideJoinTree)->toOne();
+    let prunedNode = ^$originalTreeNode(childrenData = []);
+    let prunedJoinTree = $leftSideJoinTree->replaceTreeNode($originalTreeNode, $prunedNode)->cast(@RootJoinTreeNode);
+    let prunedSelect = ^$leftSideSelect(
+                      data = $prunedJoinTree,
+                      savedFilteringOperation = $leftSideSelect.savedFilteringOperation->map(p |
+                          let foundNode = $p.first->findNode($operationJoinTree, $leftSideJoinTree);
+                          if ($foundNode->isEmpty(),
+                              | [],
+                              | pair($foundNode->toOne(), $p.second)
+                          );),
+                      leftSideOfFilter = if ($leftSideSelect.leftSideOfFilter->isEmpty(),
+                          | [],
+                          | let res = $leftSideSelect.leftSideOfFilter->toOne()->findNode($operationJoinTree, $leftSideJoinTree);
+                            if ($res->isEmpty(),
+                                | [],
+                                | $res->toOne()
                             );
+                      )
+                  );
+    let prunedCursor = ^$leftSideCursor(
+                      select = $prunedSelect,
+                      currentTreeNode = $prunedNode,
+                      positionBeforeLastApplyJoinTreeNode = if ($operation.positionBeforeLastApplyJoinTreeNode->isEmpty(),
+                          | [],
+                          | $operation.positionBeforeLastApplyJoinTreeNode->toOne()->findNode($operationJoinTree, $prunedSelect.data->toOne())->toOne()
+                      )
+                  );
 
-    let opSel = $nOperation.select;
-    print(if(!$context.debug, |'',
-            | $context.space+'   (O)Exists Left side Operation>  '+$opSel->printDebugQuery($context.space, $extensions)));
+    print(if (!$context.debug,
+        | '',
+        | $context.space + '   Exists pruned left side operation>  ' + $prunedCursor.select->printDebugQuery($context.space, $extensions)
+    ));
 
-
-    let opMapping = $leftSideOp.currentPropertyMapping;
-    if (!$opMapping->isEmpty() && $opMapping->at(0)->instanceOf(EmbeddedRelationalInstanceSetImplementation)
-                  ,{|
-                     let existsAsFilter = processFilter($expression, $currentPropertyMapping, $nOperation, $vars, $existsState, JoinType.LEFT_OUTER, $nodeId, $aggFromMap, $context, $extensions);
-                     if($existsState.inFilter
-                         ,|$existsAsFilter
-                         ,{|
-                            let selectWithCursor = $existsAsFilter.element->cast(@SelectWithCursor);
-                            let select = $selectWithCursor.select;
-                            ^$selectWithCursor(select=^$select(savedFilteringOperation=[], columns=$select.savedFilteringOperation.second));
-                          }
-                      );
-                   }
-                  ,| if($node.childrenData->size() == 1 && $leftSide->shouldBuildExistsPredicate()
-                     ,| buildExistsPredicate($leftSide, $expression, $negate, $opMapping, $nOperation, $vars, $existsState, $nodeId, $aggFromMap, $context, $extensions);
-                     ,| buildExistsAsJoinWithNullCheck($leftSide, $expression, $negate, $opMapping, $nOperation, $vars, $existsState, $nodeId, $aggFromMap, $context, $extensions);
-                     );
-                   );
+    let leftSidePropertyMappings = $leftSideResult.currentPropertyMapping;
+    if (!$leftSidePropertyMappings->isEmpty() && $leftSidePropertyMappings->at(0)->instanceOf(EmbeddedRelationalInstanceSetImplementation),
+        | // For multi-hop joins, set savedRoot so processFilter preserves the full ancestor chain.
+          // Remap leftSideOfFilter/savedFilteringOperation to the pruned tree (prunedJoinTree replaced data).
+          let filterInputCursor = if ($prunedCursor.currentTreeNode->isNotEmpty() && !($prunedCursor.currentTreeNode->toOne()->instanceOf(RootJoinTreeNode)),
+              | let remappedLeftSideOfFilter = if ($prunedSelect.leftSideOfFilter->isEmpty(),
+                    | [],
+                    | $prunedSelect.leftSideOfFilter->toOne()->findNode($leftSideJoinTree, $prunedJoinTree)->first()
+                );
+                let remappedSavedFilterOps = $prunedSelect.savedFilteringOperation->map(p |
+                    let n = $p.first->findNode($leftSideJoinTree, $prunedJoinTree);
+                    if ($n->isEmpty(),
+                        | [],
+                        | pair($n->toOne(), $p.second)
+                    ););
+                ^$prunedCursor(
+                    select = ^$prunedSelect(leftSideOfFilter = $remappedLeftSideOfFilter, savedFilteringOperation = $remappedSavedFilterOps),
+                    savedRoot = pair($prunedJoinTree, $prunedCursor.currentTreeNode->toOne())
+                );,
+              | $prunedCursor
+          );
+          let existsAsFilter = processFilter($expression, $currentPropertyMapping, $filterInputCursor, $vars,
+              $existsState, JoinType.LEFT_OUTER, $nodeId, $aggFromMap, $context, $extensions);
+          let filterResultCursor = $existsAsFilter.element->cast(@SelectWithCursor);
+          let filterResultSelect = $filterResultCursor.select;
+          let savedFilterExpressions = $filterResultSelect.savedFilteringOperation.second;
+          if ($existsState.inFilter,
+              | ^$filterResultCursor(select = ^$filterResultSelect(
+                    savedFilteringOperation = [],
+                    filteringOperation = $filterResultSelect.filteringOperation->concatenate($savedFilterExpressions)->andFilters($extensions)
+                )),
+              | let existsColumns = if($savedFilterExpressions->isNotEmpty(),
+                    |$savedFilterExpressions,
+                    |$filterResultSelect.filteringOperation
+                );
+                ^$filterResultCursor(select = ^$filterResultSelect(savedFilteringOperation = [], filteringOperation = [], columns = $existsColumns));
+          );,
+        | if ($originalTreeNode.childrenData->size() == 1 && $leftSideCursor->shouldBuildExistsPredicate(),
+              | buildExistsPredicate($leftSideCursor, $expression, $negate, $leftSidePropertyMappings,
+                    $prunedCursor, $vars, $existsState, $nodeId, $aggFromMap, $context, $extensions);,
+              | buildExistsAsJoinWithNullCheck($leftSideCursor, $expression, $negate, $leftSidePropertyMappings,
+                    $prunedCursor, $vars, $existsState, $nodeId, $aggFromMap, $context, $extensions);
+          )
+    );
 }
 
 function meta::relational::functions::pureToSqlQuery::findJoiningColumns(node:JoinTreeNode[1]):TableAliasColumn[*]
@@ -8588,7 +8640,7 @@ function meta::relational::functions::pureToSqlQuery::extractSelectSQLQuery(src:
                   [
                      o:SelectWithCursor[1] | $o.select,
                      l:Literal[1] | [],
-                     w:WindowColumn[1] | []
+                     w:WindowColumn[1] | ^SelectSQLQuery(columns=$w);
                   ]
               )
 }
@@ -8882,7 +8934,7 @@ function meta::relational::functions::pureToSqlQuery::mergeSQLQueryData(preQuery
                        )
                     );
                let q_moved = if($q.columns->filter(c|$c->instanceOf(Alias) && $c->cast(@Alias).relationalElement->instanceOf(WindowColumn))->map(w|$a.filteringOperation->extractTableAliasColumns().column.name->contains($w->cast(@Alias).name))->contains(true),|$q->moveSelectQueryToSubSelect($q.data,[],'root',$context, $extensions),|$q);
-               if ($q != [] && !$q.data->isEmpty()
+               if ($q != [] && !$q.data->isEmpty() && !$a.data->isEmpty()
                    ,|
                       // let shouldIsolate = shouldIsolateSubJoins($a, $q, $context->shift());
                       let new_a = $a;//if ($shouldIsolate,|$a->possiblyIsolateSubJoins($nodeId),|$a);
@@ -8919,15 +8971,14 @@ function meta::relational::functions::pureToSqlQuery::mergeSQLQueryData(preQuery
                             extraFilteringOperation = $new_a.extraFilteringOperation->reprocessAliases($remap)->concatenate($merged.extraFilteringOperation),
                             groupBy = $newGroupBy
                          );
-                   ,| let cols = $a.columns->filter(c|$c->instanceOf(WindowColumn));
-                        ^$a
-                         (
-                            columns = $a.columns->concatenate($q.columns)->filter(c|!$c->instanceOf(WindowColumn))->removeDuplicatesBy(x | $x->match([a:Alias[1]|$a.name, a:Any[1]|generateGuid()]))->concatenate($cols),
-                            filteringOperation += $q.filteringOperation,
-                            savedFilteringOperation += $q.savedFilteringOperation,
-                            extraFilteringOperation += $q.extraFilteringOperation,
-                            groupBy = if ($q.groupBy->isEmpty(), | $a.groupBy, | $q.groupBy)
-                         );
+                   ,| ^$a
+                        (
+                          columns = $a.columns->concatenate($q.columns)->removeDuplicatesBy(x | $x->match([a:Alias[1]|$a.name, a:Any[1]|generateGuid()])),
+                          filteringOperation += $q.filteringOperation,
+                          savedFilteringOperation += $q.savedFilteringOperation,
+                          extraFilteringOperation += $q.extraFilteringOperation,
+                          groupBy = if ($q.groupBy->isEmpty(), | $a.groupBy, | $q.groupBy)
+                        );
                );
       }, $querySet->first()->toOne()
    );

@@ -35,7 +35,8 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReverses(
   ^ReverseInformation
   (
     reversesForSource =   meta::external::python::reversePCT::shared::pythonSharedReversesAll()
-                          ->concatenate(pythonPandasAPIReversesRelation()),
+                          ->concatenate(pythonPandasAPIReversesRelation())
+                          ->concatenate(pythonPandasAPIReversesStandard()),
     reverseTransformer = val:String[1]| ^FunctionExpression
                                         (
                                           func = meta::external::python::reversePCT::pandasAPI::pythonToPure_String_1__Any_1_,
@@ -63,6 +64,10 @@ function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesR
   pythonPandasAPIReversesEssentialRelation()
 }
 
+function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesStandard(): ReversesForSource[*]
+{
+  pythonPandasAPIReversesStandardMath()
+}
 
 function meta::external::python::reversePCT::pandasAPI::pythonPandasAPIReversesVariant(): ReversesForSource[*]
 {
@@ -102,6 +107,9 @@ function <<access.private>> meta::external::python::reversePCT::pandasAPI::getPu
     'from pylegend.core.language.shared.functions import pi\n' +
     'from pylegend.extensions.tds.pandas_api.frames.pandas_api_csv_input_frame import PandasApiCsvNonExecutableInputTdsFrame as csv_frame\n'+
     'from pylegend.core.tds.pandas_api.frames.pandas_api_applied_function_tds_frame import PandasApiAppliedFunctionTdsFrame\n' +
+    'from pylegend.core.tds.pandas_api.frames.pandas_api_window_tds_frame import PandasApiWindowTdsFrame\n' +
+    'from pylegend.core.language.pandas_api.pandas_api_window_series import WindowSeries\n' +
+    'from pylegend.core.tds.tds_column import PrimitiveType\n' +
     '\n' +
     'def func():\n'+
     '  res = (' + $pythonCodeBlock + ')\n' +
@@ -118,7 +126,12 @@ function <<access.private>> meta::external::python::reversePCT::pandasAPI::getPu
     'print(func())\n';
 
   let res = meta::python::execution::executePythonScript($script);
-  if ($res.error->trim() != '', | fail($res.error), | []);
+  if ($res.error->trim() != '',
+    | let errorLines = $res.error->trim()->split('\n');
+      let lastLine = $errorLines->last()->toOne()->trim();
+      let colonIndex = $lastLine->indexOf(': ');
+      let errorMessage = if($colonIndex >= 0, | $lastLine->substring($colonIndex + 2), | $lastLine);
+      fail($errorMessage);,
+    | []);
   $res.output;
 }
-

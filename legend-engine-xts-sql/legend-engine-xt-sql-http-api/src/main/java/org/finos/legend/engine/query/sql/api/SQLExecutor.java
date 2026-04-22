@@ -48,6 +48,7 @@ import org.finos.legend.engine.protocol.pure.PureClientVersions;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContext;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextPointer;
+import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.ExecutionPlan;
 import org.finos.legend.engine.protocol.pure.v1.model.executionPlan.SingleExecutionPlan;
 import org.finos.legend.engine.protocol.pure.m3.multiplicity.Multiplicity;
 import org.finos.legend.engine.protocol.pure.m3.type.generics.GenericType;
@@ -144,9 +145,56 @@ public class SQLExecutor
 
     public Result execute(Query query, List<Object> positionalArguments, String user, SQLContext context, Identity identity)
     {
+        // Check if this is a SELECT * query with no positional arguments
+        boolean isSelectStar = SelectStarQueryDetector.isSelectStar(query)
+            && (positionalArguments == null || positionalArguments.isEmpty());
+
+        if (isSelectStar)
+        {
+            return executeWithPreGeneratedPlan(query, user, context, identity);
+        }
+
+        return executeStandard(query, positionalArguments, user, context, identity);
+    }
+
+    private Result executeWithPreGeneratedPlan(Query query, String user, SQLContext context, Identity identity)
+    {
+        return TraceUtils.trace("execute-select-star", span ->
+        {
+            long start = System.currentTimeMillis();
+            LOGGER.info("Executing query using pre-generated plan path");
+
+            Pair<RichIterable<SQLSource>, PureModelContext> sqlSourcesAndPureModel = getSourcesAndModel(query, context, identity);
+            RichIterable<SQLSource> sources = sqlSourcesAndPureModel.getOne();
+
+            // SELECT * optimization requires exactly one source with a pre-generated plan
+            if (sources.size() != 1 || sources.getFirst().getPreGeneratedPlan() == null)
+            {
+                LOGGER.info("No pre-generated plan available, falling back to standard execution path");
+                return executeStandard(query, FastList.newList(), user, context, identity);
+            }
+
+            ExecutionPlan preGeneratedPlan = sources.getFirst().getPreGeneratedPlan();
+            span.setTag("selectStar", true);
+
+            SingleExecutionPlan plan = (SingleExecutionPlan) preGeneratedPlan;
+            Result result = planExecutor.execute(plan, Maps.mutable.empty(), user, identity);
+
+            long elapsed = System.currentTimeMillis() - start;
+            MetricsHandler.observe("execute", start, System.currentTimeMillis());
+            LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.EXECUTE_INTERACTIVE_STOP, (double) elapsed).toString());
+            LOGGER.debug("SELECT * query executed in {}ms (used pre-generated plan)", elapsed);
+
+            return result;
+        });
+    }
+
+    private Result executeStandard(Query query, List<Object> positionalArguments, String user, SQLContext context, Identity identity)
+    {
         return process(query, positionalArguments, (transformedContext, pureModel, sources, positionals, span) ->
         {
             long start = System.currentTimeMillis();
+            LOGGER.info("Executing query using standard path (full SQL-to-Pure transformation)");
             LOGGER.info(new LogInfo(identity.getName(), LoggingEventType.EXECUTE_INTERACTIVE_STOP, (double) System.currentTimeMillis() - start).toString());
 
             Root_meta_external_query_sql_transformation_queryToPure_PlanGenerationResult plans = planResult(transformedContext, pureModel, sources);
@@ -161,7 +209,10 @@ public class SQLExecutor
             arguments.putAll(positionalArgumentPlans);
             Result result = planExecutor.execute(transformedPlan, arguments, user, identity);
 
+            long elapsed = System.currentTimeMillis() - start;
             MetricsHandler.observe("execute", start, System.currentTimeMillis());
+            MetricsHandler.observe("execute_standard", start, System.currentTimeMillis());
+            LOGGER.debug("Standard query executed in {}ms (full SQL-to-Pure transformation)", elapsed);
 
             return result;
         }, "execute", context, identity);
@@ -249,10 +300,13 @@ public class SQLExecutor
 
     private Root_meta_external_query_sql_transformation_queryToPure_PlanGenerationResult planResult(Root_meta_external_query_sql_transformation_queryToPure_SqlTransformContext transformedContext, PureModel pureModel, RichIterable<Root_meta_external_query_sql_transformation_queryToPure_SQLSource> sources)
     {
+        long startTime = System.currentTimeMillis();
+
         Root_meta_external_query_sql_transformation_queryToPure_PlanGenerationResult result = core_external_query_sql_binding_fromPure_fromPure.Root_meta_external_query_sql_transformation_queryToPure_getPlanResult_SqlTransformContext_1__SQLSource_MANY__Extension_MANY__PlanGenerationResult_1_(transformedContext, sources, routerExtensions.apply(pureModel), pureModel.getExecutionSupport());
 
         if (result._plan() == null)
         {
+            LOGGER.debug("Generating plan in Java (Relation path)");
             TraceUtils.trace("generating plan", span ->
             {
                 LambdaFunction lambda = read(result._lambda(), LambdaFunction.class);
@@ -264,9 +318,11 @@ public class SQLExecutor
         }
         else
         {
+            LOGGER.debug("Binding plan from Pure (TDS path)");
             result._plan(PlanPlatform.JAVA.bindPlan(result._plan(), null, pureModel, routerExtensions.apply(pureModel)));
         }
 
+        LOGGER.debug("Plan generation took {}ms", System.currentTimeMillis() - startTime);
         return result;
     }
 
@@ -305,7 +361,7 @@ public class SQLExecutor
             });
 
             Query finalQuery = QueryRealiaser.realias(query);
-            span.setTag("realiasedQueryHash", hash(finalQuery));
+            span.setTag("re-aliasedQueryHash", hash(finalQuery));
 
             Root_meta_external_query_sql_metamodel_Query compiledQuery = new ProtocolToMetamodelTranslator().translate(finalQuery, pureModel);
 
@@ -452,11 +508,11 @@ public class SQLExecutor
         }
     }
 
-    private Integer hash(Query query)
+    private <T> T read(String string, Class<T> clazz)
     {
         try
         {
-            return Objects.hash(OBJECT_MAPPER.writeValueAsString(query));
+            return OBJECT_MAPPER.readValue(string, clazz);
         }
         catch (JsonProcessingException e)
         {
@@ -464,11 +520,11 @@ public class SQLExecutor
         }
     }
 
-    private <T> T read(String string, Class<T> clazz)
+    private Integer hash(Query query)
     {
         try
         {
-            return OBJECT_MAPPER.readValue(string, clazz);
+            return Objects.hash(OBJECT_MAPPER.writeValueAsString(query));
         }
         catch (JsonProcessingException e)
         {

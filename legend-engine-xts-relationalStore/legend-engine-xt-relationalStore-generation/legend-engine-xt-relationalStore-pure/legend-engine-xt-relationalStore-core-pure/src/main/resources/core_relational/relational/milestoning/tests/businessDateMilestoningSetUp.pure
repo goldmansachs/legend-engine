@@ -388,6 +388,37 @@ function meta::relational::tests::milestoning::initDatabase():Runtime[1]
    executeInDb('INSERT INTO Bicycles (in_z, out_z, id, description) VALUES\n(\'2020-01-01\', \'2050-01-01\', 5, \'Mountain Bike\'),\n(\'2020-01-01\', \'2050-01-01\', 4, \'Road Bike\'),\n(\'2020-01-01\', \'2050-01-01\', 3, \'Hybrid Bike\'),\n(\'2020-01-01\', \'2050-01-01\', 2, \'Electric Bike\'),\n(\'2020-01-01\', \'2050-01-01\', 1, \'Folding Bike\'),\n(\'2200-01-01\', \'2300-01-01\', 6, \'Nuclear Bike\');', $connection);
    executeInDb('INSERT INTO Jets (in_z, out_z, id, description) VALUES\n(\'2020-01-01\', \'2050-01-01\', 3, \'Fighter Jet\'),\n(\'2020-01-01\', \'2050-01-01\', 8, \'Water Jet\'),\n(\'2020-01-01\', \'2050-01-01\', 6, \'Hybrid Jet\'),\n(\'2020-01-01\', \'2050-01-01\', 4, \'Supersonic Jet\'),\n(\'2020-01-01\', \'2050-01-01\', 2, \'Transformer Jet\');', $connection);
 
+   // Nested exists with embedded mapping test tables
+   executeInDb('drop table if exists parent_entity;', $connection);
+   executeInDb('create table parent_entity (parent_id INTEGER, parent_name VARCHAR(200), from_z TIMESTAMP, thru_z TIMESTAMP);', $connection);
+   executeInDb('insert into parent_entity values(1, \'Parent1\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+   executeInDb('insert into parent_entity values(2, \'Parent2\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+   executeInDb('insert into parent_entity values(3, \'Parent3\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+
+   executeInDb('drop table if exists child_entity;', $connection);
+   executeInDb('create table child_entity (child_id INTEGER, child_name VARCHAR(200), from_z TIMESTAMP, thru_z TIMESTAMP);', $connection);
+   executeInDb('insert into child_entity values(10, \'Child1\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+   executeInDb('insert into child_entity values(20, \'Child2\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+   executeInDb('insert into child_entity values(30, \'Child3\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+
+   executeInDb('drop table if exists parent_child_bridge;', $connection);
+   executeInDb('create table parent_child_bridge (parent_id INTEGER, child_id INTEGER, link_status VARCHAR(20));', $connection);
+   executeInDb('insert into parent_child_bridge values(1, 10, \'ACTIVE\');', $connection);
+   executeInDb('insert into parent_child_bridge values(2, 20, \'ACTIVE\');', $connection);
+   executeInDb('insert into parent_child_bridge values(3, 30, \'INACTIVE\');', $connection);
+
+   executeInDb('drop table if exists leaf_entity;', $connection);
+   executeInDb('create table leaf_entity (leaf_id INTEGER, child_id INTEGER, leaf_value VARCHAR(200), from_z TIMESTAMP, thru_z TIMESTAMP);', $connection);
+   executeInDb('insert into leaf_entity values(100, 10, \'test\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+   executeInDb('insert into leaf_entity values(200, 20, \'other\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+   executeInDb('insert into leaf_entity values(300, 30, \'test\', \'2015-8-26 00:00:00\', \'9999-12-31 00:00:00\');', $connection);
+
+   executeInDb('drop table if exists root_entity;', $connection);
+   executeInDb('create table root_entity (root_id VARCHAR(100), child_id INTEGER);', $connection);
+   executeInDb('insert into root_entity values(\'R1\', 10);', $connection);
+   executeInDb('insert into root_entity values(\'R2\', 20);', $connection);
+   executeInDb('insert into root_entity values(\'R3\', 30);', $connection);
+
    ^Runtime(connectionStores=$connectionStore);
 }
 
@@ -2393,8 +2424,115 @@ Database meta::relational::tests::milestoning::db(
    Join Car_CarDetails(Cars.id = CarDetails.id)
 
 
+   // Nested Exists tables
+   Table parent_entity
+   (
+      milestoning(business(BUS_FROM = from_z, BUS_THRU = thru_z, INFINITY_DATE = %9999-12-31T00:00:00.0000))
+      parent_id INTEGER PRIMARY KEY,
+      parent_name VARCHAR(200),
+      from_z DATE,
+      thru_z DATE
+   )
+
+   Table child_entity
+   (
+      milestoning(business(BUS_FROM = from_z, BUS_THRU = thru_z, INFINITY_DATE = %9999-12-31T00:00:00.0000))
+      child_id INTEGER PRIMARY KEY,
+      child_name VARCHAR(200),
+      from_z DATE,
+      thru_z DATE
+   )
+
+   Table parent_child_bridge
+   (
+      parent_id INTEGER,
+      child_id INTEGER,
+      link_status VARCHAR(20)
+   )
+
+   Table leaf_entity
+   (
+      milestoning(business(BUS_FROM = from_z, BUS_THRU = thru_z, INFINITY_DATE = %9999-12-31T00:00:00.0000))
+      leaf_id INTEGER PRIMARY KEY,
+      child_id INTEGER,
+      leaf_value VARCHAR(200),
+      from_z DATE,
+      thru_z DATE
+   )
+
+   Join Parent_Bridge(parent_entity.parent_id = parent_child_bridge.parent_id)
+   Join Bridge_Child(parent_child_bridge.child_id = child_entity.child_id and (parent_child_bridge.link_status = 'ACTIVE' or parent_child_bridge.link_status is null or parent_child_bridge.link_status = ''))
+   Join Child_Leaf(child_entity.child_id = leaf_entity.child_id)
+
+   Table root_entity
+   (
+      root_id VARCHAR(100) PRIMARY KEY,
+      child_id INTEGER
+   )
+
+   Join Root_Child(root_entity.child_id = child_entity.child_id)
+
    Filter IsStockType(ProductTable.type='STOCK')
    Filter LNSEProducts(ProductExchangeTable.name='STOCK')
    Filter NewActivityWithValidProduct(NewActivityInfoTable.productId > 0)
    Filter filterById(StockProductTable.id > 152 or StockProductTable.id < 123)
+)
+
+// Embedded mapping: LeafEntity inline within ChildEntity
+###Mapping
+import meta::relational::tests::milestoning::*;
+
+Mapping meta::relational::tests::milestoning::nestedExistsEmbeddedMapping
+(
+   ParentEntity : Relational
+   {
+      parentId : [db]parent_entity.parent_id,
+      parentName : [db]parent_entity.parent_name,
+      children : [db]@Parent_Bridge > @Bridge_Child
+   }
+
+   ChildEntity : Relational
+   {
+      childId : [db]child_entity.child_id,
+      childName : [db]child_entity.child_name,
+      leaves
+      (
+         leafValue : [db]@Child_Leaf | leaf_entity.leaf_value
+      )
+   }
+)
+
+Mapping meta::relational::tests::milestoning::derivedPropertyAssociationMilestoningMap
+(
+   RootEntity : Relational
+   {
+      rootId : [db]root_entity.root_id
+   }
+
+   ChildEntity : Relational
+   {
+      childId : [db]child_entity.child_id,
+      childName : [db]child_entity.child_name
+   }
+
+   LeafEntity : Relational
+   {
+      leafValue : [db]leaf_entity.leaf_value
+   }
+
+   RootEntity_ChildEntity : Relational
+   {
+      AssociationMapping
+      (
+         rootChild : [db]@Root_Child
+      )
+   }
+
+   ChildEntity_LeafEntity : Relational
+   {
+      AssociationMapping
+      (
+         leaves : [db]@Child_Leaf
+      )
+   }
 )

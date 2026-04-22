@@ -35,8 +35,8 @@ public class SnowflakeDatasourceSpecification extends DatasourceSpecification
 
     public String role;
 
-    public boolean setSessionTimezone;
-    public boolean setSessionQuotedIdentifiersIgnoreCase;
+    public Boolean setSessionTimezone;
+    public Boolean setSessionQuotedIdentifiersIgnoreCase;
 
     @Override
     public <T> T accept(DatasourceSpecificationVisitor<T> datasourceSpecificationVisitor)

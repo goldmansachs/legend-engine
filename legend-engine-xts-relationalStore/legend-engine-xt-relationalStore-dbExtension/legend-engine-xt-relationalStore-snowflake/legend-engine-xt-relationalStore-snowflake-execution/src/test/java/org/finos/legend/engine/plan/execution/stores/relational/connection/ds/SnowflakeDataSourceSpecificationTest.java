@@ -378,7 +378,7 @@ public class SnowflakeDataSourceSpecificationTest extends SnowflakeDataSourceSpe
         Assert.assertEquals("America/Los_Angeles", computeAndGetSessionTimezoneFromJdbcProperties(connection));
     }
 
-    private RelationalDatabaseConnection getConnectionWithQuotedIdentifiersIgnoreCase(boolean setSessionQuotedIdentifiersIgnoreCase, Boolean quotedIdentifiersIgnoreCase)
+    private RelationalDatabaseConnection getConnectionWithQuotedIdentifiersIgnoreCase(Boolean setSessionQuotedIdentifiersIgnoreCase, Boolean quotedIdentifiersIgnoreCase)
     {
         SnowflakeDatasourceSpecification ds = new SnowflakeDatasourceSpecification();
         ds.accountName = "sampleAccount";
@@ -423,7 +423,7 @@ public class SnowflakeDataSourceSpecificationTest extends SnowflakeDataSourceSpe
     @Test
     public void testSnowflakeDataSourceSpecification_QuotedIdentifiersIgnoreCaseNotSet2()
     {
-        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(false, null);
+        RelationalDatabaseConnection connection = getConnectionWithQuotedIdentifiersIgnoreCase(null, null);
         Assert.assertNull(computeAndGetQuotedIdentifiersIgnoreCaseFromJdbcProperties(connection));
     }
 

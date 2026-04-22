@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.finos.legend.engine</groupId>
         <artifactId>legend-engine-xt-relationalStore-aurora</artifactId>
-        <version>4.125.1-SNAPSHOT</version>
+        <version>4.128.2-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -75,5 +75,13 @@
             <artifactId>eclipse-collections</artifactId>
         </dependency>
         <!-- ECLIPSE COLLECTIONS -->
+
+        <dependency>
+            <groupId>software.amazon.jdbc</groupId>
+            <artifactId>aws-advanced-jdbc-wrapper</artifactId>
+            <version>3.3.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
     </dependencies>
 </project>
