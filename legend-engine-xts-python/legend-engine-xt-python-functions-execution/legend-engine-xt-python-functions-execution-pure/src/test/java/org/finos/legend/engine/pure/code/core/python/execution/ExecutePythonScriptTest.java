@@ -24,7 +24,7 @@ public abstract class ExecutePythonScriptTest extends AbstractPureTestWithCoreCo
     {
         test(
                 "let x = meta::python::execution::executePythonScript('print(\"Hello, World!\")');\n" +
-                        "assertEquals(0, $x.exitCode);\n" +
+                        "assertEquals(0, $x.exitCode, 'Exit code not as expected: ' + $x.exitCode->toString() + ' (' + $x.error + ')');\n" +
                         "assertEquals('Hello, World!\\n', $x.output);\n" +
                         "assertEquals('', $x.error);\n"
         );
@@ -35,9 +35,9 @@ public abstract class ExecutePythonScriptTest extends AbstractPureTestWithCoreCo
     {
         test(
                 "let x = meta::python::execution::executePythonScript('import unknown_lib');\n" +
-                        "assertEquals(1, $x.exitCode);\n" +
+                        "assertEquals(1, $x.exitCode, 'Exit code not as expected: ' + $x.exitCode->toString() + ' (' + $x.error + ')');\n" +
                         "assertEquals('', $x.output);\n" +
-                        "assert($x.error->indexOf('ModuleNotFoundError: No module named \\'unknown_lib\\'') >= 1);\n"
+                        "assert($x.error->indexOf('ModuleNotFoundError: No module named \\'unknown_lib\\'') >= 1, 'Error not as expected: ' + $x.error);\n"
         );
     }
 
