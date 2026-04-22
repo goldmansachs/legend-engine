@@ -19,7 +19,7 @@ import M3LexerGrammar;
 // -------------------------------------- KEYWORD --------------------------------------
 
 RELATION:                          'relation';
-TABLE_START: ((RELATION | COLON) WHITESPACE*) -> pushMode(TABLE_MODE);
+TABLE_START: (COLON WHITESPACE*) -> pushMode(TABLE_MODE);
 
 mode TABLE_MODE;
 
@@ -27,9 +27,3 @@ mode TABLE_MODE;
     ROW_COMMA: ',';
     NEWLINE: '\r'?'\n' [ \t]*;
     TABLE_END: ';' -> popMode;
-
-
-
-// test_1 | functionName() => (RELATION)
-    // col1,col2
-    // val1,val2
