@@ -1,4 +1,4 @@
-// Copyright 2025 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-lexer grammar RelationElementsDataLexerGrammar;
+package org.finos.legend.engine.protocol.pure.v1.model.data;
 
-import M3LexerGrammar;
+import org.finos.legend.engine.protocol.pure.v1.model.context.PackageableElementPointer;
 
-// -------------------------------------- KEYWORD --------------------------------------
-
-RELATION:                          'relation';
-TABLE_START: (COLON WHITESPACE*) -> pushMode(TABLE_MODE);
-
-mode TABLE_MODE;
-
-    QUOTED_ROW_VALUE: [ \t]* '"' (~["\r\n] | '\\"')* '"' [ \t]*;
-    ROW_VALUE: ~[",\r\n;]+;
-    ROW_COMMA: ',';
-    NEWLINE: '\r'?'\n' [ \t]*;
-    TABLE_END: ';' -> popMode;
+public class ReferenceDataResolver extends DataResolver
+{
+    public PackageableElementPointer elementPointer;
+}
