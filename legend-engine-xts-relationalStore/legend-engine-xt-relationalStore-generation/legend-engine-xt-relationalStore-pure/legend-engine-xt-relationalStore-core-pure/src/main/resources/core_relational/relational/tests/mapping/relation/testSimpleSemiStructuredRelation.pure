@@ -33,8 +33,6 @@
 //   mapping/db/csv baked in.
 // - Sub-package `…::semistructured::simple::*` isolates this file from the
 //   parent `meta::relational::tests::mapping::relation::*` test suite.
-//
-// Playbook: docs/copilot/2026-06-10-semistructured-rfpm-lift-translation-plan-simple.md
 // =============================================================================
 
 ###Relational

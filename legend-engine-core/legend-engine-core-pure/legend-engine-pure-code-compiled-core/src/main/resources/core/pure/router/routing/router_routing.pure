@@ -399,12 +399,7 @@ function meta::pure::router::routing::routeFunctionExpressionFunctionDefinition(
                                                                                                                                             // but before any column lambda). Without this reset, a prior column whose lambda
                                                                                                                                             // body traversed an auto-mapped property (routeFunctionExpressionProperty sets
                                                                                                                                             // shouldBeRouted=false on its NoSet emission) leaves shouldBeRouted=false in the fold
-                                                                                                                                            // accumulator, so the next column's processLambda skips building propertyMap[x] and
-                                                                                                                                            // resolveVar leaves $x as a bare VariableExpression -- breaking downstream SS-array
-                                                                                                                                            // predicates that walk the receiver to the chain source.
-                                                                                                                                            // functionExpressionStack / depth are reset for the same conceptual reason (per-lambda
-                                                                                                                                            // snapshot, not previous sibling's trailing state).
-                                                                                                                                            // See docs/copilot/2026-07-02-router-shouldBeRouted-leak-across-sibling-column-lambdas-fix-plan.md.
+                                                                                                                                            // accumulator.
                                                                                                                                             let res = $x.funcSpecs->fold({f, a|
                                                                                                                                                 let oldState = $a.first;
                                                                                                                                                 let colSpecs = $a.second;
@@ -623,20 +618,7 @@ function meta::pure::router::routing::routeSubFunction(state:RoutingState[1], ex
                               ^$lastExpression(value=$fmain);,
                              |$fmain
                           );
-            // Restore shouldBeRouted to the lambda's entry value ($state.shouldBeRouted). shouldBeRouted=false is a
-            // chain-local signal ("we're inside a NoSet chain; don't route deeper properties") set by
-            // routeFunctionExpressionProperty (store/routing.pure ~L490) when it walks an auto-mapped property.
-            // Without this restore, an auto-map inside a lambda body (e.g. filter's predicate touching
-            // $p.firmInfo.otherNames) leaks false out of the lambda into the caller FE's state, which then
-            // propagates via routeFunctionExpressionFunctionDefinition (line ~560's
-            // $lastSecondPass.shouldBeRouted) into any downstream project(~[...])/groupBy fold, whose
-            // per-column processLambda then skips populating propertyMap and leaves $x bare -- breaking
-            // SS predicate walkers and the sibling-fold restore (2026-07-02 shouldBeRouted-leak-across-sibling
-            // plan) alike. See docs/copilot/2026-07-02-router-shouldBeRouted-lambda-body-leak-to-outer-fe-fix-plan.md.
-            ^$last(
-               value = $content,
-               shouldBeRouted = $state.shouldBeRouted
-            );,
+            ^$last(value = $content);,
          p: Path<Nil,Any|*>[1] | $p.path->last()->cast(@PropertyPathElement)->toOne().property->meta::pure::router::store::routing::processProperty($i, $state, $executionContext, $extensions, $debug);,       // TODO: cleanup needed
          p: Property<Nil,Any|*>[1] | $p->meta::pure::router::store::routing::processProperty($i, $state, $executionContext, $extensions, $debug);,                                                               // TODO: cleanup needed
          a: Any[1]|$state

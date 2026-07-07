@@ -368,23 +368,11 @@ public class MappingValidator
      *       {@link org.finos.legend.pure.generated.Root_meta_external_format_shared_binding_BindingTransformer}
      *       is in play, in which case the transformer is responsible for the conversion.</li>
      * </ul>
-     * Skipped if {@code _valueFn} is null — that indicates the compiler couldn't build the lambda
-     * (will have surfaced as a separate COMPILATION error already).
      */
     private void validateRelationFunctionPropertyMapping(RelationFunctionPropertyMapping pm, ProcessorSupport processorSupport)
     {
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> valueFn = pm._valueFn();
-        if (valueFn == null)
-        {
-            return;
-        }
-        org.eclipse.collections.api.list.MutableList<? extends org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.valuespecification.ValueSpecification> exprs =
-                Lists.mutable.withAll(valueFn._expressionSequence());
-        if (exprs.isEmpty())
-        {
-            return;
-        }
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.valuespecification.ValueSpecification lastExpr = exprs.getLast();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.valuespecification.ValueSpecification lastExpr = valueFn._expressionSequence().getLast();
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.property.Property<?, ?> property = pm._property();
 
         // Multiplicity subsumption: the property's declared multiplicity must subsume the body's.
@@ -392,9 +380,6 @@ public class MappingValidator
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.multiplicity.Multiplicity bodyMultiplicity = lastExpr._multiplicity();
         if (!org.finos.legend.pure.m3.navigation.multiplicity.Multiplicity.subsumes(propertyMultiplicity, bodyMultiplicity))
         {
-            // Use the bracketed Multiplicity.print(m) overload (defaults to printBrackets=true) so
-            // the error wording matches legend-pure's RelationFunctionInstanceSetImplementationValidator
-            // verbatim ("multiplicity range of [1]" rather than "multiplicity range of 1").
             throw new EngineException(
                     "Multiplicity Error: The property '" + org.finos.legend.pure.m3.navigation.property.Property.getPropertyName(property) +
                             "' has a multiplicity range of " + org.finos.legend.pure.m3.navigation.multiplicity.Multiplicity.print(propertyMultiplicity) +
@@ -409,16 +394,20 @@ public class MappingValidator
         {
             return;
         }
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Type propertyType = property._genericType()._rawType();
-        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Type bodyType = lastExpr._genericType()._rawType();
-        if (propertyType == null || bodyType == null)
+        // GenericType-level comparison so the check works for parameterised types, and so that
+        // GenericType.print produces meaningful output (a raw Type has no `rawType` slot and would
+        // print/compare as if empty).
+        GenericType propertyGenericType = property._genericType();
+        GenericType bodyGenericType = lastExpr._genericType();
+
+        if (!org.finos.legend.pure.m3.navigation.generictype.GenericType.isGenericCompatibleWith(bodyGenericType, propertyGenericType, processorSupport))
         {
-            return;
-        }
-        if (!processorSupport.type_subTypeOf(bodyType, propertyType))
-        {
+            String exprTypeString = org.finos.legend.pure.m3.navigation.generictype.GenericType.print(bodyGenericType, true, processorSupport);
+            String propertyTypeString = org.finos.legend.pure.m3.navigation.generictype.GenericType.print(propertyGenericType, true, processorSupport);
             throw new EngineException(
-                    "Type Error: '" + bodyType._name() + "' not a subtype of '" + propertyType._name() + "'",
+                    "Mismatching property and relation expression types. Property '" + pm._property()._name()
+                            + "' is of type '" + propertyTypeString
+                            + "', but the expression mapped to it is of type '" + exprTypeString + "'.",
                     SourceInformationHelper.fromM3SourceInformation(pm.getSourceInformation()),
                     EngineErrorType.COMPILATION);
         }

@@ -276,6 +276,7 @@ Class meta::protocols::pure::v1_33_0::metamodel::store::relational::SemiStructur
 {
 }
 
+
 Class meta::protocols::pure::v1_33_0::metamodel::store::relational::Join
 {
    name : String[1];

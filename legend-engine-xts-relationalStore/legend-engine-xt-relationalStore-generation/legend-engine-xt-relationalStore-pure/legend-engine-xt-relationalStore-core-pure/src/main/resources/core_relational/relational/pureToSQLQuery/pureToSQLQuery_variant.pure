@@ -1,4 +1,4 @@
-// Copyright 2021 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -185,18 +185,11 @@ function meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput
       // variant-backed array can be picked up.
       let isFirstOrLast = $v->cast(@FunctionExpression).func == meta::pure::functions::collection::first_T_MANY__T_$0_1$_
                        || $v->cast(@FunctionExpression).func == meta::pure::functions::collection::last_T_MANY__T_$0_1$_;
-      println('[SS:DBG SSAF.enter] outerFn=' + $v->cast(@FunctionExpression).functionName->orElse('UNKNOWN')
-              + ' isFirstOrLast=' + $isFirstOrLast->toString()
-              + ' firstParamIsFE=' + $firstParam->instanceOf(FunctionExpression)->toString()
-              + ' firstParamFn=' + if($firstParam->instanceOf(FunctionExpression),
-                                       |$firstParam->cast(@FunctionExpression).functionName->orElse('UNKNOWN'),
-                                       |'<non-FE:' + $firstParam->genericType().rawType.name->toOne() + '>'));
       $firstParam->match([
         fe: FunctionExpression[1] |
           let firstParamFuncIsProp = $fe.func->instanceOf(AbstractProperty);
           if($firstParamFuncIsProp && !$isFirstOrLast,
-            | let _skipLog = println('[SS:DBG SSAF.skip] firstParamFn=' + $fe.functionName->orElse('UNKNOWN') + ' (at-arm fired)');
-              false;,  // Direct property access like addresses->at(0) — skip (at() only)
+            | false;,
             | // Check if this is an automap
               let isAutomap = $fe.functionName == 'map' && $fe->instanceValuesAtParameter(1, $vars, $state.inScopeVars)->match([
                 func: FunctionDefinition<Any>[1] |
@@ -210,21 +203,12 @@ function meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput
                 a: Any[1] | false
               ]);
               let ssArrExprResult = $firstParam->isSemiStructuredArrayExpression($vars, $state);
-              let _ssLog = println('[SS:DBG SSAF.proceed] firstParamFn=' + $fe.functionName->orElse('UNKNOWN')
-                                   + ' funcIsProp=' + $firstParamFuncIsProp->toString()
-                                   + ' isAutomap=' + $isAutomap->toString()
-                                   + ' ssArrExpr=' + $ssArrExprResult->toString()
-                                   + ' final=' + (!$isAutomap && $ssArrExprResult)->toString());
               !$isAutomap && $ssArrExprResult;
           );,
-        a: Any[1] |
-          let _aLog = println('[SS:DBG SSAF.nonFE] firstParam is not a FunctionExpression -> false');
-          false;
+        a: Any[1] | false;
       ]);
   );
-  println('[SS:DBG SSAF.exit] outerFn=' + $v->cast(@FunctionExpression).functionName->orElse('UNKNOWN')
-          + ' disableAutoFlatten=' + if($state.disableAutoFlatten->isEmpty(), |'false', |$state.disableAutoFlatten->toOne()->toString())
-          + ' result=' + $result->toString());
+
   $result;
 }
 
@@ -236,14 +220,11 @@ function meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput
 // to locate the *entry-point* property mapping — the property mapping that sits at the
 // boundary between the relational source (StoreMappingRouted) and the semi-structured chain.
 //
-// History: the router emits NoSetRoutedValueSpecification around auto-mapped property hops.
-// These wrappers ARE stripped by the build/cluster pipeline (builder.pure:113 returns
-// `$noSetRouted.value`; cluster.pure:474 recurses without re-wrapping) — BUT only for
-// AST that the cluster/builder actually walk. Lambdas embedded as the `func` field of
-// non-VS InstanceValue values (BasicColumnSpecification, AggColSpec, KeyExpression, …)
-// are kept as opaque constants by `cluster.pure:332` "Constant" branch and `buildInstanceValue`,
-// so the post-routing AST inside `col(x | …)` / `agg(...)` retains every NoSet wrapper.
-// The walk-back must therefore treat NoSet as a transparent wrapper, just like FunctionRouted.
+// NoSetRoutedValueSpecification (auto-mapped property hop) is stripped by the build/cluster
+// pipeline for VS-shaped AST but survives inside lambdas embedded as the `func` field of
+// non-VS InstanceValue values (col(...), agg(...), KeyExpression, ...). The walk-back therefore
+// treats NoSet as a transparent wrapper, alongside FunctionRouted.
+//
 // AST shape handled:
 //   - NoSetRoutedValueSpecification → transparent wrapper, unwrap (auto-mapped property hop)
 //   - FunctionRoutedValueSpecification → transparent wrapper, unwrap
@@ -253,9 +234,7 @@ function meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput
 //     into the first parameter (Pure's ->fn pipeline desugaring)
 //   - anything else (StoreMappingRouted, VariableExpression, InstanceValue, ...) → source
 // Whether the entry property is actually semi-structured is decided by the caller
-// (`isSemiStructuredArrayExpression`) via a PM-type check on the resolved PM, not by AST
-// shape. See docs/copilot/2026-06-29-ssae-noset-receiver-bug-fix-plan.md (re-introduces the
-// NoSet arm that 2026-06-25-noset-reverse-indicator-evaluation.md incorrectly removed).
+// (`isSemiStructuredArrayExpression`) via a PM-type check on the resolved PM, not by AST shape.
 // Returns true iff `v` is the source of the SS chain (terminal — StoreMappingRouted, variable,
 // instance value, ...), i.e. not a still-in-chain form (NoSet, FunctionRouted, or any FE).
 function <<access.private>> meta::relational::functions::pureToSqlQuery::reachedChainSource(v: ValueSpecification[1]):Boolean[1]
@@ -342,20 +321,6 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
   ]);
 }
 
-// IMPORTANT — DO NOT introduce reads of `state.*` or `vars` into this function (or any
-// of its `<<access.private>>` callees `findSemiStructuredEntryPropertyMapping` /
-// `reachedChainSource` / `isSemiStructuredEntryPropertyMapping`) without re-evaluating
-// its use in `getContextBasedSupportedFunctions` and any callers that pass an empty
-// stub State.
-//
-// Today the body is incidentally state-free (it walks the routed AST and inspects the
-// resolved PropertyMapping types). `isSemiStructuredArrayInput` is registered in the
-// unified `getContextBasedSupportedFunctions` with the full `{fe, vars, state -> Boolean}`
-// signature to colocate with its variant-aware partners (`isVariantInput*`, `SSAF`) and
-// preserve per-function predicate evaluation order pair-for-pair vs the pre-2026-07-01
-// registry layout. If a future refactor adds e.g. a `state.mapping->classMappings(...)`
-// lookup here, callers that construct a stub State (clustering) must be re-evaluated.
-// See docs/copilot/2026-07-01-unify-context-supported-functions-single-registry-plan.md.
 function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayExpression(v: ValueSpecification[1], vars:Map<VariableExpression, ValueSpecification>[1], state: State[1]):Boolean[1]
 {
   $v->match([
@@ -370,9 +335,6 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
           //   3. that entry PM does NOT cross a JOIN (the disableAutoFlatten strategy
           //      does not support array operations across joins,
           //      e.g. `location: Binding ... : @Join | ...`).
-          // We rely on the resolved PM's *type* (decided by mapping) rather than AST-shape
-          // signals (NoSet wraps don't survive build/cluster). This avoids both the dead
-          // NoSet inspection and the false positives that "bare property FE" would have.
           let isToMany      = !$prop.multiplicity->hasToOneUpperBound();
           let receiver      = $fe.parametersValues->evaluateAndDeactivate()->at(0);
           let entryPm       = $receiver->findSemiStructuredEntryPropertyMapping();
@@ -381,28 +343,17 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
                                   $pm->instanceOf(SemiStructuredRelationalPropertyMapping)
                                   && $pm->cast(@SemiStructuredRelationalPropertyMapping).relationalOperationElement->instanceOf(RelationalOperationElementWithJoin)
                                );
-          let result = $isToMany && $isEntrySS && $notAcrossJoin;
-          println('[SS:DBG SSAE.prop] prop=' + $prop.name->toOne()
-                  + ' isToMany=' + $isToMany->toString()
-                  + ' receiverType=' + $receiver->genericType().rawType.name->toOne()
-                  + ' entryPmCount=' + $entryPm->size()->toString()
-                  + ' isEntrySS=' + $isEntrySS->toString()
-                  + ' notAcrossJoin=' + $notAcrossJoin->toString()
-                  + ' result=' + $result->toString());
-          $result;,
+          $isToMany && $isEntrySS && $notAcrossJoin;,
         a: Any[1] |
           let hasParams = $fe.parametersValues->evaluateAndDeactivate()->isNotEmpty();
-          println('[SS:DBG SSAE.fe.a] intermediateFn=' + $fe.functionName->orElse('UNKNOWN') + ' hasParams=' + $hasParams->toString());
           if ($hasParams,
             | $fe.parametersValues->evaluateAndDeactivate()->at(0)->byPassRouterInfo()->isSemiStructuredArrayExpression($vars, $state),
             | false
           );
       ]);,
     rvs: RoutedValueSpecification[1] |
-      let _rvsLog = println('[SS:DBG SSAE.rvs] unwrapping ' + $rvs->genericType().rawType.name->toOne());
       $rvs.value->isSemiStructuredArrayExpression($vars, $state);,
     a: Any[1] |
-      let _bottomLog = println('[SS:DBG SSAE.bottom] fell through, vType=' + $v->genericType().rawType.name->toOne());
       false;
   ]);
 }

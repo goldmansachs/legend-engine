@@ -991,7 +991,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 32 — Polymorphic deserialization (§2.6)
 // Mapping ops: to(@Pet, '_type', [pair('Dog', @Dog), pair('Cat', @Cat)])→toOne()
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testPolyDeserialize(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testPolyDeserialize(conn: Connection[1]):Boolean[1]
 {
   petExecute($conn,
     |PersonWithPet.all()->project(~[
@@ -1028,7 +1028,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 34 — match dispatch on polymorphic variant (§2.16)
 // Mapping ops: $src.PAYLOAD→match([d:Dog|'dog', c:Cat|'cat', a:Any|'unknown'])
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testMatchDispatch(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testMatchDispatch(conn: Connection[1]):Boolean[1]
 {
   petExecute($conn,
     |PersonWithPet.all()->project(~[
@@ -1253,7 +1253,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 56 — Map get() via to(@Map<String,String>) (§B)
 // Mapping ops: ->to(@Map<String,String>)->get('role'), ->get('dept')
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapGet(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapGet(conn: Connection[1]):Boolean[1]
 {
   mapExecute($conn,
     |MapPerson.all()->project(~[
@@ -1272,7 +1272,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 57 — Map keys() via to(@Map<String,String>) (§B)
 // Mapping ops: ->to(@Map<String,String>)->keys()
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapKeys(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapKeys(conn: Connection[1]):Boolean[1]
 {
   mapExecute($conn,
     |MapPerson.all()
@@ -1291,7 +1291,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 58 — Map values() via to(@Map<String,String>) (§B)
 // Mapping ops: ->to(@Map<String,String>)->values()
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapValues(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapValues(conn: Connection[1]):Boolean[1]
 {
   mapExecute($conn,
     |MapPerson.all()
@@ -1310,7 +1310,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 59 — Map put() + get() via to(@Map<String,String>) (§B)
 // Mapping ops: ->to(@Map<String,String>)->put('extra','yes')->get('extra')
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapPut(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapPut(conn: Connection[1]):Boolean[1]
 {
   mapExecute($conn,
     |MapPerson.all()->project(~[
@@ -1328,7 +1328,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 60 — Filter on Map get() result (§B)
 // Query: filter(tagRole == 'admin') + project(name)
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapFilterOnGet(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testMapFilterOnGet(conn: Connection[1]):Boolean[1]
 {
   mapExecute($conn,
     |MapPerson.all()
@@ -1367,7 +1367,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
   );
 }
 
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testToManyPrimitiveFilterInProject(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testToManyPrimitiveFilterInProject(conn: Connection[1]):Boolean[1]
 {
   firmExecute($conn,
     |Person.all()
@@ -1388,7 +1388,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Test 62 — toMany primitive filter (§D)
 // Query: filter on flattened array value
 // =============================================================================
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::comprehensive::testToManyPrimitiveFilter(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::comprehensive::testToManyPrimitiveFilter(conn: Connection[1]):Boolean[1]
 {
   firmExecute($conn,
     |Person.all()

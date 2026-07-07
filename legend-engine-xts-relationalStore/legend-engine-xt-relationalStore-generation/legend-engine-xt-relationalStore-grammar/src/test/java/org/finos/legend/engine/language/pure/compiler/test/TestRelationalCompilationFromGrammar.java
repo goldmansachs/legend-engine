@@ -383,9 +383,9 @@ public class TestRelationalCompilationFromGrammar extends TestCompilationFromGra
                 "    ~func my::personWithEnumFunction():Relation<Any>[1]\n" +
                 "    firstName: FIRSTNAME,\n" +
                 "    age: AGE,\n" +
-                "    employeeType: EMPLOYEE_TYPE\n" +
+                        "    employeeType: EMPLOYEE_TYPE\n" +
                 "  }\n" +
-                ")\n", "COMPILATION error at [25:5-31]: Type Error: 'String' not a subtype of 'EmployeeType'");
+                ")\n", "COMPILATION error at [25:5-31]: Mismatching property and relation expression types. Property 'employeeType' is of type 'my::EmployeeType', but the expression mapped to it is of type 'String'.");
     }
 
     @Test
@@ -420,7 +420,7 @@ public class TestRelationalCompilationFromGrammar extends TestCompilationFromGra
             "\n" +
             "function my::personWithAddressFunction():meta::pure::metamodel::relation::Relation<Any>[1]\n" +
             "{\n" +
-            "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String, AGE:Integer, STREET:String, CITY:String)>);\n" +
+            "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String[1], AGE:Integer[1], STREET:String[1], CITY:String[1])>);\n" +
             "}\n";
 
     @Test

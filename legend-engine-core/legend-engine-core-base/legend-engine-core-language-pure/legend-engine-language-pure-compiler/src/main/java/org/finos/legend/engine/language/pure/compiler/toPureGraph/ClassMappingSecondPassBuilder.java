@@ -116,11 +116,20 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
     @Override
     public SetImplementation visit(RelationFunctionClassMapping classMapping)
     {
+        // Protocol invariant: exactly one of ~func / ~src must be set. Enforce here rather than
+        // trusting the wire format so a malformed JSON payload fails with a clear error instead
+        // of silently favouring one branch and dropping the other.
+        if (classMapping.relationFunction != null && classMapping.sourceLambda != null)
+        {
+            throw new EngineException("Relation class mapping must specify exactly one of '~func' or '~src', not both.", classMapping.sourceInformation, EngineErrorType.COMPILATION);
+        }
+
         RelationFunctionInstanceSetImplementation setImpl = (RelationFunctionInstanceSetImplementation) parentMapping._classMappings().detect(c -> c._id().equals(HelperMappingBuilder.getClassMappingId(classMapping, context)));
 
-        // Resolve the source: ~func <descriptor> | ~src <expression>.
-        // Either path ends with `_relationFunction` set to a FunctionDefinition whose
-        // last expression has generic type Relation<RowType>.
+        // Resolve the source relation from either form of the grammar: a named-function
+        // reference (~func) or an inline expression (~src). Both paths yield a function
+        // whose last expression carries the row type the property mappings will be typed
+        // against, so downstream code can treat them uniformly.
         FunctionDefinition<?> relationFunction;
         if (classMapping.relationFunction != null)
         {
@@ -138,9 +147,8 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
         }
         else if (classMapping.sourceLambda != null)
         {
-            // ~src form: compile the inline expression as a zero-arg LambdaFunction.
-            // buildLambdaWithContext gives us a fully-typed M3 lambda whose last-expression
-            // generic type carries the row type we need for property mappings.
+            // Inline-expression form: wrap the user expression as a zero-arg lambda so
+            // the rest of this method sees the same shape as the named-function form.
             relationFunction = HelperValueSpecificationBuilder.buildLambdaWithContext(
                     classMapping.sourceLambda.body,
                     classMapping.sourceLambda.parameters == null ? Lists.fixedSize.empty() : classMapping.sourceLambda.parameters,
@@ -154,15 +162,9 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
         }
         setImpl._relationFunction(relationFunction);
 
-        // Validate that the resolved relation function actually returns Relation<...> BEFORE
-        // building any property `_valueFn` lambdas.  Otherwise the row-type extraction below
-        // returns null, the per-property lambda falls back to a `$src: Any[1]` parameter, and
-        // the user gets a confusing "Can't find property X in class Any" error instead of the
-        // legend-pure-equivalent "Relation mapping function should return a Relation" error.
-        // MappingValidator still runs the same check later (authoritative for IDE / partial
-        // compile paths that don't go through SecondPass) — this is a duplicated *early*
-        // check, mirroring the message used by RelationFunctionInstanceSetImplementationValidator
-        // in legend-pure.
+        // Fail fast if the resolved source doesn't return a relation. Doing this before
+        // building any property value functions avoids compiling those against an
+        // absent or nonsensical row type and producing misleading downstream errors.
         org.finos.legend.pure.m3.navigation.ProcessorSupport processorSupport = context.pureModel.getExecutionSupport().getProcessorSupport();
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.FunctionType resolvedFnType =
                 (org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.FunctionType) processorSupport.function_getFunctionType(relationFunction);
@@ -176,32 +178,33 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
                     EngineErrorType.COMPILATION);
         }
 
-        // Extract row type from the relation function's last expression.  Validation that the
-        // expression actually has type Relation<...> is in MappingValidator.
+        // Extract the row type from the source's last expression. Deeper structural
+        // checks (e.g. column existence per property) happen in the mapping validation
+        // stage; here we just need enough type information to bind `$src` in property
+        // value lambdas.
         GenericType lastExprType = relationFunction._expressionSequence().toList().getLast()._genericType();
         MutableList<? extends GenericType> typeArgs = Lists.mutable.withAll(lastExprType._typeArguments());
         GenericType srcType = typeArgs.isEmpty() ? null : typeArgs.getFirst();
 
-        // Build _valueFn for each property mapping; propagate the relation function
-        // (and srcType) to embedded set implementations.
+        // Attach a value function to each property mapping. Embedded property mappings
+        // inherit the parent's source relation and row type, since an embedded set shares
+        // the parent's row shape.
         buildValueFunctionsForPropertyMappings(classMapping.propertyMappings, setImpl, relationFunction, srcType);
 
         return setImpl;
     }
 
     /**
-     * Walk the protocol property mappings in parallel with the already-built M3 property
-     * mappings on {@code parent}, attaching a {@code _valueFn} {@link LambdaFunction} to
-     * each {@link org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.relation.RelationFunctionPropertyMapping}.
-     * For embedded mappings, the relation function and srcType are propagated unchanged
-     * (embedded sets share the parent's row type).
+     * Walks the protocol property mappings alongside their already-built compiled
+     * counterparts on {@code parent} and attaches a value-function lambda to each leaf
+     * property mapping. Embedded property mappings recurse with the same source relation
+     * and row type.
+     *
+     * <p>Pairing by index is safe here because the first-pass builder emits compiled
+     * property mappings in the same order as the protocol input.</p>
      */
     private void buildValueFunctionsForPropertyMappings(java.util.List<PropertyMapping> protocolPropertyMappings, org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.PropertyMappingsImplementation parent, FunctionDefinition<?> relationFunction, GenericType srcType)
     {
-        if (protocolPropertyMappings == null || protocolPropertyMappings.isEmpty())
-        {
-            return;
-        }
         MutableList<? extends org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.PropertyMapping> m3PropertyMappings = Lists.mutable.withAll(parent._propertyMappings());
         for (int i = 0; i < protocolPropertyMappings.size(); i++)
         {
@@ -228,23 +231,21 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
     }
 
     /**
-     * Synthesise the {@code _valueFn} lambda for a single property mapping.  Two protocol
+     * Synthesises the value-function lambda for a single property mapping. Two protocol
      * shapes are supported:
      * <ul>
-     *   <li>bare column ({@code propName: COL}) — lowered to {@code { $src.COL}} so that
-     *       downstream consumers can treat both forms uniformly.</li>
-     *   <li>inline expression ({@code propName: $src.A + $src.B}) — the protocol Lambda
-     *       (built by the grammar walker as a zero-arg wrapper around the user expression)
-     *       is compiled with {@code src} typed at the relation function's row type.</li>
+     *   <li>Bare column ({@code propName: COL}) — normalised to a property access on
+     *       {@code $src} so downstream consumers see a single, uniform shape.</li>
+     *   <li>Inline expression ({@code propName: $src.A + $src.B}) — compiled with
+     *       {@code src} typed at the source's row type.</li>
      * </ul>
-     * Returns {@code null} if neither shape is set — the property mapping is invalid and
-     * will be reported by {@link org.finos.legend.engine.language.pure.compiler.toPureGraph.validator.MappingValidator}.
+     * Returns {@code null} when neither shape is set; the missing definition is reported
+     * later by the mapping validation stage rather than aborting compilation here.
      */
     private LambdaFunction<?> buildPropertyValueFn(RelationFunctionPropertyMapping pm, GenericType srcType, String parentId)
     {
-        // Pick the protocol AST to compile.  For the bare-column form we synthesise an
-        // AppliedProperty against `$src`; for the inline-expression form we use the
-        // walker-built lambda body verbatim.
+        // Choose the body to compile: the bare-column form is normalised to a property
+        // access on `$src`; the inline-expression form is used verbatim.
         java.util.List<ValueSpecification> body;
         if (pm.valueFn != null && pm.valueFn.body != null && !pm.valueFn.body.isEmpty())
         {
@@ -269,10 +270,9 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
     }
 
     /**
-     * Compile a body of {@link ValueSpecification}s as a single-arg lambda whose only
-     * parameter is {@code src} bound to {@code srcType}.  Mirrors the pattern used by
-     * {@code HelperMappingBuilder.processPurePropertyMappingTransform} for M2M
-     * transform lambdas.
+     * Compiles a body of expressions as a single-arg lambda whose only parameter is
+     * {@code src}, bound to the given row type. Follows the same shape used elsewhere
+     * for model-to-model transform lambdas.
      */
     private LambdaFunction<?> compileRelationPropertyLambda(java.util.List<ValueSpecification> body, GenericType srcType, String lambdaId, SourceInformation sourceInformation)
     {
@@ -280,9 +280,10 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
                 ._name("src")
                 ._multiplicity(context.pureModel.getMultiplicity("one"))
                 ._genericType(srcType == null
-                        // Fallback when the relation function's row type can't be inferred (e.g. ~func
-                        // resolved to a function whose return type isn't Relation<...>).  The validator
-                        // will surface that as a separate error; here we degrade gracefully.
+                        // Fallback when the row type can't be inferred (e.g. the source doesn't
+                        // actually return a relation). A separate validator surfaces that as
+                        // its own error; degrading gracefully here lets compilation continue
+                        // and report all problems together.
                         ? context.newGenericType(context.pureModel.getType(M3Paths.Any))
                         : (GenericType) org.finos.legend.pure.m3.navigation.generictype.GenericType.copyGenericType(srcType, context.pureModel.getExecutionSupport().getProcessorSupport()));
 

@@ -1,10 +1,12 @@
-# Relation Mappings (`~func`)
+# Relation Mappings (`~func` / `~src`)
 
 > **Audience.** Engine developers working on class-to-relation mappings
 > (`RelationFunctionInstanceSetImplementation`): grammar, compiler, SQL generator,
 > and routing layer. This document covers the full feature set — from the simplest
 > primitive-column mapping through primary keys, local properties, binding
-> (semi-structured), enumeration, embedded, and union variants.
+> (semi-structured), enumeration, embedded, inline embedded, union, and the
+> variant / lift path that synthesises semi-structured mappings from a `valueFn`
+> lambda body.
 >
 > **Authoritative sources** (referenced throughout):
 >
@@ -14,44 +16,64 @@
 > | Parser grammar | `legend-engine-language-pure-grammar/.../antlr4/mapping/relationFunctionMapping/RelationFunctionMappingParserGrammar.g4` |
 > | Parse-tree walker | `legend-engine-language-pure-grammar/.../mapping/RelationFunctionMappingParseTreeWalker.java` |
 > | Grammar entry point | `legend-engine-language-pure-grammar/.../CorePureGrammarParser.java` (`parseRelationFunctionClassMapping`) |
+> | Composer | `legend-engine-language-pure-grammar/.../to/DEPRECATED_PureGrammarComposerCore.java` |
 > | Protocol — class mapping POJO | `legend-engine-protocol-pure/.../mapping/relationFunction/RelationFunctionClassMapping.java` |
 > | Protocol — property mapping POJO | `legend-engine-protocol-pure/.../mapping/relationFunction/RelationFunctionPropertyMapping.java` |
 > | Protocol — embedded POJO | `legend-engine-protocol-pure/.../mapping/relationFunction/RelationFunctionEmbeddedPropertyMapping.java` |
+> | Compiler — prerequisite pass | `legend-engine-language-pure-compiler/.../toPureGraph/ClassMappingPrerequisiteElementsPassBuilder.java` |
 > | Compiler — first pass | `legend-engine-language-pure-compiler/.../toPureGraph/ClassMappingFirstPassBuilder.java` |
 > | Compiler — second pass | `legend-engine-language-pure-compiler/.../toPureGraph/ClassMappingSecondPassBuilder.java` |
 > | Compiler — third pass | `legend-engine-language-pure-compiler/.../toPureGraph/ClassMappingThirdPassBuilder.java` |
 > | Compiler — property mappings | `legend-engine-language-pure-compiler/.../toPureGraph/PropertyMappingBuilder.java` |
+> | Compiler — bare-column fast-path helper | `legend-engine-language-pure-compiler/.../toPureGraph/RelationFunctionPropertyMappingTools.java` |
 > | Compiler — validation | `legend-engine-language-pure-compiler/.../toPureGraph/validator/MappingValidator.java` |
+> | Primary-key inference (Pure) | `legend-engine-pure-code-compiled-core/.../core/pure/mapping/relationFunctionMapping.pure` |
 > | Helper functions (Pure) | `core_relational/relational/helperFunctions/helperFunctions.pure` |
-> | SQL generation — main | `core_relational/relational/pureToSQLQuery/pureToSQLQuery.pure` (`processRelationFunctionClassMapping`) |
-> | SQL generation — union | `core_relational/relational/pureToSQLQuery/pureToSQLQuery_union.pure` (`buildUnion`) |
+> | SQL metamodel | `core_relational/relational/pureToSQLQuery/metamodel.pure` |
+> | SQL generation — main | `core_relational/relational/pureToSQLQuery/pureToSQLQuery.pure` (`processRelationFunctionClassMapping`, `transformRelationFunctionPropertyMappingToRelational`) |
+> | SQL generation — variant / semi-structured | `core_relational/relational/pureToSQLQuery/pureToSQLQuery_variant.pure` |
+> | SQL generation — union | `core_relational/relational/pureToSQLQuery/pureToSQLQuery_union.pure` |
 > | Router — store contract | `core/pure/router/store/cluster.pure` (`storeContractForSetImplementation`) |
-> | Router — set routing | `core/pure/router/store/routing.pure` (`potentiallyRouteSetImplementations`) |
+> | Router — set routing | `core/pure/router/store/routing.pure` (`potentiallyRouteRelationFunctionSets`) |
+> | Router — inline embedded resolution | `core/pure/mapping/mappingExtension.pure` (`inlineEmbeddedRelationFunctionMapping`) |
+> | Protocol transfer | `legend-engine-pure-code-compiled-core/.../core/pure/protocol/vX_X_X/transfers/mapping.pure` |
 
 ---
 
 ## 0. What is a Relation Mapping?
 
-A **Relation mapping** (`Relation` keyword in mapping grammar, `~func` inside the
-block) lets you map a Pure class to the output of an arbitrary Pure
-`Relation<Any>` expression — most commonly a function that builds a typed tabular
-result backed by a relational store, a `#>{db.table}#` relation accessor, or any
-other Pure expression that yields a `Relation<T>`.
+A **Relation mapping** (`Relation` keyword in mapping grammar) lets you map a Pure
+class to the output of a Pure `Relation<Any>` expression. Two source forms are
+supported inside the mapping block:
+
+- `~func <descriptor>` — reference an existing Pure `FunctionDefinition` by path
+  or descriptor.
+- `~src <expression>` — inline a zero-arg expression that evaluates to a
+  `Relation<Any>`. The parser wraps it in a synthetic `LambdaFunction`; the
+  compiler resolves its row type the same way it resolves a `~func` reference.
+
+Properties bind to columns of the relation function's typed `RelationType`. Two
+RHS forms are supported per property:
+
+- Bare column identifier (`propName: FIRSTNAME`) — legacy sugar. The compiler
+  lowers it to `{$src.FIRSTNAME}` so a single downstream code path handles
+  everything.
+- Pure expression over `$src` (`propName: $src.FIRSTNAME + '-' + $src.LASTNAME`)
+  — arbitrary lambda body typed at the relation function's row type.
+
+The primary key can be declared explicitly with `~primaryKey`, or inferred at
+plan-generation time from the relation function's body (see §8).
 
 Compared with the classic `Relational` mapping (which is tightly coupled to a
 physical schema via `~mainTable`, join graphs, and `[db]Table.Column` paths), a
 Relation mapping:
 
-- uses a **Pure function** as its data source — the function is compiled and
-  type-checked like any other Pure code;
-- binds properties to **column names** by string label, not by table path;
+- uses a **Pure function** (or inline expression) as its data source — the
+  source is compiled and type-checked like any other Pure code;
+- binds properties by column name or lambda body, not by physical table path;
 - feeds SQL generation through `processRelationFunctionClassMapping`, which
-  evaluates the function expression and wraps it in a sub-select rather than
+  evaluates the function body and wraps it in a sub-select rather than
   referencing a physical table directly.
-
-The primary key can be declared explicitly with `~primaryKey`, or inferred at
-runtime from the relation function's output via
-`resolveRelationFunctionPrimaryKey`.
 
 ---
 
@@ -61,23 +83,33 @@ runtime from the relation function's output via
 
 ```antlr
 RELATION_FUNC:        '~func' ;
+RELATION_SRC:         '~src' ;
 RELATION_PRIMARY_KEY: '~primaryKey' ;
 BINDING:              'Binding' ;
 ENUMERATION_MAPPING:  'EnumerationMapping' ;
 INLINE:               'Inline' ;
 ```
 
-All five tokens are introduced by `RelationFunctionMappingLexerGrammar.g4` and are
+All six tokens are introduced by `RelationFunctionMappingLexerGrammar.g4` and are
 imported into the main M3 lexer hierarchy.
 
 ### 1.2 Parser rules
 
 ```antlr
 relationFunctionMapping:
-    RELATION_FUNC functionIdentifier
+    relationSource
     primaryKey?
     (singlePropertyMapping (COMMA singlePropertyMapping)*)?
     EOF
+;
+
+// ~func references an existing Pure function by descriptor or qualified name.
+// ~src takes an inline zero-arg Pure expression that evaluates to a Relation —
+// the walker wraps it in a synthetic `{ <expr>}` lambda so the rest of the
+// pipeline can treat both forms uniformly.
+relationSource:
+    RELATION_FUNC functionIdentifier
+  | RELATION_SRC  combinedExpression
 ;
 
 primaryKey:
@@ -104,9 +136,12 @@ singleNonLocalPropertyMapping:
     )
 ;
 
-// Column binding for a single property
+// Property RHS: bare `columnName` (legacy sugar; lowered to `$src.<col>`) or a
+// full Pure expression over `$src`. The bare-column form is matched by
+// `identifier` alone; anything more complex (starting with `$`, containing
+// operators / function calls) falls through to combinedExpression.
 relationFunctionPropertyMapping:
-    COLON (transformer)? identifier
+    COLON (transformer)? (identifier | combinedExpression)
 ;
 
 transformer:
@@ -121,7 +156,7 @@ enumTransformer:
     ENUMERATION_MAPPING identifier COLON
 ;
 
-// Normal embedded — child columns in the same relation
+// Normal embedded — child columns come from the same relation function
 relationFunctionEmbeddedPropertyMapping:
     PAREN_OPEN
     (singlePropertyMapping (COMMA singlePropertyMapping)*)?
@@ -134,7 +169,7 @@ inlineRelationFunctionEmbeddedPropertyMapping:
 ;
 ```
 
-The block-type keyword (`Relation`) is registered in `CorePureGrammarParser` as
+The `Relation` block-type keyword is registered in `CorePureGrammarParser` as
 `RELATION_EXPRESSION` and dispatched to `parseRelationFunctionClassMapping`.
 
 ### 1.3 Full grammar skeleton
@@ -146,17 +181,21 @@ Mapping myPkg::MyMapping
   // Root class mapping — asterisk makes this the default mapping for the class
   *MyClass[optionalId]: Relation
   {
-    ~func      myPkg::myFunction():Relation<Any>[1]
-    ~primaryKey: [colA, colB]          // optional; inferred if omitted
+    ~func      myPkg::myFunction():Relation<Any>[1]      // OR ~src <expression>
+    ~primaryKey: [colA, colB]                            // optional; inferred if omitted
 
-    // Primitive or enum property
+    // Bare column (legacy sugar) — lowered to `{$src.COLUMN_NAME}` at SecondPass
     primitiveProperty  : COLUMN_NAME
+
+    // Pure expression over $src — compiled as a $src-parameterised lambda
+    derivedProperty    : $src.FIRST_NAME + ' ' + $src.LAST_NAME
+
     enumProperty       : EnumerationMapping myEnumMapping : ENUM_COLUMN
 
     // Semi-structured (binary / JSON) property backed by a binding
     complexProperty    : Binding myPkg::MyBinding : SEMI_STRUCT_COLUMN
 
-    // Normal embedded sub-object (columns in same relation)
+    // Normal embedded sub-object (child columns come from the same relation)
     subObject
     (
       childProp1: CHILD_COL_1,
@@ -176,7 +215,7 @@ Mapping myPkg::MyMapping
 
 ## 2. Examples
 
-### 2.1 Primitive columns (minimal)
+### 2.1 Primitive columns with `~func` (minimal)
 
 ```
 ###Pure
@@ -204,10 +243,25 @@ Mapping myPkg::PersonMapping
 ```
 
 A query `Person.all()->filter(x | $x.age > 30)` routes through
-`processRelationFunctionClassMapping`, evaluates the function body to get a
+`processRelationFunctionClassMapping`, evaluates the function body to a
 `SelectSQLQuery`, wraps it in a sub-select, then applies the filter on top.
 
-### 2.2 Explicit primary key
+### 2.2 Inline expression source (`~src`)
+
+```
+*Person: Relation
+{
+  ~src #>{myDb.PERSON}#->select(~[FIRSTNAME, AGE])
+  firstName: FIRSTNAME,
+  age:       AGE
+}
+```
+
+The parser wraps `#>{...}#->select(...)` in a synthetic zero-arg
+`LambdaFunction`. The compiler resolves its row type identically to the `~func`
+path.
+
+### 2.3 Explicit primary key
 
 ```
 *Person: Relation
@@ -225,12 +279,26 @@ Multiple PK columns:
 ~primaryKey: [FIRST_NAME, LAST_NAME]
 ```
 
-If `~primaryKey` is absent, the runtime calls
-`resolveRelationFunctionPrimaryKey([])` which attempts to infer PK columns from
-the relation function output via the `RelationElementAccessorExtension`
-(e.g., table primary-key metadata for `#>{db.table}#` accessors).
+If `~primaryKey` is absent, the runtime infers PK columns by walking the
+function body — see §8.
 
-### 2.3 Local (derived) property
+### 2.4 Property RHS as a Pure expression
+
+```
+*Person: Relation
+{
+  ~func myPkg::personFunc():Relation<Any>[1]
+  firstName: $src.'FIRST NAME',      // equivalent to bare `firstName: 'FIRST NAME'`
+  ageInMonths: $src.AGE * 12,        // arithmetic — DynaFunction
+  greeting: 'Hello ' + $src.'FIRST NAME'
+}
+```
+
+Each RHS is stored as a `valueFn` `LambdaFunction` whose only parameter is
+`$src`, typed at the relation function's row type. Bare-column RHSs are lowered
+to `{$src.<col>}` at SecondPass so downstream consumers see a single shape.
+
+### 2.5 Local (derived) property
 
 Local properties extend the class within the mapping scope without modifying the
 canonical Pure class definition:
@@ -239,12 +307,12 @@ canonical Pure class definition:
 *Person: Relation
 {
   ~func myPkg::personFunc():Relation<Any>[1]
-  firstName:  FIRSTNAME,
+  firstName:   FIRSTNAME,
   +displayAge: String[1]: AGE_DISPLAY   // adds displayAge: String[1] to Person in this scope
 }
 ```
 
-### 2.4 Semi-structured column (binding transformer)
+### 2.6 Semi-structured column (binding transformer)
 
 Complex JSON / binary columns are mapped via a `Binding`:
 
@@ -258,11 +326,13 @@ Complex JSON / binary columns are mapped via a `Binding`:
 ```
 
 The compiler checks that the binding's model unit includes the property's return
-type. At SQL generation time the column is treated as a `Variant` (semi-structured)
-type and the binding transformer is carried through as
-`SemiStructuredEmbeddedRelationalInstanceSetImplementation`.
+type. At SQL generation time the RFPM is turned into a
+`SemiStructuredEmbeddedRelationalInstanceSetImplementation` whose relational
+operation element is the placeholder-TAC relop produced by evaluating
+`{$src.ADDRESS_JSON}` against the synthetic RF cursor. The
+`BindingTransformer` flows through unchanged.
 
-### 2.5 Enumeration mapping
+### 2.7 Enumeration mapping
 
 Map an enum-typed property to a relation column, converting raw string values:
 
@@ -294,7 +364,7 @@ Mapping myPkg::EmployeeMapping
 )
 ```
 
-### 2.6 Normal embedded mapping
+### 2.8 Normal embedded mapping
 
 Map a sub-object whose columns come from the same relation:
 
@@ -323,10 +393,10 @@ Mapping myPkg::EmbeddedMapping
 )
 ```
 
-### 2.7 Inline embedded mapping
+### 2.9 Inline embedded mapping
 
-Delegate the sub-object mapping to a separately-declared class mapping (which may
-use a different relation function):
+Delegate the sub-object mapping to a separately-declared class mapping (which
+may use a different relation function):
 
 ```
 *PersonWithAddress[personSet]: Relation
@@ -344,7 +414,7 @@ use a different relation function):
 }
 ```
 
-### 2.8 Union mapping
+### 2.10 Union mapping
 
 Two (or more) Relation class mappings unioned together:
 
@@ -352,39 +422,37 @@ Two (or more) Relation class mappings unioned together:
 *Person: Operation
 {
   meta::pure::router::operations::union_OperationSetImplementation_1__SetImplementation_MANY_(
-    personFT, personCT
+    rfSet1, rfSet2
   )
 }
 
-*Person[personFT]: Relation
+*Person[rfSet1]: Relation
 {
-  ~func myPkg::fullTimeFunc():Relation<Any>[1]
-  firstName: FNAME,
-  firmId:    FIRMID
+  ~func myPkg::personSet1Func():Relation<Any>[1]
+  lastName: $src.lastName_s1->toOne()
 }
 
-*Person[personCT]: Relation
+*Person[rfSet2]: Relation
 {
-  ~func myPkg::contractFunc():Relation<Any>[1]
-  firstName: FNAME,
-  firmId:    FIRMID
+  ~func myPkg::personSet2Func():Relation<Any>[1]
+  lastName: $src.lastName_s2->toOne()
 }
 ```
 
-Mixed union (one Relation, one Relational):
+Mixed union (one Relation leaf, one Relational leaf):
 
 ```
 *Person: Operation
 {
   meta::pure::router::operations::union_OperationSetImplementation_1__SetImplementation_MANY_(
-    personRelation, personTable
+    rfSet1, relSet2
   )
 }
-*Person[personRelation]: Relation  { ~func myPkg::f():Relation<Any>[1] ... }
-*Person[personTable]:    Relational { ~mainTable [db]PERSON ... }
+*Person[rfSet1]: Relation     { ~func myPkg::f():Relation<Any>[1] ... }
+*Person[relSet2]: Relational  { ~mainTable [db]PERSON ... }
 ```
 
-All leaves must still resolve to the **same store**.
+All leaves must resolve to the **same store**.
 
 ---
 
@@ -396,43 +464,74 @@ All leaves must still resolve to the **same store**.
          ▼  (1) Parser  [RelationFunctionMappingParseTreeWalker]
    Protocol POJOs
      ├── RelationFunctionClassMapping
-     │     ├── relationFunction: PackageableElementPointer
-     │     ├── primaryKey: List<String>
-     │     └── propertyMappings: List<PropertyMapping>
-     │           ├── RelationFunctionPropertyMapping   (column + optional transformer)
-     │           └── RelationFunctionEmbeddedPropertyMapping (normal or inline)
+     │     ├── relationFunction : PackageableElementPointer  (set for ~func)
+     │     │                       OR
+     │     ├── sourceLambda     : LambdaFunction             (set for ~src)
+     │     ├── primaryKey       : List<String>
+     │     └── propertyMappings : List<PropertyMapping>
+     │           ├── RelationFunctionPropertyMapping
+     │           │     ├── column   (bare identifier RHS)
+     │           │     │     OR
+     │           │     ├── valueFn  (combinedExpression RHS)
+     │           │     └── bindingTransformer? / enumMappingId?
+     │           └── RelationFunctionEmbeddedPropertyMapping
+     │                 ├── id / setImplementationId  (inline form)
+     │                 └── propertyMappings          (normal form, recursive)
          │
-         ▼  (2) Compiler — 3 passes  [ClassMappingFirstPassBuilder,
-         │                            ClassMappingSecondPassBuilder,
-         │                            ClassMappingThirdPassBuilder]
+         ▼  (2) Compiler — 4 passes
    Pure graph objects
-     └── RelationFunctionInstanceSetImplementation
-           ├── class, id, root, parent
-           ├── relationFunction: FunctionDefinition<?>   (resolved in 2nd pass)
-           ├── primaryKey: Column[*]                     (resolved in 3rd pass)
-           └── propertyMappings
-                 ├── RelationFunctionPropertyMapping    (column: Column[1], transformer?)
-                 └── EmbeddedRelationFunctionSetImplementation
+     ├── (Prerequisite) declares CLASS + FUNCTION prerequisites so the function
+     │                  is compiled before the mapping (needed for row-type
+     │                  extraction and PK resolution)
+     ├── (First)        creates RelationFunctionInstanceSetImplementation and
+     │                  compiles skeleton property mappings via PropertyMappingBuilder
+     ├── (Second)       resolves ~func / compiles ~src → FunctionDefinition;
+     │                  validates return type is Relation<...>;
+     │                  extracts row type from last-expression's RelationType;
+     │                  synthesises _valueFn lambda for each property mapping
+     │                  (bare-column form lowered to `{$src.<col>}`);
+     │                  propagates relationFunction into embedded sets
+     └── (Third)        if ~primaryKey set, resolves column names against the
+                        function's RelationType (hard error if unknown column)
          │
-         ▼  (3) Transformation  [helperFunctions.pure]
-   transformRelationFunctionClassMapping converts:
-     ├── RelationFunctionPropertyMapping  → RelationalPropertyMapping (TableAliasColumn)
-     └── EmbeddedSetImplementation        → EmbeddedRelationFunctionSetImplementation
+         ▼  (3) Validation  [MappingValidator]
+     ├── inline embedded: id must exist as a class-mapping ID in the same Mapping
+     └── each RelationFunctionInstanceSetImplementation:
+           ├── relation function has no parameters
+           ├── return type is Relation<...>
+           └── each RelationFunctionPropertyMapping._valueFn body:
+                  multiplicity subsumed by property multiplicity, and body raw
+                  type is subtype of property raw type
+                  (subtype check skipped when transformer is present)
          │
          ▼  (4) Routing  [cluster.pure, routing.pure]
    Store contract resolved per set:
-     ├── RelationFunctionInstanceSetImplementation → from relationFunction's store
-     ├── EmbeddedSetImplementation → inherits from owning RF set
-     └── OperationSetImplementation (union) → resolved per leaf
+     ├── RelationFunctionInstanceSetImplementation → store from routed function
+     ├── EmbeddedSetImplementation                 → delegate to owner
+     └── OperationSetImplementation (union)        → resolve per leaf; enforce single store
+   Class-level routing populates the routed function into each set impl and
+   caches routed sets in classMappingsByClass.
          │
-         ▼  (5) SQL Generation  [pureToSQLQuery.pure, pureToSQLQuery_union.pure]
+         ▼  (5) SQL Generation  [pureToSQLQuery.pure, pureToSQLQuery_variant.pure,
+         │                       pureToSQLQuery_union.pure]
    processRelationFunctionClassMapping
-     ├── evaluates the function body → inner SelectSQLQuery
-     ├── wraps in sub-select (moveSelectQueryToSubSelect)
-     └── property resolution: findPropertyMapping → RelationalPropertyMapping
-         ├── Enum: processPropertyMapping sets pushDownEnumTransformations=true
-         ├── Embedded: EmbeddedRelationFunctionSetImplementation arm
-         └── Union: buildUnion dispatches per leaf type
+     ├── auto-infer primaryKey if empty (resolveRelationFunctionPrimaryKey)
+     ├── route function (potentiallyRouteRelationFunctionSet)
+     ├── evaluate body → SelectSQLQuery
+     └── moveSelectQueryToSubSelect → wrapped sub-select
+
+   Per property navigation:
+     transformRelationFunctionPropertyMappingToRelational (RFPM → RPM):
+       ├── build synthetic RF cursor with placeholder RelationFunctionColumn TACs
+       ├── bind $src to the synthetic cursor and evaluate valueFn body
+       ├── detect variant-ness (expressionTouchesVariant)
+       └── synthesise downstream PM:
+             ├── Binding                    → SemiStructuredEmbeddedRelationalInstanceSetImplementation
+             ├── non-variant valueFn        → RelationalPropertyMapping
+             ├── variant + Class target     → SemiStructuredEmbeddedRelationalInstanceSetImplementation
+             └── variant + primitive target → SemiStructuredRelationalPropertyMapping
+   Placeholder TACs at the leaves are resolved against the real source operation
+   at column-navigation time by resolveTableAliasColumn.
 ```
 
 ---
@@ -442,25 +541,35 @@ All leaves must still resolve to the **same store**.
 ### 4.1 Entry point
 
 `CorePureGrammarParser` registers `"Relation"` as a mapping-block keyword and
-dispatches to `parseRelationFunctionClassMapping`. This method:
+dispatches to `parseRelationFunctionClassMapping`, which:
 
 1. Reads the block header (`*ClassName[id]`, `root`, `extendsClassMappingId`).
 2. Invokes `RelationFunctionMappingParseTreeWalker.visitRelationFunctionClassMapping`.
 
-### 4.2 Walker: class-level fields
+### 4.2 Walker: class-level source
 
 ```java
 // RelationFunctionMappingParseTreeWalker.visitRelationFunctionClassMapping
-relationFunctionClassMapping.relationFunction =
-    new PackageableElementPointer(FUNCTION, ctx.functionIdentifier().getText(), ...);
-
-if (ctx.primaryKey() != null)
-    relationFunctionClassMapping.primaryKey =
-        ctx.primaryKey().identifier().stream()
-           .map(PureGrammarParserUtility::fromIdentifier)
-           .collect(Collectors.toList());
+if (sourceCtx.RELATION_FUNC() != null)
+{
+    relationFunctionClassMapping.relationFunction =
+        new PackageableElementPointer(FUNCTION, sourceCtx.functionIdentifier().getText(), ...);
+}
 else
-    relationFunctionClassMapping.primaryKey = Collections.emptyList();
+{
+    // ~src <combinedExpression> — wrap the inline expression in a zero-arg
+    // lambda so the downstream compiler can resolve the row type uniformly
+    // with the ~func path.
+    relationFunctionClassMapping.sourceLambda =
+        visitInlineExpressionAsLambda(sourceCtx.combinedExpression());
+}
+
+relationFunctionClassMapping.primaryKey =
+    ctx.primaryKey() != null
+        ? ctx.primaryKey().identifier().stream()
+             .map(PureGrammarParserUtility::fromIdentifier)
+             .collect(Collectors.toList())
+        : Collections.emptyList();
 
 relationFunctionClassMapping.propertyMappings =
     ctx.singlePropertyMapping().stream()
@@ -468,48 +577,72 @@ relationFunctionClassMapping.propertyMappings =
        .collect(Collectors.toList());
 ```
 
-### 4.3 Walker: property dispatch
+`visitInlineExpressionAsLambda` re-parses the raw text of the
+`combinedExpression` (preserving offsets) via `DomainParser.parseCombinedExpression`
+and returns a `LambdaFunction` with a single-element body and empty parameters.
+
+### 4.3 Walker: property RHS dispatch
 
 `visitPropertyMapping` branches on which child rule is present:
 
 | Branch | Result |
 |--------|--------|
 | `singleLocalPropertyMapping` | `RelationFunctionPropertyMapping` with `localMappingProperty` set |
-| `relationFunctionEmbeddedPropertyMapping` | `RelationFunctionEmbeddedPropertyMapping` (normal) |
-| `inlineRelationFunctionEmbeddedPropertyMapping` | `RelationFunctionEmbeddedPropertyMapping` (inline, `id` set, `propertyMappings = []`) |
-| plain `relationFunctionPropertyMapping` | `RelationFunctionPropertyMapping` (column + optional transformer) |
+| `relationFunctionEmbeddedPropertyMapping` | `RelationFunctionEmbeddedPropertyMapping` (normal, recursive) |
+| `inlineRelationFunctionEmbeddedPropertyMapping` | `RelationFunctionEmbeddedPropertyMapping` (inline: `id` set, empty `propertyMappings`) |
+| plain `relationFunctionPropertyMapping` | `RelationFunctionPropertyMapping` (column or valueFn RHS) |
 
-For a **binding transformer**, `bindingTransformer.binding` is set from the
-`qualifiedName` after `Binding`. For an **enum transformer**, `enumMappingId` is
-set from the identifier after `EnumerationMapping`.
+Inside `visitRelationFunctionPropertyMapping`:
+
+```java
+if (ctx.identifier() != null)
+{
+    propertyMapping.column = PureGrammarParserUtility.fromIdentifier(ctx.identifier());
+}
+else if (ctx.combinedExpression() != null)
+{
+    propertyMapping.valueFn = visitInlineExpressionAsLambda(ctx.combinedExpression());
+}
+```
+
+A `bindingTransformer` sets `bindingTransformer.binding`; an `enumTransformer`
+sets `enumMappingId`.
 
 ### 4.4 Protocol shapes after parsing
 
 ```
-// Primitive / enum / binding property mapping
+// Class mapping — one of relationFunction or sourceLambda is set
+RelationFunctionClassMapping {
+  relationFunction : PackageableElementPointer("myPkg::personFunc")   // OR
+  sourceLambda     : LambdaFunction { body: [<inline expr VS>], parameters: [] }
+  primaryKey       : List<String>
+  propertyMappings : [ ... ]
+}
+
+// Property mapping — one of column or valueFn is set
 RelationFunctionPropertyMapping {
-  property        : PropertyPointer("firstName")
-  column          : "FIRSTNAME"           // raw string column name
-  enumMappingId   : null | "empTypeMap"   // set for enum properties
-  bindingTransformer: null | BindingTransformer{ binding: "myPkg::MyBinding" }
+  property           : PropertyPointer("firstName")
+  column             : "FIRSTNAME"                              // OR
+  valueFn            : LambdaFunction { body: [<user expr VS>], parameters: [] }
+  enumMappingId      : null | "empTypeMap"
+  bindingTransformer : null | BindingTransformer{ binding: "myPkg::MyBinding" }
   localMappingProperty: null | LocalMappingPropertyInfo{ type, multiplicity }
 }
 
 // Normal embedded
 RelationFunctionEmbeddedPropertyMapping {
-  property        : PropertyPointer("address")
-  id              : null
-  propertyMappings: [
-    RelationFunctionPropertyMapping { property: "street", column: "STREET" },
-    RelationFunctionPropertyMapping { property: "city",   column: "CITY"   }
-  ]
+  property         : PropertyPointer("address")
+  id               : null
+  setImplementationId: null
+  propertyMappings : [ RelationFunctionPropertyMapping{"street", column:"STREET"}, ... ]
 }
 
 // Inline embedded
 RelationFunctionEmbeddedPropertyMapping {
-  property        : PropertyPointer("address")
-  id              : "addressSet"
-  propertyMappings: []
+  property         : PropertyPointer("address")
+  id               : "addressSet"
+  setImplementationId: "addressSet"
+  propertyMappings : []
 }
 ```
 
@@ -517,715 +650,1166 @@ RelationFunctionEmbeddedPropertyMapping {
 
 ## 5. Compiler
 
-The compiler operates in three sequential passes per class mapping.
+The compiler runs four sequential passes per class mapping:
+`ClassMappingPrerequisiteElementsPassBuilder` → `ClassMappingFirstPassBuilder`
+→ `ClassMappingSecondPassBuilder` → `ClassMappingThirdPassBuilder`.
 
-### 5.1 First pass — `ClassMappingFirstPassBuilder`
+### 5.1 Prerequisite pass — `ClassMappingPrerequisiteElementsPassBuilder`
 
-Creates the `RelationFunctionInstanceSetImplementation` Pure graph node and
-compiles property mappings (but cannot yet resolve the relation function, which
-may be declared later in the same compilation unit):
+Declares upstream dependencies so the compiler orders compilation correctly:
 
 ```java
-// ClassMappingFirstPassBuilder.visit(RelationFunctionClassMapping)
-final RelationFunctionInstanceSetImplementation setImpl =
-    new Root_meta_pure_mapping_relation_RelationFunctionInstanceSetImplementation_Impl(id, ...)
-        ._class(pureClass)
-        ._id(id)
-        ._root(classMapping.root)
-        ._parent(parentMapping)
-        ._propertyMappings(
-            ListIterate.collect(classMapping.propertyMappings,
-                p -> p.accept(new PropertyMappingBuilder(context, baseSetImpl,
-                                                         allEnumerationMappings)))
-        );
+public Set<PackageableElementPointer> visit(RelationFunctionClassMapping classMapping)
+{
+    this.prerequisiteElements.add(new PackageableElementPointer(
+        PackageableElementType.CLASS, classMapping._class, classMapping.classSourceInformation));
+
+    // Only ~func has an external function reference to declare as prerequisite;
+    // ~src carries an inline lambda compiled in-place at SecondPass.
+    if (classMapping.relationFunction != null)
+    {
+        this.prerequisiteElements.add(new PackageableElementPointer(
+            PackageableElementType.FUNCTION,
+            classMapping.relationFunction.path,
+            classMapping.relationFunction.sourceInformation));
+    }
+
+    PropertyMappingPrerequisiteElementsBuilder propertyMappingBuilder =
+        new PropertyMappingPrerequisiteElementsBuilder(this.context, this.prerequisiteElements);
+    ListIterate.forEach(classMapping.propertyMappings, pm -> pm.accept(propertyMappingBuilder));
+    return this.prerequisiteElements;
+}
 ```
 
-Any `EmbeddedSetImplementation` nodes found in `propertyMappings` are returned as
-the second element of the pair so the mapping compiler can register them.
+Making the function a prerequisite guarantees `expressionSequence` is fully
+typed before ThirdPass tries to resolve `~primaryKey` names against the row
+type.
 
-### 5.2 Second pass — `ClassMappingSecondPassBuilder`
+### 5.2 First pass — `ClassMappingFirstPassBuilder`
 
-Resolves the relation function by its path/descriptor and attaches it to the set
-implementation. Also propagates the `relationFunction` reference down into every
-`EmbeddedRelationFunctionSetImplementation` (so embedded mappings share the same
-backing function):
+Creates the `RelationFunctionInstanceSetImplementation` node and compiles
+property-mapping skeletons (the relation function itself is not resolved yet):
 
 ```java
-// ClassMappingSecondPassBuilder.visit(RelationFunctionClassMapping)
-FunctionDefinition<?> relationFunction =
-    (FunctionDefinition<?>) context.resolvePackageableElement(functionId, ...);
+public Pair<SetImplementation, RichIterable<EmbeddedSetImplementation>>
+visit(RelationFunctionClassMapping classMapping)
+{
+    final Class<?> pureClass = context.resolveClass(classMapping._class, ...);
+    String id = HelperMappingBuilder.getClassMappingId(classMapping, this.context);
+
+    RelationFunctionInstanceSetImplementation setImpl =
+        new Root_meta_pure_mapping_relation_RelationFunctionInstanceSetImplementation_Impl(id, ...)
+            ._class(pureClass)
+            ._id(id)
+            ._superSetImplementationId(classMapping.extendsClassMappingId)
+            ._root(classMapping.root)
+            ._parent(parentMapping)
+            ._propertyMappings(ListIterate.collect(classMapping.propertyMappings,
+                p -> p.accept(new PropertyMappingBuilder(
+                    context, baseSetImpl, HelperMappingBuilder.getAllEnumerationMappings(parentMapping)))));
+
+    HelperMappingBuilder.buildMappingClassOutOfLocalProperties(
+        setImpl, setImpl._propertyMappings(), context);
+
+    MutableList<EmbeddedSetImplementation> embeddedSets =
+        Lists.mutable.withAll(setImpl._propertyMappings().selectInstancesOf(EmbeddedSetImplementation.class));
+    return Tuples.pair(setImpl, embeddedSets);
+}
+```
+
+### 5.3 Second pass — `ClassMappingSecondPassBuilder`
+
+Resolves the source and builds per-property `_valueFn` lambdas.
+
+**Step 1 — resolve source, attach to `_relationFunction`:**
+
+```java
+FunctionDefinition<?> relationFunction;
+if (classMapping.relationFunction != null)
+{
+    // ~func: resolve by descriptor / qualified name
+    String functionId = FunctionDescriptor.isValidFunctionDescriptor(functionPath)
+                         ? FunctionDescriptor.functionDescriptorToId(functionPath)
+                         : functionPath;
+    relationFunction = (FunctionDefinition<?>) context.resolvePackageableElement(functionId, ...);
+}
+else if (classMapping.sourceLambda != null)
+{
+    // ~src: compile the inline expression as a zero-arg LambdaFunction
+    relationFunction = HelperValueSpecificationBuilder.buildLambdaWithContext(
+        classMapping.sourceLambda.body,
+        classMapping.sourceLambda.parameters == null
+            ? Lists.fixedSize.empty()
+            : classMapping.sourceLambda.parameters,
+        classMapping.sourceLambda.sourceInformation,
+        context,
+        new ProcessingContext("Building ~src relation source lambda ..."));
+}
+else
+{
+    throw new EngineException("Relation class mapping must specify either '~func' or '~src'.", ...);
+}
 setImpl._relationFunction(relationFunction);
-propagateRelationFunctionToEmbedded(setImpl, relationFunction);
 ```
 
-### 5.3 Third pass — `ClassMappingThirdPassBuilder`
-
-Resolves explicit `~primaryKey` column names against the columns returned by the
-relation function's typed `RelationType`:
+**Step 2 — early return-type check** (duplicated authoritative check exists in
+`MappingValidator`; the SecondPass check produces a clearer error before per-
+property lambda building starts):
 
 ```java
-// ClassMappingThirdPassBuilder.visit(RelationFunctionClassMapping)
-RichIterable<? extends Column<?, ?>> relationColumns = getRelationFunctionColumns(setImpl);
-
-for (String pkName : classMapping.primaryKey)
+if (!processorSupport.type_subTypeOf(
+        resolvedFnType._returnType()._rawType(),
+        processorSupport.package_getByUserPath(M3Paths.Relation)))
 {
-    Column<?, ?> col = relationColumns.detect(c -> pkName.equals(c._name()));
-    if (col == null)
-        throw new EngineException("Primary key column '" + pkName + "' not found ...", ...);
-    resolvedPK.add(col);
-}
-setImpl._primaryKey(resolvedPK);
-```
-
-If `primaryKey` is empty (omitted in grammar), the set's `primaryKey` list stays
-empty; primary keys are then auto-inferred at SQL generation time by
-`resolveRelationFunctionPrimaryKey`.
-
-### 5.4 Property mapping: `PropertyMappingBuilder.visit(RelationFunctionPropertyMapping)`
-
-**Multiplicity check** — only `[1]` or `[0..1]` are supported (no collection
-properties in a flat tabular context).
-
-**Type check** — the property's return type must be one of:
-- A Pure primitive → column type is the primitive name.
-- An Enum (with `enumMappingId` set) → column type is resolved from the relation
-  function's `RelationType` via `resolveRelationColumnTypeName`.
-- A complex class (with `bindingTransformer` set) → column type is `Variant`
-  (semi-structured fallback).
-- Anything else without a transformer → compilation error.
-
-```java
-String propertyTypeName =
-    processorSupport.type_isPrimitiveType(propertyType)
-        ? propertyType._name()
-        : propertyMapping.enumMappingId != null
-            ? resolveRelationColumnTypeName(this.immediateParent, propertyMapping.column)
-            : M3Paths.Variant;   // binding fallback
-
-RelationType<?> newRelationType = _RelationType.build(
-    Lists.mutable.with(
-        _Column.getColumnInstance(propertyMapping.column, false, propertyTypeName, ...)),
-    sourceInfo, processorSupport);
-
-RelationFunctionPropertyMapping pm = new Root_meta_pure_mapping_relation_RelationFunctionPropertyMapping_Impl(...)
-    ._property(property)
-    ._column(newRelationType._columns().toList().get(0))
-    ._owner(immediateParent);
-```
-
-**Enum transformer attachment:**
-
-```java
-if (propertyMapping.enumMappingId != null)
-{
-    EnumerationMapping<Object> eMap =
-        allEnumerationMappings.select(e -> e._name().equals(propertyMapping.enumMappingId))
-                              .toList().getFirst();
-    Assert.assertTrue(eMap != null, () -> "Can't find enumeration mapping '...'", ...);
-    pm._transformer(eMap);
+    throw new EngineException("Relation mapping function should return a Relation! Found a "
+        + GenericType.print(resolvedFnType._returnType(), processorSupport) + " instead.", ...);
 }
 ```
 
-**Binding transformer attachment:**
+**Step 3 — extract row type** from the function's last-expression `RelationType`:
 
 ```java
-if (propertyMapping.bindingTransformer != null)
+GenericType lastExprType = relationFunction._expressionSequence().toList().getLast()._genericType();
+GenericType srcType = lastExprType._typeArguments().toList().isEmpty()
+                        ? null
+                        : lastExprType._typeArguments().toList().getFirst();
+```
+
+**Step 4 — build `_valueFn` for each property mapping**, recursing into embedded
+sets and propagating the relation function down:
+
+```java
+private void buildValueFunctionsForPropertyMappings(
+    List<PropertyMapping> protocolPropertyMappings,
+    PropertyMappingsImplementation parent,
+    FunctionDefinition<?> relationFunction,
+    GenericType srcType)
 {
-    Root_meta_external_format_shared_binding_Binding binding =
-        (Root_meta_external_format_shared_binding_Binding) context.resolvePackageableElement(...);
-    // Validates property type is in binding's modelUnit
-    pm._transformer(new Root_meta_external_format_shared_binding_BindingTransformer_Impl<>(...));
-    pm._targetSetImplementationId("");
+    ... walk protocol PMs in parallel with M3 PMs ...
+    for each RelationFunctionPropertyMapping:
+        LambdaFunction<?> valueFn = buildPropertyValueFn(pPm, srcType, parent._id());
+        if (valueFn != null) mPm._valueFn(valueFn);
+
+    for each RelationFunctionEmbeddedPropertyMapping:
+        mEmb._relationFunction(relationFunction);
+        buildValueFunctionsForPropertyMappings(pEmb.propertyMappings, mEmb, relationFunction, srcType);
 }
 ```
 
-#### `resolveRelationColumnTypeName` helper
+`buildPropertyValueFn` picks the AST to compile:
 
-Walks up through any chain of `EmbeddedSetImplementation` parents to find the
-outermost `RelationFunctionInstanceSetImplementation`, then inspects that
-function's last expression's `RelationType` to find the column's actual type:
+- If `pm.valueFn` is set — use its body verbatim.
+- Otherwise (bare column) — synthesise `AppliedProperty` on `$src`:
+  ```java
+  Variable srcRef = new Variable(); srcRef.name = "src";
+  AppliedProperty colAccess = new AppliedProperty();
+  colAccess.property = pm.column;
+  colAccess.parameters = Collections.singletonList(srcRef);
+  body = Collections.singletonList(colAccess);
+  ```
+- Returns `null` when neither is set — the property mapping is invalid and will
+  be caught by `MappingValidator`.
+
+`compileRelationPropertyLambda` builds the lambda with a `src`-typed
+`VariableExpression`, evaluating the body via `ValueSpecificationBuilder`. When
+`srcType` is empty (fallback for a malformed function) the parameter falls back
+to `Any[1]` — the validator surfaces the underlying error separately.
+
+### 5.4 Third pass — `ClassMappingThirdPassBuilder`
+
+Resolves explicit `~primaryKey` column names against the function's typed
+`RelationType`. If `~primaryKey` is empty, leaves the set's `primaryKey` empty
+and defers to runtime auto-inference (§8).
 
 ```java
-private static String resolveRelationColumnTypeName(
-        PropertyMappingsImplementation parent, String columnName)
+public SetImplementation visit(RelationFunctionClassMapping classMapping)
 {
-    // Walk up through embedded parents
-    PropertyMappingsImplementation currentImpl = parent;
-    while (currentImpl instanceof EmbeddedSetImplementation)
+    ...
+    if (classMapping.primaryKey == null || classMapping.primaryKey.isEmpty())
     {
-        SetImplementation owner = (SetImplementation)
-            ((EmbeddedSetImplementation) currentImpl)._owner();
-        if (owner == null) break;
-        currentImpl = (PropertyMappingsImplementation) owner;
+        return setImpl;   // auto-inferred at SQL-gen time
     }
-    if (currentImpl instanceof RelationFunctionInstanceSetImplementation)
+
+    RichIterable<? extends Column<?, ?>> relationColumns = getRelationFunctionColumns(setImpl);
+    if (relationColumns.isEmpty())
     {
-        // Read RelationType from function's return type
-        // ... find column by name, return colRawType._name()
+        throw new EngineException(
+            "Cannot resolve primary key columns: relation function '"
+            + setImpl._relationFunction()._functionName()
+            + "' does not return a concrete RelationType. "
+            + "Ensure the function body produces a typed relation (e.g., #>{db.table}#).", ...);
     }
-    return "String"; // fallback
+
+    MutableList<Column<?, ?>> resolvedPK = Lists.mutable.empty();
+    for (String pkName : classMapping.primaryKey)
+    {
+        Column<?, ?> col = (Column<?, ?>) relationColumns.detect(c -> pkName.equals(c._name()));
+        if (col == null)
+        {
+            String available = relationColumns.collect(Column::_name).makeString(", ");
+            throw new EngineException(
+                "Primary key column '" + pkName + "' declared in class mapping '" + id
+                + "' (mapping '" + mappingPath + "') is not part of the columns returned by the relation function."
+                + " Available columns: [" + available + "]." , ...);
+        }
+        resolvedPK.add(col);
+    }
+    setImpl._primaryKey(resolvedPK);
+    return setImpl;
 }
+
+// Reads columns off the last-expression RelationType, or [] for Relation<Any>.
+private static RichIterable<? extends Column<?, ?>> getRelationFunctionColumns(
+    RelationFunctionInstanceSetImplementation setImpl)
+{ ... }
 ```
 
-### 5.5 Property mapping: `PropertyMappingBuilder.visit(RelationFunctionEmbeddedPropertyMapping)`
+### 5.5 Property mapping: `PropertyMappingBuilder.visit(RelationFunctionPropertyMapping)`
 
-Creates an `EmbeddedRelationFunctionSetImplementation` with:
+Builds the M3 `RelationFunctionPropertyMapping` **skeleton only** — no
+multiplicity/type checks here. The `_valueFn` slot is filled by SecondPass, and
+validation runs afterwards in `MappingValidator.validateRelationFunctionClassMapping`.
+
+Key attachments:
+
+- **Property resolution** via `resolveRelationFunctionMappedProperty`:
+  - Local property (`localMappingProperty` present) → normal
+    `HelperMappingBuilder.getMappedProperty`.
+  - Otherwise resolves against the immediate parent set's class (handles the
+    embedded case where the parser's `_class` pointer was rewritten by
+    §5.6).
+- **Local property fields** (`_localMappingProperty`,
+  `_localMappingPropertyType`, `_localMappingPropertyMultiplicity`).
+- **Binding transformer** — attaches `BindingTransformer` after verifying the
+  property is a `Class` and its type is in the binding's `modelUnit`.
+- **Enumeration transformer** — attaches the named `EnumerationMapping` from
+  the parent mapping's registered enum mappings.
+
+### 5.6 Property mapping: `PropertyMappingBuilder.visit(RelationFunctionEmbeddedPropertyMapping)`
+
+Builds an `EmbeddedRelationFunctionSetImplementation`. Two shapes:
 
 ```java
 boolean isInline = propertyMapping.propertyMappings == null
                 || propertyMapping.propertyMappings.isEmpty();
-String inlineTargetId = propertyMapping.id; // null for normal embedded
+String inlineTargetId = propertyMapping.setImplementationId != null
+                        && !propertyMapping.setImplementationId.isEmpty()
+                            ? propertyMapping.setImplementationId
+                            : propertyMapping.id;
 
 String selfId, targetId;
 if (isInline && inlineTargetId != null)
 {
     selfId   = sourceId + "_" + propertyMapping.property.property;
-    targetId = inlineTargetId;   // points to the separately-declared set
+    targetId = inlineTargetId;         // points to the separately-declared set
 }
 else
 {
-    String embeddedId = inlineTargetId != null ? inlineTargetId
-                                               : sourceId + "_" + property.property;
+    String embeddedId = inlineTargetId != null
+                          ? inlineTargetId
+                          : sourceId + "_" + propertyMapping.property.property;
     selfId   = embeddedId;
-    targetId = embeddedId;       // self-referential (normal embedded)
+    targetId = embeddedId;             // self-referential (normal embedded)
 }
 ```
 
-The inner `propertyMappings` are compiled recursively with a fresh
+**Sub-property class rewrite.** The parser walker stamps every child sub-
+property's `_class` with the OUTER class mapping's class (it has no type
+information at parse time). The embedded builder rewrites each child pointer
+to the embedded target class so `HelperMappingBuilder.getMappedProperty`
+resolves the property against the right class — without this, `address ( city:
+CITY )` would look up `city` on `Person` instead of `Address`.
+
+```java
+String targetClassPath = HelperModelBuilder.getElementFullPath(
+    (PackageableElement) property._genericType()._rawType(),
+    context.pureModel.getExecutionSupport());
+propertyMapping.propertyMappings.forEach(subPm ->
+{
+    if (subPm.property != null && subPm.localMappingProperty == null)
+    {
+        subPm.property._class = targetClassPath;
+    }
+});
+```
+
+The inner `propertyMappings` are then compiled recursively with a fresh
 `PropertyMappingBuilder` whose `immediateParent` is the new embedded set.
 
-### 5.6 Validation — `MappingValidator`
+### 5.7 Bare-column fast-path helper — `RelationFunctionPropertyMappingTools`
 
-After compilation the validator iterates over all
-`RelationFunctionInstanceSetImplementation` class mappings and checks:
+`asColumnRef(pm)` returns `Optional<String>` when the M3 `_valueFn` body is
+exactly a single `$src.<col>` accessor — i.e. was authored as the bare-column
+form (or the equivalent explicit `$src.<col>` expression). Consumers that need
+the column name (SQL push-down fast paths, IDE display, debug printers)
+encapsulate the pattern match here rather than re-implementing it:
 
-- Every mapped property exists on the target class (or is declared as a local
-  property).
-- Column names referenced in `~primaryKey` are present in the typed `RelationType`
-  (enforced in the third pass above).
-- The `EnumerationMapping` referenced by `enumMappingId` exists in the same
-  parent `Mapping`.
+```java
+public static Optional<String> asColumnRef(RelationFunctionPropertyMapping pm)
+{
+    if (pm == null || pm._valueFn() == null) return Optional.empty();
+    ...
+    // matches SimpleFunctionExpression whose parametersValues is [VariableExpression("src")]
+    // and whose propertyName instance value carries the accessed column name.
+}
+```
+
+Deliberately conservative — a complex expression that happens to evaluate to a
+single column at runtime is NOT matched.
+
+### 5.8 Validation — `MappingValidator`
+
+Two arms run inside `validateRelationFunctionClassMapping`:
+
+**Protocol-side (inline-embedded id resolution):** for every
+`RelationFunctionEmbeddedPropertyMapping` with `id` set and empty
+`propertyMappings`, the `id` must match a `RelationFunctionClassMapping` in the
+same protocol Mapping:
+
+```java
+if (pm.id != null && !pm.id.isEmpty()
+    && (pm.propertyMappings == null || pm.propertyMappings.isEmpty())
+    && !classMappingIds.contains(pm.id))
+{
+    throw new EngineException(
+        "The set implementation '" + pm.id + "' referenced in the inline embedded mapping "
+        + "for property '" + pm.property.property + "' does not exist in the mapping " + mappingPath, ...);
+}
+```
+
+**Pure-graph side:** for every `RelationFunctionInstanceSetImplementation`:
+
+- function has zero parameters;
+- return type is `Relation<...>`;
+- for each `RelationFunctionPropertyMapping._valueFn` (recursively into
+  embedded sets):
+  - the body's inferred multiplicity is subsumed by the property multiplicity;
+  - the body's inferred raw type is a subtype of the property raw type — this
+    check is skipped when a transformer (`BindingTransformer` or
+    `EnumerationMapping`) is present, since the transformer is responsible for
+    the conversion.
+
+Errors mirror legend-pure's `RelationFunctionInstanceSetImplementationValidator`
+verbatim (e.g. `"Multiplicity Error: The property '...' has a multiplicity range
+of [1] when the given expression has a multiplicity range of [0..1]"`).
 
 ---
 
-## 6. Transformation Layer (`helperFunctions.pure`)
+## 6. Runtime helpers (Pure)
 
-Before the SQL generator can process a `RelationFunctionInstanceSetImplementation`,
-its `RelationFunctionPropertyMapping` nodes must be converted to
-`RelationalPropertyMapping` (which carries a `TableAliasColumn` the SQL generator
-works with). This conversion is performed by helper functions in
-`core_relational/relational/helperFunctions/helperFunctions.pure`.
+There is no separate "transform" phase — property mappings are stored as
+`RelationFunctionPropertyMapping` / `EmbeddedRelationFunctionSetImplementation`
+throughout the Pure graph. Runtime SQL generation and property resolution use
+the helpers below.
 
-### 6.1 `transformRelationFunctionClassMapping`
+### 6.1 `findPropertyMapping` — `EmbeddedRelationFunctionSetImplementation` arm
 
-Top-level entry point. Dispatches on the type of each property mapping:
+Located in `core_relational/relational/helperFunctions/helperFunctions.pure`.
+When the current property mapping is an `EmbeddedRelationFunctionSetImplementation`,
+resolution tries in order:
 
-```
-transformRelationFunctionClassMapping(classMapping)
-    classMapping.propertyMappings->map(pm | pm->match([
-        r: RelationFunctionPropertyMapping[1]
-            → transformRelationPropertyMappingsToRelational(r, classMapping),
-        e: EmbeddedSetImplementation[1]
-            → transformRelationFunctionEmbeddedPropertyMapping(e, classMapping),
-        p: PropertyMapping[1]
-            → p   // pass-through (already relational / binding)
-    ]))
-```
-
-### 6.2 `transformRelationPropertyMappingsToRelational`
-
-Converts one (or many) `RelationFunctionPropertyMapping` to a
-`RelationalPropertyMapping`:
+1. **Direct lookup** in the embedded set's own `propertyMappings`.
+2. **Inline-target lookup**: if `targetSetImplementationId != id`, resolve via
+   `mapping->_classMappingByIdRecursive`.
+3. **Router-supplied mappings** fallback.
 
 ```
-transformRelationPropertyMappingsToRelational(rfpm, classMapping)
-    ^RelationalPropertyMapping(
-        owner                        = rfpm.owner,
-        sourceSetImplementationId    = rfpm.sourceSetImplementationId,
-        targetSetImplementationId    = rfpm.targetSetImplementationId,
-        property                     = rfpm.property,
-        localMappingProperty         = rfpm.localMappingProperty,
-        localMappingPropertyType     = rfpm.localMappingPropertyType,
-        localMappingPropertyMultiplicity = rfpm.localMappingPropertyMultiplicity,
-        store                        = rfpm.store,
-        transformer                  = rfpm.transformer,    // carries EnumerationMapping
-        relationalOperationElement   = getTransformedRelationFunctionRelOp(classMapping, rfpm)
-    )
+| if($currentPropertyMapping->at(0)->instanceOf(EmbeddedRelationFunctionSetImplementation),
+| let originalEmbedded = $currentPropertyMapping->cast(@EmbeddedSetImplementation);
+  let directEmbeddedPM = $originalEmbedded->map(c | $c->_propertyMappingsByPropertyName($propertyName));
+  let inlineTargetIds  = $originalEmbedded.targetSetImplementationId
+                            ->filter(t | !$t->isEmpty() && $originalEmbedded.id != $t);
+  let result = if([
+    pair(|!$directEmbeddedPM->isEmpty(), | $directEmbeddedPM),
+    pair(|!$inlineTargetIds->isEmpty(), | $mapping->_classMappingByIdRecursive($inlineTargetIds)
+                                                   ->filter(c | !$c->instanceOf(EmbeddedSetImplementation))
+                                                   ->cast(@InstanceSetImplementation)
+                                                   ->map(c | $c->_propertyMappingsByPropertyName($propertyName))),
+    pair(|!$propertyMappingFromRouter->isEmpty(), | $propertyMappingFromRouter)
+  ], | []);
+  ...
 ```
 
-The `transformer` field is explicitly copied so that any `EnumerationMapping`
-attached by the compiler is preserved across the conversion.
+### 6.2 `inlineEmbeddedRelationFunctionMapping` — mappingExtension.pure
 
-### 6.3 `getTransformedRelationFunctionRelOp`
-
-Produces the `TableAliasColumn` that represents the relation-function column in
-the relational SQL world:
+Called from `findMappingsFromProperty` when navigating through an inline embedded
+set. Resolves the inline target and copies its property mappings onto the
+embedded set (re-owning them to the embedded owner):
 
 ```
-getTransformedRelationFunctionRelOp(classMapping, rfpm)
-    let relationColumnType = rfpm.column.classifierGenericType.typeArguments->at(1).rawType->toOne();
-    ^TableAliasColumn(
-        alias  = ^TableAlias(name = classMapping.id,
-                              relationalElement = ^RelationFunction(owner = classMapping)),
-        column = ^RelationFunctionColumn(
-                     column = rfpm.column,
-                     name   = rfpm.column.name->toOne(),
-                     type   = pureTypeToDataType(relationColumnType)->toOne()
-                 )
-    )
+function meta::pure::router::routing::inlineEmbeddedRelationFunctionMapping(
+    e: EmbeddedRelationFunctionSetImplementation[1], m: Mapping[1]
+): EmbeddedRelationFunctionSetImplementation[1]
+{
+    let inlineTargetId = $e.targetSetImplementationId;
+    let cm = $m->_classMappingByIdRecursive($inlineTargetId)
+                ->filter(c | !$c->instanceOf(EmbeddedSetImplementation));
+    assertEquals(1, $cm->size(), | ...);
+    let pmaps = $cm->cast(@InstanceSetImplementation)->toOne()->allPropertyMappings()
+                    ->map(pm | ^$pm(owner = $e.owner, sourceSetImplementationId = $e.sourceSetImplementationId));
+    ^$e(id = $inlineTargetId, propertyMappings = $pmaps);
+}
 ```
 
-### 6.4 `transformRelationFunctionEmbeddedPropertyMapping`
+### 6.3 Primary-key helpers (relational side)
 
-Converts an `EmbeddedSetImplementation` owned by a
-`RelationFunctionInstanceSetImplementation` to an
-`EmbeddedRelationFunctionSetImplementation`. Recursively transforms nested
-property mappings. Inherits `relationFunction` from the **parent** class mapping
-(embedded columns share the same backing relation):
+Located in `core_relational/relational/helperFunctions/helperFunctions.pure`.
 
 ```
-transformRelationFunctionEmbeddedPropertyMapping(embedded, classMapping)
-    let transformedPms = embedded.propertyMappings->map(pm | pm->match([
-        r: RelationFunctionPropertyMapping[1]
-            → transformRelationPropertyMappingsToRelational(r, classMapping),
-        nested: EmbeddedSetImplementation[1]
-            → transformRelationFunctionEmbeddedPropertyMapping(nested, classMapping),
-        p: PropertyMapping[1] → p
-    ]));
-    ^EmbeddedRelationFunctionSetImplementation(
-        id              = embedded.id,
-        root            = false,
-        class           = embedded.class,
-        parent          = classMapping.parent,
-        relationFunction= classMapping.relationFunction,   // inherited
-        owner           = embedded.owner,
-        property        = embedded.property,
-        propertyMappings= transformedPms
-    )
+// TableAliasColumn instances anchored on a RelationFunction alias for the
+// set's primaryKey columns.
+function meta::relational::mapping::getRelationFunctionPkAsTableAliasColumns(
+    classMapping: RelationFunctionInstanceSetImplementation[1]): TableAliasColumn[*]
+{
+    let alias = ^TableAlias(name = $classMapping.id,
+                             relationalElement = ^RelationFunction(owner = $classMapping));
+    $classMapping.primaryKey->map(c |
+        let colType = $c.classifierGenericType.typeArguments->at(1).rawType->toOne();
+        ^TableAliasColumn(
+            alias  = $alias,
+            column = ^RelationFunctionColumn(
+                column = $c,
+                name   = $c.name->toOne()->addQuotesIfNecessary(),
+                type   = meta::relational::mapping::pureTypeToDataType($colType)->toOne()
+            )
+        )
+    );
+}
+
+// Lazy accessor used at SQL-gen time to auto-infer PK columns when the
+// compile-time set had no explicit ~primaryKey.
+function meta::relational::mapping::ensureRelationFunctionPrimaryKeyResolved(
+    rf: RelationFunctionInstanceSetImplementation[1],
+    extensions: Extension[*]): RelationFunctionInstanceSetImplementation[1]
+{
+    if($rf.primaryKey->isEmpty(),
+        | ^$rf(primaryKey = $rf->resolveRelationFunctionPrimaryKey([], $extensions)),
+        | $rf);
+}
 ```
 
-### 6.5 `normalizeRelationFunctionEmbeddedMapping`
-
-A bridge used inside `findPropertyMapping` to lazily convert any
-`EmbeddedSetImplementation` whose owner is a `RelationFunctionInstanceSetImplementation`
-that has not yet been transformed:
-
-```
-normalizeRelationFunctionEmbeddedMapping(pm)
-    pm->match([
-        e: EmbeddedSetImplementation[1]
-            if (!e->instanceOf(EmbeddedRelationalInstanceSetImplementation)
-                && !e.owner->isEmpty()
-                && e.owner->toOne()->instanceOf(RelationFunctionInstanceSetImplementation),
-               | transformRelationFunctionEmbeddedPropertyMapping(e, ...),
-               | $e),
-        p: PropertyMapping[1] → $p
-    ])
-```
-
-### 6.6 `findPropertyMapping` — extensions for RF sets
-
-`findPropertyMapping` is the central dispatch for property resolution at execution
-time. Two arms added / extended:
-
-1. **`EmbeddedRelationalInstanceSetImplementation` arm** — now calls
-   `normalizeRelationFunctionEmbeddedMapping` first so RF-backed embedded sets are
-   normalised before the existing dispatch logic runs.
-
-2. **`EmbeddedRelationFunctionSetImplementation` arm (new):**
-
-   - **Normal embedded** — looks up the property directly in the embedded set's
-     own `propertyMappings` (these are already `RelationalPropertyMapping` after
-     transformation).
-
-   - **Inline embedded** — follows `targetSetImplementationId` to the independently
-     declared set, retrieves its `RelationFunctionPropertyMapping` nodes, and
-     transforms them to `RelationalPropertyMapping` at resolution time:
-
-     ```
-     let result = $mapping->_classMappingByIdRecursive($inlineTargetIds)
-         ->map(c | c->_propertyMappingsByPropertyName($propertyName))
-         ->map(pm | pm->match([
-             rfpm: RelationFunctionPropertyMapping[1]
-                 → rfpm->transformRelationPropertyMappingsToRelational(
-                       rfpm.owner->cast(@RelationFunctionInstanceSetImplementation)),
-             p: PropertyMapping[1] → p
-         ]));
-     ```
-
-### 6.7 Primary key helpers
-
-```
-// Returns TableAliasColumn instances for the set's primaryKey columns
-getRelationFunctionPkAsTableAliasColumns(classMapping)
-    let alias = ^TableAlias(name = classMapping.id,
-                             relationalElement = ^RelationFunction(owner = classMapping));
-    classMapping.primaryKey->map(c |
-        ^TableAliasColumn(alias = alias,
-                           column = ^RelationFunctionColumn(...)))
-
-resolvePrimaryKey(rfi: RelationFunctionInstanceSetImplementation[1])
-    rfi->getRelationFunctionPkAsTableAliasColumns()
-```
+The relational store also registers a synthetic `RelationElementAccessorExtension`
+(see §8) whose resolver reads PK columns from `Table` / `View` via
+`tablePrimaryKeyLeaf`.
 
 ---
 
-## 7. Routing (`cluster.pure` / `routing.pure`)
+## 7. Routing (`cluster.pure`, `routing.pure`)
 
 ### 7.1 `storeContractForSetImplementation`
 
-Determines which `StoreContract` and `Store` handle a given set implementation.
-Key dispatch arms:
+Determines which `StoreContract` and `Store` handle a given set implementation:
 
 | Set type | Resolution |
-|----------|-----------|
-| `RelationFunctionInstanceSetImplementation` | reads the store from the relation function's expression |
-| `EmbeddedSetImplementation` | delegates to `owner` (new arm — embedded sets inherit from their RF parent) |
-| `OperationSetImplementation` (union) | resolves each leaf recursively; all must share the same store |
-
-**Union arm:**
-
-```
-o: OperationSetImplementation[1]
-    let resolvedPairs = roots->map(r |
-        r->cast(@SetImplementation)->storeContractForSetImplementation($mapping, $extensions));
-    let storeContract = resolvedPairs.first->removeDuplicatesBy(x | x.id)->toOne();
-    let store         = resolvedPairs.second->removeDuplicatesBy(x | x->elementToPath())->toOne();
-    pair(storeContract, store)
-```
-
-The `->toOne()` on deduplication enforces that all union leaves resolve to the
-same store.
-
-### 7.2 `potentiallyRouteRelationFunctionSet`
-
-Wires a `RelationFunctionInstanceSetImplementation` into the relational routing
-infrastructure — attaches an alias and `SelectSQLQuery` stub so the set can
-participate in SQL plan building.
-
-### 7.3 `potentiallyRouteSetImplementations` — union extension
-
-When the routing cache (`classMappingsByClass`) is built for a union, the function
-now also routes `OperationSetImplementation` wrappers through
-`potentiallyRouteRelationFunctionSet` so their RF leaves are correctly wired:
+|----------|------------|
+| `RelationFunctionInstanceSetImplementation` | Reads the store from the routed relation function's `StoreClusteredValueSpecification` (asserts the function has been routed) |
+| `InstanceSetImplementation` | Store contract from extension + `resolveStoreFromSetImplementation` |
+| `OperationSetImplementation` (union) | Resolves each leaf recursively; deduplicated store must be unique (`->toOne()` enforces single-store) |
+| `EmbeddedSetImplementation` | Delegates to `owner` |
 
 ```
-let routedNonRelFuncMappings = nonRelFuncMappings->map(cm | cm->match([
-    o: OperationSetImplementation[1]
-        mappingsFromCache->filter(mc | mc.id == o.id)
-            ->defaultIfEmpty(o)->toOne()
-            ->potentiallyRouteRelationFunctionSet($mapping, $runtime, $extensions),
-    a: SetImplementation[1] → $a
-]));
+storeContractForSetImplementation(setImpl, mapping, extensions)
+    $setImpl->match([
+      t: RelationFunctionInstanceSetImplementation[1]|
+         let vs = $t.relationFunction.expressionSequence->evaluateAndDeactivate();
+         assert($vs->size() == 1, 'Function used in Relation function class mapping can only have a single expression!');
+         assert($vs->at(0)->instanceOf(StoreClusteredValueSpecification), ...);
+         let store = $vs->at(0)->cast(@StoreClusteredValueSpecification).store;
+         pair(meta::pure::extension::storeContractFromStore($extensions, $store), $store);,
+      ...
+      o: OperationSetImplementation[1]| ... all leaves must resolve to one store ...,
+      e: EmbeddedSetImplementation[1]| $e.owner->toOne()->cast(@SetImplementation)
+                                          ->storeContractForSetImplementation($mapping, $extensions);
+    ])
 ```
+
+### 7.2 `potentiallyRouteRelationFunctionSet` (single-set routing)
+
+Pushes the relation function through the router so its expression sequence is a
+`ClusteredValueSpecification`:
+
+```
+potentiallyRouteRelationFunctionSet(s, mapping, runtime, extensions)
+    $s->match([
+      t: RelationFunctionInstanceSetImplementation[1]|
+          ^$t(relationFunction = $t->potentiallyRouteRelationFunction($mapping, $runtime, $extensions)),
+      e: EmbeddedSetImplementation[1]| $e,
+      s: InstanceSetImplementation[1]| $s,
+      o: OperationSetImplementation[1]|
+          ^$o(parameters = $o.parameters->map(i | ^$i(setImplementation = ...
+                              ->potentiallyRouteRelationFunctionSet($mapping, $runtime, $extensions))))
+    ])
+```
+
+`isRelationFunctionRouted(rf)` returns true when the function's first
+expression is a `ClusteredValueSpecification`. `potentiallyRouteRelationFunction`
+either returns the already-routed function or calls `routeFunction(...)` to
+produce one.
+
+### 7.3 `potentiallyRouteRelationFunctionSets` (class-level routing)
+
+Called during `processClass` and `processProperty` routing. Partitions the
+class's set implementations into RF and non-RF; routes the un-routed RF ones
+(consulting the `classMappingsByClass` cache); recurses through any
+`OperationSetImplementation` or `EmbeddedRelationFunctionSetImplementation`
+leaves so union branches and embedded sets are wired end-to-end. Updates the
+`StoreMappingRoutingStrategy.classMappingsByClass` cache with the routed sets
+so subsequent property navigations short-circuit.
 
 ---
 
-## 8. SQL Generation
+## 8. Primary-Key Inference
 
-### 8.1 `processRelationFunctionClassMapping`
+When `~primaryKey` is omitted the runtime derives PK columns from the relation
+function's body. The algorithm lives in
+`legend-engine-pure-code-compiled-core/.../core/pure/mapping/relationFunctionMapping.pure`
+and is driven by store-specific extensions.
 
-The central SQL generation function for relation mappings:
+### 8.1 `RelationElementAccessorExtension`
 
-```
-processRelationFunctionClassMapping(r, vars, state, ...)
-    // 1. Auto-infer PK if not already set
-    let resolved = if(r.primaryKey->isEmpty(),
-        | let pkCols = r->resolveRelationFunctionPrimaryKey([], $extensions);
-          ^$r(primaryKey = pkCols),
-        | r);
-
-    // 2. Route the relation function to get an aliased expression
-    let routedRelationFunction =
-        resolved->potentiallyRouteRelationFunctionSet($state.mapping, $extensions)
-                ->cast(@RelationFunctionInstanceSetImplementation).relationFunction;
-
-    // 3. Evaluate the function body (Pure expression → SelectSQLQuery)
-    let relationExpression =
-        routedRelationFunction.expressionSequence->evaluateAndDeactivate()->at(0)
-            ->cast(@ClusteredValueSpecification).val;
-
-    // 4. Process the relation expression into a SelectWithCursor
-    let cursor = relationExpression->processValueSpecification(...);
-
-    // 5. Wrap in a sub-select
-    let newSelect = cursor.select->moveSelectQueryToSubSelect(...);
-    ^cursor(select = newSelect, currentTreeNode = [])
-```
-
-The result is a `SelectWithCursor` whose `select` is a sub-select wrapping the
-entire relation function output. All subsequent filter / project / sort operations
-are applied on top of this sub-select.
-
-### 8.2 `processGetAll` dispatch
-
-`processGetAll` handles the initial `getAll()` call for any set implementation
-type. For RF sets, the `OperationSetImplementation` arm now uses
-`InstanceSetImplementation` (the common supertype) and dispatches per leaf:
+A `ModuleExtension` subtype that stores register to teach the PK inferencer
+about their leaf accessors:
 
 ```
-let processSingleSetImpl = {r: InstanceSetImplementation[1] |
-    r->match([
-        rr: RootRelationalInstanceSetImplementation[1]
-            → processGetAll($rr, ...),
-        rf: RelationFunctionInstanceSetImplementation[1]
-            → processRelationFunctionClassMapping($rf, ...)
+Class meta::pure::mapping::relation::RelationElementAccessorExtension extends ModuleExtension
+[
+   $this.module == meta::pure::mapping::relation::relationElementAccessorModuleExtensionName()
+]
+{
+   instancePrimaryKeyResolver : Function<{InstanceValue[1], Extension[*]->String[*]}>[1];
+}
+```
+
+The relational store registers one in `helperFunctions.pure`'s
+`syntheticRelationalAccessorExtension`:
+
+```
+instancePrimaryKeyResolver = {iv: InstanceValue[1], ext: Extension[*] |
+    $iv.values->map(v | $v->match([
+        rsa: meta::pure::store::RelationStoreAccessor<Any>[1]
+            → $rsa.sourceElement->meta::relational::mapping::tablePrimaryKeyLeaf(),
+        a: Any[*] → []
+    ]))->cast(@String)
+}
+```
+
+`tablePrimaryKeyLeaf` reads PK column names from `Table.primaryKey` or
+`View.primaryKey`.
+
+### 8.2 Top-level entry points
+
+```
+resolveRelationFunctionPrimaryKey(r, explicitColumnNames, extensions): Column<Nil,Any|*>[*]
+    let pkNames = if($explicitColumnNames->isEmpty(),
+        | $r->resolveRelationFunctionPrimaryKeyColumnNames($extensions),
+        | $explicitColumnNames);
+    let cols = $r->extractRelationColumns();
+    $pkNames->map(name | $cols->filter(c | $c.name == $name)->first());
+
+extractRelationColumns(r): Column<Nil,Any|*>[*]
+    // Reads the Column list off the last-expression RelationType, or [] if Relation<Any>.
+```
+
+### 8.3 Recursive body walker — `inferPrimaryKeyColumnNames`
+
+```
+inferPrimaryKeyColumnNames(vs, extensions)
+    $vs->match([
+        iv:  InstanceValue[1] |
+            // Delegate to every registered RelationElementAccessorExtension,
+            // flatten results (non-handling resolvers return []; composite PKs survive).
+            $extensions.moduleExtensions
+                ->filter(m | $m->instanceOf(RelationElementAccessorExtension))
+                ->cast(@RelationElementAccessorExtension)
+                ->map(ext | $ext.instancePrimaryKeyResolver->eval($iv, $extensions))
+                ->cast(@String),
+        cvs: ClusteredValueSpecification[1] |
+            $cvs.val->inferPrimaryKeyColumnNames($extensions),
+        fe:  SimpleFunctionExpression[1] |
+            $fe->inferPrimaryKeyColumnNamesFromFunctionExpression($extensions),
+        a:   Any[*] | []
     ])
-};
+```
 
-o: OperationSetImplementation[1]
-    let setImpls = o->resolveOperation($state.mapping)->cast(@InstanceSetImplementation);
-    if(setImpls->size() == 1,
-        processSingleSetImpl->eval(setImpls->at(0)),
-        buildUnion(setImpls, ...) // > 1 leaf → union
+### 8.4 Platform relation operators — `inferPrimaryKeyColumnNamesFromFunctionExpression`
+
+User-defined helpers are inlined (recurse into the body). Platform relation
+operators are handled by name; behaviour:
+
+| Operator | Result |
+|----------|--------|
+| `filter`, `limit`, `drop`, `slice`, `sort`, `extend(*)`, `select` (no arg), `distinct` (no arg) | leftPK |
+| `select(colSpec)`, `select(colSpecArray)` | leftPK ∩ projected cols (`applySelectToPK`) |
+| `rename(oldSpec, newSpec)` | leftPK with old→new name substitution (`applyRenameToPK`) |
+| `distinct(colSpecArray)` | the distinct-by cols |
+| `groupBy(cols, aggs...)` | group cols |
+| `aggregate(aggs...)` | `[]` |
+| `join(l, r, INNER | LEFT, cond)` | leftPK ∪ rightPK — `JoinKind` extracted from either `InstanceValue` or `extractEnumValue` SFE |
+| `join(l, r, RIGHT | FULL | unknown, cond)` | `[]` |
+| `asOfJoin(l, r, ...)` | leftPK ∪ rightPK |
+| anything else | `[]` |
+
+---
+
+## 9. SQL Generation
+
+### 9.1 `processRelationFunctionClassMapping`
+
+The central entry point for `getAll` on a Relation-backed class:
+
+```
+processRelationFunctionClassMapping(r, vars, state, milestoningContext, joinType, nodeId, context, extensions)
+    // 1. Auto-infer PK if not set at compile time
+    let resolved = if($r.primaryKey->isEmpty(),
+        | let pkCols = $r->resolveRelationFunctionPrimaryKey([], $extensions);
+          ^$r(primaryKey = $pkCols),
+        | $r);
+
+    // 2. Route the relation function so its expressionSequence carries a
+    //    StoreClusteredValueSpecification / ClusteredValueSpecification.
+    let routedRelationFunction = $resolved
+        ->potentiallyRouteRelationFunctionSet($state.mapping->toOne(), $extensions)
+        ->cast(@RelationFunctionInstanceSetImplementation).relationFunction;
+
+    // 3. Evaluate the (routed) body to a SelectSQLQuery-carrying cursor.
+    let relationExpression = $routedRelationFunction.expressionSequence
+        ->evaluateAndDeactivate()->at(0)->cast(@ClusteredValueSpecification).val;
+    let newCursor = ^SelectWithCursor(select = ^SelectSQLQuery(), milestoningContext = $milestoningContext);
+    let newState  = defaultState($state.mapping, $state.inScopeVars, $state.idToClassMapping);
+    let cursor    = $relationExpression->processValueSpecification(
+                        [], $newCursor, $vars, $newState,
+                        $joinType, $nodeId, ^List<ColumnGroup>(), $context, $extensions
+                    )->toOne()->cast(@SelectWithCursor);
+
+    // 4. Wrap in a sub-select so subsequent filter/project/sort operate on the
+    //    materialised relation output.
+    let newSelect = $cursor.select->moveSelectQueryToSubSelect(
+                       $cursor.currentTreeNode, [], $nodeId, $context, $extensions);
+    ^$cursor(select = $newSelect, currentTreeNode = $newSelect.data);
+```
+
+### 9.2 `processGetAll` dispatch
+
+```
+processGetAll(expression, setImplementation, parameters, vars, state, joinType, nodeId, context, extensions)
+    let processSetImpl = {r: InstanceSetImplementation[1] |
+        $r->match([
+            rr: RootRelationalInstanceSetImplementation[1]  → processGetAll($rr, $rr.class, ...),
+            rf: RelationFunctionInstanceSetImplementation[1] →
+                let mc = getMilestoningContextForAll(...);
+                processRelationFunctionClassMapping($rf, $vars, $state, $mc, ...)
+        ])
+    };
+
+    $setImplementation->match([
+        r:  RootRelationalInstanceSetImplementation[1] | $processSetImpl->eval($r),
+        r:  RelationFunctionInstanceSetImplementation[1]  | processRelationFunctionClassMapping($r, ...),
+        r:  CrossSetImplementation[1]                     | ... placeholder ...,
+        o:  OperationSetImplementation[1] |
+            let setImpls = $o->resolveOperation($state.mapping->toOne())->cast(@InstanceSetImplementation);
+            if($setImpls->size() == 1,
+                | $processSetImpl->eval($setImpls->at(0)),
+                | buildUnion($setImpls, ..., $milestoningContext, ..., $context, $extensions)
+                  ... build unionBase alias + expanded columns ...
+            )
+    ])
+```
+
+### 9.3 RFPM → downstream PM synthesis (`transformRelationFunctionPropertyMappingToRelational`)
+
+Property navigation eventually reaches a `RelationFunctionPropertyMapping`. It
+is transformed to a downstream `RelationalPropertyMapping` or semi-structured
+variant just-in-time by `transformRelationFunctionPropertyMappingToRelational`.
+
+#### Step 1 — synthetic RF cursor with placeholder TACs
+
+```
+buildSyntheticRfCursor(cm)
+    let allCols = $cm->extractRelationColumns();
+    let rfColumns = $allCols->map(c |
+        let colType = $c.classifierGenericType.typeArguments->at(1).rawType->toOne();
+        ^RelationFunctionColumn(
+            column = $c,
+            name   = $c.name->toOne()->addQuotesIfNecessary(),
+            type   = pureTypeToDataType($colType)->toOne()
+        )
+    );
+    let rfRelation = ^RelationFunction(owner = $cm, columns = $rfColumns);
+    let rfAlias    = ^TableAlias(name = $cm.id, relationalElement = $rfRelation);
+    let rfNode     = ^RootJoinTreeNode(alias = $rfAlias);
+    ^SelectWithCursor(select = ^SelectSQLQuery(data = $rfNode), currentTreeNode = $rfNode)
+```
+
+#### Step 2 — bind `$src`, evaluate, detect variant
+
+```
+evaluateRfpmValueFn(pm, oldSrcOperation, state, ...)
+    let cm  = $state->getClassMappingById($pm.sourceSetImplementationId)
+                     ->toOne()->cast(@RelationFunctionInstanceSetImplementation);
+    let syntheticCursor = buildSyntheticRfCursor($cm);
+
+    // The lambda's formal parameter name (conventionally `src`, but user-renamable)
+    // is read off the lambda's FunctionType via updateFunctionParamScope.
+    let lambdaFnType = $pm.valueFn.classifierGenericType.typeArguments.rawType->toOne()->cast(@FunctionType);
+    let evalState    = ^$state(inFilter = false);
+    let stateWithSrc = $evalState->updateFunctionParamScope($lambdaFnType, $syntheticCursor);
+
+    let rhsBody   = $pm.valueFn.expressionSequence->evaluateAndDeactivate()->last()->toOne();
+    let resultSwc = $rhsBody->processValueSpecification(
+                       $pm, $syntheticCursor, newMap([]), $stateWithSrc,
+                       $joinType, $nodeId, $aggFromMap, $context, $extensions
+                    )->cast(@SelectWithCursor);
+
+    ^RfpmValueFnResult(
+        relop     = $resultSwc.select.columns->toOne(),
+        isVariant = $rhsBody->expressionTouchesVariant($stateWithSrc)
     )
 ```
 
-### 8.3 `processPropertyMapping` — enumeration push-down
+The resulting `relop` is a tree whose leaves are placeholder `TableAliasColumn`s
+carrying `RelationFunctionColumn`s with an empty `column.owner`. Those
+placeholders get resolved against the real source at column-navigation time (see
+§9.4).
 
-When any property mapping in scope carries an `EnumerationMapping` transformer,
-the state flag `pushDownEnumTransformations = true` is set before dispatch.
-
-`RelationFunctionPropertyMapping` nodes are normalised to `RelationalPropertyMapping`
-first:
+#### Step 3 — dispatch by binding / variant / target type
 
 ```
-let normalizedPM = propertyMapping->map(pm | pm->match([
-    rf: RelationFunctionPropertyMapping[1]
-        → rf->transformRelationPropertyMappingsToRelational(
-              $state->getClassMappingById(rf.sourceSetImplementationId)
-                    ->cast(@RelationFunctionInstanceSetImplementation))
-           ->cast(@PropertyMapping),
-    pm: PropertyMapping[1] → pm
+transformRelationFunctionPropertyMappingToRelational(pm, oldSrcOperation, state, ...)
+    let cm        = $state->getClassMappingById($pm.sourceSetImplementationId)->toOne()
+                              ->cast(@RelationFunctionInstanceSetImplementation);
+    let isBinding = $pm.transformer->isNotEmpty() && $pm.transformer->toOne()->instanceOf(BindingTransformer);
+    let rhs       = evaluateRfpmValueFn($pm, $oldSrcOperation, $state, ...);
+
+    if($isBinding,
+        | // Mode 1 — Binding: target is always the property's return type (a Class).
+          let targetClass = $pm.property->functionReturnType().rawType->toOne()->cast(@Class<Any>);
+          buildSsEmbeddedSetForRfpm($pm, $cm, $targetClass, $rhs.relop);,
+        | // Mode 2 — Lift: dispatch by variant-ness / target type.
+          buildRelationalPropertyMappingForRfpm($pm, $cm, $rhs)
+    )
+
+// Mode-2 dispatcher (variant-ness × target-type)
+buildRelationalPropertyMappingForRfpm(pm, cm, rhs)
+    assertRfpmTargetTypeSupported($pm);
+    let propType = $pm.property.genericType.rawType->toOne();
+    if(!$rhs.isVariant,
+        | buildRelationalPropertyMappingForRfpm($pm, $rhs.relop),                   // plain RPM
+        | if($propType->instanceOf(Class),
+            | buildSsEmbeddedSetForRfpm($pm, $cm, $propType->cast(@Class<Any>), $rhs.relop),   // SS-embedded
+            | buildSsRelationalPropertyMappingForRfpm($pm, $rhs.relop)                          // SS-RPM
+        )
+    )
+```
+
+Downstream flavours:
+
+- **`RelationalPropertyMapping`** — for non-variant valueFn bodies. Standard
+  relational chain, transformer flows through.
+- **`SemiStructuredEmbeddedRelationalInstanceSetImplementation`** — for
+  Binding-bearing RFPMs *and* for variant valueFn with a Class target.
+  Constructed via `buildSsEmbeddedSetForRfpm`, backed by a dummy
+  `RootRelationalInstanceSetImplementation` (`buildRfpmDummyRootSet`) — needed
+  because downstream code (`setMappingOwner` lookups, PK resolution) expects the
+  parent slot to be Root-typed.
+- **`SemiStructuredRelationalPropertyMapping`** — for variant valueFn whose
+  target is a primitive / Enumeration / `Variant`.
+- **Rejected**: structural containers `Map`, `List`, `Pair` are Classes but
+  unsupported (`assertRfpmTargetTypeSupported` hard-fails).
+
+### 9.4 Placeholder-TAC resolution
+
+`resolveTableAliasColumn` recognises placeholder `RelationFunctionColumn`s by
+checking `column.owner->isEmpty()`. When the current tree node's relational
+element is a `SelectSQLQuery`, it either reuses an existing matching column or
+adds the placeholder as a projected column of the outer select and returns a
+new `TableAliasColumn` bound to the outer alias.
+
+```
+let isPlaceholderMatch = $column->instanceOf(RelationFunctionColumn) && $column.owner->isEmpty();
+if($foundColumn->isNotEmpty() && ($isPlaceholderMatch || $column.owner == $foundColumnOwner),
+    | // reuse the found column
+      pair($srcOperation, ^$column(name = $foundColumn->toOne()->extractColumnName())),
+    | // add to nested select
+      $t->addMissingColumnToNestedSelect($s, $column, ...)
+)
+```
+
+### 9.5 Variant detection — `isVariantInput` / `expressionTouchesVariant`
+
+Located in `pureToSQLQuery_variant.pure`. In addition to matching against the
+value spec's generic type, `isVariantInputImpl` recognises RFPM column accessors
+that resolve to `SemiStructured` / `Object` / `Array` on a placeholder
+`RelationFunction`, flagging the expression as variant-touching without
+requiring the property to be typed as `Variant`.
+
+### 9.6 PK auto-inference at execution boundary
+
+Certain call sites re-check PK resolution just before it is needed, using
+`ensureRelationFunctionPrimaryKeyResolved`:
+
+```
+if($f.parametersValues->at(0)->cast(@StoreMappingRoutedValueSpecification).sets->toOne()
+       ->instanceOf(RelationFunctionInstanceSetImplementation),
+    | let rs = $f.parametersValues->at(0)->cast(@StoreMappingRoutedValueSpecification).sets->toOne()
+                  ->cast(@RelationFunctionInstanceSetImplementation)
+                  ->meta::relational::mapping::ensureRelationFunctionPrimaryKeyResolved($extensions);
+      ...
+);
+```
+
+---
+
+## 10. Union SQL generation (`pureToSQLQuery_union.pure`)
+
+`buildUnion` accepts `InstanceSetImplementation[*]` and dispatches per-leaf:
+
+```
+let simpleAllQueries = $setImpls->map(r | $r->match([
+    rr: RootRelationalInstanceSetImplementation[1] |
+        processGetAll($rr, $rr.class, $joinType, $nodeId, ...),
+    rf: RelationFunctionInstanceSetImplementation[1] |
+        let swc = processRelationFunctionClassMapping($rf, newMap([]), ^$state(importDataFlowAddFks=false),
+                                                       $milestoningContext, $joinType, $nodeId, ...);
+        ^$swc(currentTreeNode = $swc.select.data)
 ]));
-
-let normalizedState = if(propertyMapping->exists(pm | pm->match([
-    rf: RelationFunctionPropertyMapping[1] → rf.transformer->isNotEmpty(),
-    pm: PropertyMapping[1]                 → false])),
-    ^$state(pushDownEnumTransformations=true),
-    $state);
 ```
 
-`getEnumPropMappingTransformer` extracts the transformer from either
-`RelationalPropertyMapping` or `RelationFunctionPropertyMapping`:
+**Milestoning columns.** RF leaves return an empty column list (no physical
+table to inspect):
 
 ```
-getEnumPropMappingTransformer(pm)
-    pm->toOne()->match([
-        rpm:  RelationalPropertyMapping[1]         → rpm.transformer,
-        rfpm: RelationFunctionPropertyMapping[1]   → rfpm.transformer
-    ])
-```
-
-### 8.4 Embedded property resolution in SQL
-
-When a query traverses `$x.address.city`, the router calls `findPropertyMapping`
-which dispatches through the `EmbeddedRelationFunctionSetImplementation` arm (see
-§6.6). The result is always a `RelationalPropertyMapping` with a `TableAliasColumn`
-referencing a `RelationFunctionColumn` on the sub-select alias.
-
-No special SQL generation path is needed for embedded properties: once
-`findPropertyMapping` returns a `RelationalPropertyMapping`, the standard
-`processRelationalPropertyMapping` path handles it.
-
-### 8.5 Union SQL generation (`pureToSQLQuery_union.pure`)
-
-**`buildUnion` signature relaxed:**
-
-```
-// OLD
-buildUnion(setImpls: RootRelationalInstanceSetImplementation[*], ...)
-
-// NEW
-buildUnion(setImpls: InstanceSetImplementation[*], ...)
-```
-
-**Per-leaf query construction:**
-
-```
-let simpleAllQueries = setImpls->map(r | r->match([
-    rr: RootRelationalInstanceSetImplementation[1]
-        → processGetAll($rr, $rr.class, ...),
-    rf: RelationFunctionInstanceSetImplementation[1]
-        → let swc = processRelationFunctionClassMapping($rf, newMap([]), ...);
-           ^$swc(currentTreeNode = swc.select.data)
+let milestoningColumns = $setImpls->map(s | $s->match([
+    rr: RootRelationalInstanceSetImplementation[1] |
+        $rr.mainTableAlias.relationalElement->findMainNamedRelation()
+            ->match([t: Table[1] | $t.milestoning->getAllTemporalColumns(),
+                     r: NamedRelation[1] | ^List<Column>(values=[])]),
+    rf: RelationFunctionInstanceSetImplementation[1] | ^List<Column>(values=[])
 ]));
 ```
 
-**Milestoning columns** — RF leaves return empty milestoning column lists (no
-physical table):
+**Column expansion for non-merge-compatible unions.** When joins cannot be
+merged, per-leaf columns are synthesised from the leaf's already-materialised
+`SelectSQLQuery.columns`:
 
 ```
-let milestoningColumns = setImpls->map(s | s->match([
-    rr: RootRelationalInstanceSetImplementation[1]
-        → rr.mainTableAlias.relationalElement->findMainNamedRelation()->match([
-              t: Table[1]         → t.milestoning->getAllTemporalColumns(),
-              r: NamedRelation[1] → ^List<Column>(values=[])
-          ]),
-    rf: RelationFunctionInstanceSetImplementation[1]
-        → ^List<Column>(values=[])
-]));
-```
-
-**Column expansion** for non-merge-compatible unions (when joins cannot be simply
-merged). RF leaves synthesise columns from the `SelectSQLQuery`'s existing
-`Alias` list:
-
-```
-let allColumns = setImpl->match([
-    rr: RootRelationalInstanceSetImplementation[1]
-        → rr->mainRelation().columns->cast(@Column),
-    rf: RelationFunctionInstanceSetImplementation[1]
-        → q.data->toOne().alias.relationalElement->match([
-              s: SelectSQLQuery[1]
-                  → s.columns->cast(@Alias)->map(a |
-                      ^Column(name=a.name,
-                               type=^meta::relational::metamodel::datatype::Integer())),
-              o: RelationalOperationElement[1] → []->cast(@Column)
-          ])
+let allColumns = $setImpl->match([
+    rr: RootRelationalInstanceSetImplementation[1] | $rr->mainRelation().columns->cast(@Column),
+    rf: RelationFunctionInstanceSetImplementation[1] |
+        $q.data->toOne().alias.relationalElement->match([
+            s: SelectSQLQuery[1] |
+                $s.columns->cast(@Alias)->map(a | ^Column(name = $a.name,
+                                                          type = ^meta::relational::metamodel::datatype::Integer())),
+            o: RelationalOperationElement[1] | []->cast(@Column)
+        ])
 ]);
 ```
 
-**`managePrimaryKeys` signature relaxed:**
+**Target-side normalisation.** When building the union target, the state-
+resolved set is normalised down to `RootRelationalInstanceSetImplementation` or
+`RelationFunctionInstanceSetImplementation`:
 
 ```
-// OLD: managePrimaryKeys(allQueries, setImpls: RootRelationalInstanceSetImplementation[*], ...)
-// NEW: managePrimaryKeys(allQueries, setImpls: InstanceSetImplementation[*], ...)
+let normalizedSet = $set->toOne()->match([
+    r:   RootRelationalInstanceSetImplementation[1]     | $r,
+    e:   EmbeddedRelationalInstanceSetImplementation[1] | $e.setMappingOwner,
+    erf: EmbeddedRelationFunctionSetImplementation[1]   | $erf.owner,
+    rf:  RelationFunctionInstanceSetImplementation[1]   | $rf,
+    a:   OperationSetImplementation[*]                  | fail(...),
+    s:   SetImplementation[1]                           | fail(...)
+])->cast(@InstanceSetImplementation)->toOne();
+assert($normalizedSet->instanceOf(RootRelationalInstanceSetImplementation)
+       || $normalizedSet->instanceOf(RelationFunctionInstanceSetImplementation), ...);
 ```
 
-**`findUnionPropertyMapping`** — extended with an RF arm:
+For a single-leaf target the union simply invokes
+`processRelationFunctionClassMapping` (or the relational equivalent); >1
+leaves recurse into `buildUnion`.
+
+**FK discovery.** `findFkListForEachSet` walks each set's `allPropertyMappings`
+and pulls PK-related `TableAliasColumn`s. For RF sets, aliases are filtered by
+`RelationFunction.owner == rf`. For embedded sets that own a RF parent, the
+walker descends through `EmbeddedRelationFunctionSetImplementation → owner`.
+
+**Same-relation equality.** `isSameRelation` treats two `RelationFunction`s as
+identical when their `owner` sets are the same.
+
+**Unique-name generation.** `buildUniqueName` has an arm for `RelationFunction`:
 
 ```
-rf: RelationFunctionInstanceSetImplementation[1] → rf.id
+rf: RelationFunction[1] | 'rf(' + $rf.owner.id + ')'
 ```
 
-**`buildUniqueName`** — extended with an RF arm:
+**Union property mapping resolution** (`findUnionPropertyMapping`) — the state-
+based lookup handles RF sets and RF embedded sets:
 
 ```
-rf: RelationFunction[1] → 'rf(' + rf.owner.id + ')'
+$state->getClassMappingById($r.sourceSetImplementationId)->match([
+    r:   RootRelationalInstanceSetImplementation[1]   | $r,
+    e:   EmbeddedRelationalInstanceSetImplementation[1] | $e.setMappingOwner,
+    erf: EmbeddedRelationFunctionSetImplementation[1] | $erf.owner->toOne()->cast(@RelationFunctionInstanceSetImplementation),
+    rf:  RelationFunctionInstanceSetImplementation[1] | $rf
+])
 ```
 
 ---
 
-## 9. Decision Cheat-sheet
+## 11. Composer (`DEPRECATED_PureGrammarComposerCore`)
 
-| Question | Answer | Where |
-|----------|--------|-------|
-| What type of expression can `~func` reference? | Any Pure function returning `Relation<Any>[1]` — table accessors (`#>{db.t}#`), Pure functions, SQL-generating expressions | Grammar §1.3 |
-| When should I omit `~primaryKey`? | When the function returns a typed relation from a single table — the runtime infers PK from table metadata. Use `~primaryKey` for multi-table functions or when inference fails. | Compiler §5.3, SQL §8.1 |
-| Can I map multiple PK columns? | Yes: `~primaryKey: [COL1, COL2]` | Grammar §1.2 |
-| What property types are supported? | Primitives, Enums (with `EnumerationMapping`), complex types (with `Binding`). Collection properties (`[*]`) are not supported. | Compiler §5.4 |
-| How do I map an enum property? | Add `EnumerationMapping <id> : COLUMN_NAME` and declare the `EnumerationMapping` in the same `Mapping`. | Example §2.5, Compiler §5.4 |
-| Why does the compiler resolve the column type for enum properties? | `resolveRelationColumnTypeName` walks up to the owning RF set and reads the `RelationType` columns. This allows the compiler to verify type compatibility. | Compiler §5.4 |
-| Why is `transformer` explicitly copied in `transformRelationPropertyMappingsToRelational`? | Without it, the `EnumerationMapping` attached by the compiler would be silently lost during the RF→Relational conversion. | Transformation §6.2 |
-| Normal vs inline embedded — when to use which? | Normal: all sub-object columns come from the same relation function. Inline: sub-object has its own independently-declared class mapping (possibly a different function). | Examples §2.6, §2.7 |
-| Can inline embedded use a different relation function? | Yes. The inline target set is fully independent and can declare its own `~func`. | Example §2.7 |
-| How does `$x.address.city` resolve in SQL? | Via `findPropertyMapping`'s `EmbeddedRelationFunctionSetImplementation` arm — direct child lookup for normal embedded, or `targetSetImplementationId` follow for inline. | Transformation §6.6 |
-| Can a `Relation` mapping participate in a `union`? | Yes. All leaves must resolve to the same store. The union infrastructure dispatches per-leaf to `processRelationFunctionClassMapping` or `processGetAll`. | Example §2.8, Router §7.1, SQL §8.5 |
-| Can I mix Relation and Relational leaves in a union? | Yes, as long as they share the same store. | Example §2.8 |
-| What happens to milestoning in a union with an RF leaf? | The RF leaf returns empty milestoning columns; temporal filtering is not applied to that branch. | SQL §8.5 |
-| Does embedded support `->isEmpty()` on a sub-property? | Yes — once `findPropertyMapping` resolves to a `RelationalPropertyMapping`, the standard relational `processIsEmpty` path handles it. | (standard relational path) |
-| Cross-store union? | Not supported. `->toOne()` on store deduplication in `storeContractForSetImplementation` enforces single-store constraint. | Router §7.1 |
-| How do local properties differ from class properties? | Local properties are declared with `+name: Type[mult]` in the mapping and exist only in the mapping scope — they do not modify the canonical Pure class. | Grammar §1.2, Example §2.3 |
+Round-trip serialisation writes back both source and RHS forms.
+
+**Class-mapping source:**
+
+```java
+if (classMapping.relationFunction != null)
+{
+    sourceLine = getTabString(...) + "~func " + classMapping.relationFunction.path + "\n";
+}
+else if (classMapping.sourceLambda != null)
+{
+    // sourceLambda wraps the inline expression in a zero-arg lambda, so we
+    // render the body directly (stripping the synthetic `|` prefix).
+    sourceLine = getTabString(...) + "~src " + renderRelationLambdaBody(classMapping.sourceLambda) + "\n";
+}
+```
+
+**Property RHS:**
+
+```java
+String rhs = propertyMapping.valueFn != null
+                ? renderRelationLambdaBody(propertyMapping.valueFn)
+                : PureGrammarComposerUtility.convertIdentifier(propertyMapping.column, ...);
+return renderPossibleLocalMappingProperty(propertyMapping)
+     + (propertyMapping.bindingTransformer != null ? ": Binding " + ... + " " : "")
+     + (propertyMapping.enumMappingId      != null ? ": EnumerationMapping " + ... + " " : "")
+     + ": " + rhs;
+```
+
+**Embedded property:**
+
+```java
+if (propertyMapping.id != null && propertyMapping.propertyMappings.isEmpty())
+    return propertyMapping.property.property + " () Inline [" + propertyMapping.id + "]";
+else
+    return propertyMapping.property.property + "\n(...)"
+```
+
+`renderRelationLambdaBody` renders a single-expression lambda body directly (no
+`|`); falls back to the full lambda visitor for multi-expression bodies.
 
 ---
 
-## 10. Authoritative File Map
+## 12. Protocol transfer (`vX_X_X/transfers/mapping.pure`)
+
+The engine-side JSON protocol carries `~func` and `~src` as two mutually
+exclusive nullable fields, and `column`/`valueFn` similarly. Transfer between
+the compiled Pure metamodel (which only has `_relationFunction` typed
+`FunctionDefinition` and `_valueFn` typed `LambdaFunction`) and the protocol:
+
+**Class mapping — Pure → protocol:**
+
+```
+transformRelationFunctionInstanceSetImplementation(r, mapping, extensions)
+    ^RelationFunctionClassMapping(
+        ...,
+        relationFunction = $r.relationFunction->match([
+            c: ConcreteFunctionDefinition<Any>[1] |
+                ^PackageableElementPointer(type = FUNCTION, path = $c->elementToPath()),
+            any: FunctionDefinition<Any>[1] | []
+        ]),
+        sourceLambda = $r.relationFunction->match([
+            c: ConcreteFunctionDefinition<Any>[1] | [],
+            l: LambdaFunction<Any>[1]             | $l->transformLambda($extensions)
+        ]),
+        propertyMappings = $r.propertyMappings->map(pm | $pm->transformRelationFunctionPropertyMapping(...)),
+        primaryKey = $r.primaryKey.name
+    )
+```
+
+**Property mapping — Pure → protocol:** always emits `valueFn` (never `column`).
+SecondPass has already lowered bare-column authoring to `{$src.<col>}`, so the
+round-trip is lossless and avoids brittle pattern-matching to recover the
+sugar form:
+
+```
+r: meta::pure::mapping::relation::RelationFunctionPropertyMapping[1] |
+    ^RelationFunctionPropertyMapping(
+        _type    = 'relationFunctionPropertyMapping',
+        property = ...,
+        valueFn  = $r.valueFn->transformLambda($extensions),
+        source   = $r.sourceSetImplementationId,
+        target   = $r.targetSetImplementationId,
+        enumMappingId = $r.transformer->cast(@EnumerationMapping<Any>).name,
+        localMappingProperty = ...
+    )
+```
+
+**Embedded property mapping — Pure → protocol:** picks
+`InlineEmbeddedRelationFunctionPropertyMapping` (empty `propertyMappings`) or
+`EmbeddedRelationFunctionPropertyMapping` (populated).
+
+---
+
+## 13. Decision Cheat-sheet
+
+| Question | Answer |
+|----------|--------|
+| Difference between `~func` and `~src`? | `~func` references an existing Pure function by descriptor; `~src` inlines a zero-arg expression that evaluates to `Relation<Any>`. The compiler treats both uniformly after wrapping `~src` in a synthetic lambda. |
+| What property RHS forms are supported? | Bare column identifier (lowered to `{$src.<col>}`) or a full Pure expression over `$src`. |
+| When should I omit `~primaryKey`? | When the function body's leaf accessor is a table/view your store's `RelationElementAccessorExtension` knows about, and the operator chain preserves PK (see §8). Add an explicit `~primaryKey` when the body is opaque or transforms columns the operator table doesn't cover. |
+| Can I map multiple PK columns? | Yes: `~primaryKey: [COL1, COL2]` |
+| Property types supported? | Primitives, Enumerations (with `EnumerationMapping`), `Variant`, and complex `Class` types (with `Binding` for binding-style, or a variant-touching valueFn for lift-style). Collection multiplicities (`[*]`) on the property are supported when the valueFn body's multiplicity is subsumed by the property's declared multiplicity. |
+| What property types are explicitly rejected? | Structural containers `Map`, `List`, `Pair` (they are Classes but unsupported by RFPM lift). |
+| Where does multiplicity/type validation happen? | `MappingValidator.validateRelationFunctionClassMapping` — after SecondPass has built `_valueFn` and the type inferencer has run. Skipped for the transformer case. |
+| How is an enum property compiled? | The property's `_valueFn` is built with body `{$src.<col>}`; the `EnumerationMapping` is attached as `_transformer`. Enum push-down runs during property processing. |
+| Normal vs inline embedded — when to use which? | Normal: all sub-object columns come from the same relation function. Inline: sub-object has its own independently-declared class mapping (possibly a different function). |
+| Can inline embedded use a different relation function? | Yes. The inline target set is fully independent and can declare its own `~func` / `~src`. |
+| How does `$x.address.city` resolve at execution time? | Via `findPropertyMapping`'s `EmbeddedRelationFunctionSetImplementation` arm — direct child lookup for normal embedded; `_classMappingByIdRecursive` for inline embedded. Router-time normalisation of inline embedded happens in `inlineEmbeddedRelationFunctionMapping`. |
+| Can a `Relation` mapping participate in a `union`? | Yes. All leaves must resolve to the same store. `buildUnion` dispatches per-leaf to `processRelationFunctionClassMapping` or `processGetAll`. |
+| Can I mix Relation and Relational leaves in a union? | Yes, as long as they share the same store. |
+| What happens to milestoning columns in a union with an RF leaf? | The RF leaf contributes an empty milestoning column list; temporal filtering is not applied to that branch. |
+| Cross-store union? | Not supported. `->toOne()` on store deduplication in `storeContractForSetImplementation` enforces single-store. |
+| How does semi-structured / variant lift work? | `transformRelationFunctionPropertyMappingToRelational` evaluates the property's `valueFn` against a **synthetic RF cursor** with placeholder columns, detects variant-ness, then synthesises one of `RelationalPropertyMapping` (non-variant), `SemiStructuredEmbeddedRelationalInstanceSetImplementation` (variant + Class or Binding), or `SemiStructuredRelationalPropertyMapping` (variant + primitive/Variant). Placeholder TACs are resolved against the outer source at column-navigation time. |
+| How do local properties differ from class properties? | Local properties are declared with `+name: Type[mult]` in the mapping and exist only in the mapping scope — they do not modify the canonical Pure class. |
+| Round-tripping — will my bare-column authoring survive? | The protocol always emits `valueFn`. The composer will render the lowered `$src.<col>` form on the round-trip. Semantics are preserved; the surface syntax may change from `col` to `$src.col`. |
+
+---
+
+## 14. Authoritative File Map
 
 | Concern | Key files |
 |---------|-----------|
-| Lexer / Parser | `RelationFunctionMappingLexerGrammar.g4`, `RelationFunctionMappingParserGrammar.g4` |
+| Lexer / Parser grammars | `RelationFunctionMappingLexerGrammar.g4`, `RelationFunctionMappingParserGrammar.g4` |
 | Parse-tree walker | `RelationFunctionMappingParseTreeWalker.java` |
+| Grammar composer | `DEPRECATED_PureGrammarComposerCore.java` |
 | Protocol POJOs | `RelationFunctionClassMapping.java`, `RelationFunctionPropertyMapping.java`, `RelationFunctionEmbeddedPropertyMapping.java` |
-| Compiler — class mapping | `ClassMappingFirstPassBuilder.java`, `ClassMappingSecondPassBuilder.java`, `ClassMappingThirdPassBuilder.java` |
+| Compiler — prerequisite / first / second / third passes | `ClassMappingPrerequisiteElementsPassBuilder.java`, `ClassMappingFirstPassBuilder.java`, `ClassMappingSecondPassBuilder.java`, `ClassMappingThirdPassBuilder.java` |
 | Compiler — property mappings | `PropertyMappingBuilder.java` |
+| Compiler — bare-column matcher | `RelationFunctionPropertyMappingTools.java` |
 | Compiler — validation | `MappingValidator.java` |
-| Transformation (Pure) | `core_relational/relational/helperFunctions/helperFunctions.pure` |
-| SQL generation | `core_relational/relational/pureToSQLQuery/pureToSQLQuery.pure` |
+| Primary-key inference (Pure) | `core/pure/mapping/relationFunctionMapping.pure` |
+| Runtime helpers / PK synthesis | `core_relational/relational/helperFunctions/helperFunctions.pure` |
+| SQL metamodel additions | `core_relational/relational/pureToSQLQuery/metamodel.pure` (`RelationFunction`, `RelationFunctionColumn`) |
+| Main SQL generation | `core_relational/relational/pureToSQLQuery/pureToSQLQuery.pure` |
+| Variant / semi-structured SQL generation | `core_relational/relational/pureToSQLQuery/pureToSQLQuery_variant.pure` |
 | Union SQL generation | `core_relational/relational/pureToSQLQuery/pureToSQLQuery_union.pure` |
-| Routing | `core/pure/router/store/cluster.pure`, `core/pure/router/store/routing.pure` |
+| Routing / store contract | `core/pure/router/store/cluster.pure`, `core/pure/router/store/routing.pure` |
+| Inline-embedded resolution | `core/pure/mapping/mappingExtension.pure` |
+| Protocol transfer (Pure ↔ engine) | `core/pure/protocol/vX_X_X/models/dsl/mapping.pure`, `core/pure/protocol/vX_X_X/transfers/mapping.pure` |
 
 ---
 
-## 11. Quick Reference: Call Graph
+## 15. Quick Reference: Call Graph
 
 ```
 PARSE
   CorePureGrammarParser.parseRelationFunctionClassMapping
   └── RelationFunctionMappingParseTreeWalker.visitRelationFunctionClassMapping
-        ├── visitPropertyMapping
-        │     ├── visitRelationFunctionPropertyMapping     (column + optional transformer)
-        │     ├── visitRelationFunctionEmbeddedPropertyMapping    (normal, recursive)
-        │     └── visitInlineRelationFunctionEmbeddedPropertyMapping  (inline, id only)
-        └── primaryKey[] parsed from context
+        ├── relationSource:
+        │     ├── RELATION_FUNC → PackageableElementPointer
+        │     └── RELATION_SRC  → visitInlineExpressionAsLambda → LambdaFunction (body=[expr], parameters=[])
+        ├── primaryKey[] parsed from context (empty if omitted)
+        └── visitPropertyMapping
+              ├── visitRelationFunctionPropertyMapping
+              │     ├── identifier    → propertyMapping.column
+              │     └── combinedExpression → visitInlineExpressionAsLambda → propertyMapping.valueFn
+              ├── visitRelationFunctionEmbeddedPropertyMapping    (normal, recursive)
+              └── visitInlineRelationFunctionEmbeddedPropertyMapping  (inline, id only)
 
-COMPILE  (3 passes)
+COMPILE (4 passes)
+  ClassMappingPrerequisiteElementsPassBuilder.visit(RelationFunctionClassMapping)
+  └── declares CLASS + (~func only) FUNCTION as prerequisites
+
   ClassMappingFirstPassBuilder.visit(RelationFunctionClassMapping)
   └── creates RelationFunctionInstanceSetImplementation
       └── PropertyMappingBuilder.visit(RelationFunctionPropertyMapping)
-            ├── multiplicity check
-            ├── type check → primitive / enum / binding
-            ├── resolveRelationColumnTypeName   (for enum: walk up to RF set, read RelationType)
-            └── attach EnumerationMapping / BindingTransformer as transformer
+            (skeleton only; _valueFn filled at SecondPass)
       └── PropertyMappingBuilder.visit(RelationFunctionEmbeddedPropertyMapping)
             ├── creates EmbeddedRelationFunctionSetImplementation
+            ├── rewrites sub-property `_class` pointers to embedded target class
             └── recursively compiles inner propertyMappings
 
   ClassMappingSecondPassBuilder.visit(RelationFunctionClassMapping)
-  └── resolves relationFunction by path
-      └── propagateRelationFunctionToEmbedded   (cascades to all embedded sets)
+  ├── resolves ~func by descriptor OR compiles ~src inline lambda
+  ├── attaches to setImpl._relationFunction
+  ├── validates return type is Relation<...>
+  ├── extracts srcType from last-expression RelationType
+  └── buildValueFunctionsForPropertyMappings
+        ├── for each RFPM: buildPropertyValueFn → compileRelationPropertyLambda → sets _valueFn
+        └── for each EmbeddedRFSet: propagates relationFunction; recurses
 
   ClassMappingThirdPassBuilder.visit(RelationFunctionClassMapping)
-  └── resolves ~primaryKey column names against RelationType
-      └── getRelationFunctionColumns            (reads last expression's type args)
+  └── resolves explicit ~primaryKey names against RelationType
+        └── getRelationFunctionColumns (reads last-expression type args)
 
-TRANSFORM  (helperFunctions.pure)
-  transformRelationFunctionClassMapping
-    ├── RelationFunctionPropertyMapping  → transformRelationPropertyMappingsToRelational
-    │     └── getTransformedRelationFunctionRelOp → TableAliasColumn (RelationFunctionColumn)
-    ├── EmbeddedSetImplementation        → transformRelationFunctionEmbeddedPropertyMapping
-    │     └── recursively transforms; inherits relationFunction from parent
-    └── other                            → pass-through
+VALIDATE (MappingValidator.validateRelationFunctionClassMapping)
+  ├── inline embedded id → exists as RelationFunctionClassMapping in same protocol Mapping
+  └── each RelationFunctionInstanceSetImplementation:
+        ├── zero-parameter function
+        ├── return type is Relation<...>
+        └── validateRelationFunctionPropertyMapping (recursive):
+              ├── body multiplicity subsumed by property multiplicity
+              └── body raw type subtype of property raw type (skipped when transformer present)
 
-  normalizeRelationFunctionEmbeddedMapping   (called in findPropertyMapping)
-  └── EmbeddedSetImplementation owned by RF set → transformRelationFunctionEmbeddedPropertyMapping
-
-  findPropertyMapping
-    ├── EmbeddedRelationalInstanceSetImplementation arm  (normalizes RF embedded first)
-    └── EmbeddedRelationFunctionSetImplementation arm   (direct lookup or inline target)
-
-ROUTE  (cluster.pure, routing.pure)
+ROUTE (cluster.pure, routing.pure)
   storeContractForSetImplementation
-    ├── RelationFunctionInstanceSetImplementation → reads store from relation function
-    ├── EmbeddedSetImplementation               → delegate to owner (new arm)
-    └── OperationSetImplementation (union)      → recursively resolve per-leaf
+    ├── RelationFunctionInstanceSetImplementation → store from routed function
+    ├── EmbeddedSetImplementation                 → delegate to owner
+    └── OperationSetImplementation (union)        → resolve per leaf; single-store enforced
 
-  potentiallyRouteSetImplementations
-    └── OperationSetImplementation              → also routes RF leaves via
-                                                  potentiallyRouteRelationFunctionSet
+  potentiallyRouteRelationFunctionSet (single-set)
+    ├── RelationFunctionInstanceSetImplementation → routes .relationFunction
+    ├── EmbeddedSetImplementation / InstanceSetImplementation → pass-through
+    └── OperationSetImplementation → recurse into leaves
 
-SQL GENERATION  (pureToSQLQuery.pure, pureToSQLQuery_union.pure)
+  potentiallyRouteRelationFunctionSets (class-level, called from processClass / processProperty)
+    ├── partitions RF vs non-RF sets
+    ├── routes unrouted RF sets via routeFunction; consults classMappingsByClass cache
+    ├── recurses OperationSetImplementation and EmbeddedRelationFunctionSetImplementation
+    └── updates classMappingsByClass cache
+
+PK INFERENCE (relationFunctionMapping.pure)
+  resolveRelationFunctionPrimaryKey
+    ├── explicit column names → intersect with RelationType columns
+    └── auto-infer → inferPrimaryKeyColumnNames on last expression
+          ├── InstanceValue                → all RelationElementAccessorExtension resolvers
+          ├── ClusteredValueSpecification  → recurse into .val
+          └── SimpleFunctionExpression     → inferPrimaryKeyColumnNamesFromFunctionExpression
+                (per-operator table: filter/limit/sort/…, select/rename, groupBy, join, etc.)
+
+SQL GENERATION (pureToSQLQuery.pure, pureToSQLQuery_variant.pure, pureToSQLQuery_union.pure)
   processRelationFunctionClassMapping
-    ├── auto-infer primaryKey if empty
+    ├── ensureRelationFunctionPrimaryKeyResolved (auto-infer PK if empty)
     ├── potentiallyRouteRelationFunctionSet
-    ├── evaluateAndDeactivate → ClusteredValueSpecification
-    ├── processValueSpecification → SelectWithCursor
+    ├── evaluate expressionSequence → ClusteredValueSpecification.val
+    ├── processValueSpecification against fresh SelectWithCursor
     └── moveSelectQueryToSubSelect → wrapped sub-select
 
-  processGetAll → dispatches RF sets to processRelationFunctionClassMapping
+  processGetAll
+    ├── RootRelationalInstanceSetImplementation → processGetAll
+    ├── RelationFunctionInstanceSetImplementation → processRelationFunctionClassMapping
+    └── OperationSetImplementation → single-leaf dispatch OR buildUnion
 
-  processPropertyMapping
-    ├── normalize RelationFunctionPropertyMapping → RelationalPropertyMapping
-    ├── set pushDownEnumTransformations=true if transformer present
-    └── getEnumPropMappingTransformer (works for both RPM and RFPM)
+  transformRelationFunctionPropertyMappingToRelational   (RFPM → downstream PM)
+    ├── evaluateRfpmValueFn
+    │     ├── buildSyntheticRfCursor (placeholder RelationFunctionColumns)
+    │     ├── bind $src via updateFunctionParamScope
+    │     ├── processValueSpecification against synthetic cursor
+    │     └── expressionTouchesVariant → RfpmValueFnResult
+    └── dispatch:
+          ├── Binding                    → SemiStructuredEmbeddedRelationalInstanceSetImplementation
+          ├── non-variant valueFn        → RelationalPropertyMapping
+          ├── variant + Class target     → SemiStructuredEmbeddedRelationalInstanceSetImplementation
+          └── variant + primitive target → SemiStructuredRelationalPropertyMapping
 
-  buildUnion  (pureToSQLQuery_union.pure)
-    ├── per-leaf dispatch: processGetAll (relational) OR processRelationFunctionClassMapping (RF)
+  resolveTableAliasColumn (invoked during column navigation)
+    └── detects placeholder RelationFunctionColumn (owner empty) → reuses or adds to outer select
+
+  buildUnion (InstanceSetImplementation[*])
+    ├── per-leaf: processGetAll (relational) OR processRelationFunctionClassMapping (RF)
     ├── milestoningColumns → [] for RF leaves
-    └── allColumns → synthesised from SelectSQLQuery.columns for RF leaves
-
-  managePrimaryKeys      → signature relaxed to InstanceSetImplementation[*]
-  findUnionPropertyMapping → new arm for RelationFunctionInstanceSetImplementation
-  buildUniqueName        → new arm for RelationFunction
+    ├── allColumns → synthesised from SelectSQLQuery.columns for RF leaves
+    ├── findFkListForEachSet: RF alias-filter for TableAliasColumns
+    ├── isSameRelation: RelationFunction equality by .owner
+    ├── buildUniqueName: `rf(<id>)` arm
+    └── findUnionPropertyMapping: RF + Embedded RF arms
 ```
-

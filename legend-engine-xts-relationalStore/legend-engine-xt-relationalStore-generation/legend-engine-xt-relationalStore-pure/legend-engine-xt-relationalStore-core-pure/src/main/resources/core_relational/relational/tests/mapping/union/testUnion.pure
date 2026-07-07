@@ -621,9 +621,9 @@ Database meta::relational::tests::mapping::union::myDB
    Table PersonSet1
     (
         ID INT PRIMARY KEY,
-        firstName_s1 VARCHAR(200) NOT NULL,
-        lastName_s1 VARCHAR(200) NOT NULL,
-        FirmID INT NOT NULL,
+        firstName_s1 VARCHAR(200),
+        lastName_s1 VARCHAR(200),
+        FirmID INT,
         ADDRESSID INT,
         nickName VARCHAR(200)
     )
@@ -637,70 +637,70 @@ Database meta::relational::tests::mapping::union::myDB
     Table PersonSet2
     (
         ID INT PRIMARY KEY,
-        firstName_s2 VARCHAR(200) NOT NULL,
-        lastName_s2 VARCHAR(200) NOT NULL,
+        firstName_s2 VARCHAR(200),
+        lastName_s2 VARCHAR(200),
         ADDRESSID INT,
-        FirmID INT NOT NULL
+        FirmID INT
     )
 
     Table PersonSet3
     (
         Set3ID INT PRIMARY KEY,
-        lastName_s3 VARCHAR(200) NOT NULL,
-        FirmID INT NOT NULL,
+        lastName_s3 VARCHAR(200),
+        FirmID INT,
         ADDRESSID INT
     )
 
     Table PersonSet4
     (
         ID INT PRIMARY KEY,
-        firstName_s1 VARCHAR(200) NOT NULL,
-        lastName_s1 VARCHAR(200) NOT NULL,
-        FirmID_1 INT NOT NULL,
-        FirmID_2 INT NOT NULL
+        firstName_s1 VARCHAR(200),
+        lastName_s1 VARCHAR(200),
+        FirmID_1 INT,
+        FirmID_2 INT
     )
 
     Table Firm
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200) NOT NULL
+        name VARCHAR(200)
     )
 
     Table FirmSet1
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200)  NOT NULL,
+        name VARCHAR(200),
         nickName VARCHAR(200)
     )
 
     Table FirmSet2
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200) NOT NULL
+        name VARCHAR(200)
     )
 
     Table FirmSet3
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200) NOT NULL
+        name VARCHAR(200)
     )
 
     Table AddressSet1
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200) NOT NULL
+        name VARCHAR(200)
     )
 
     Table AddressSet2
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200) NOT NULL
+        name VARCHAR(200)
     )
 
     Table AddressSet3
     (
         ID INT PRIMARY KEY,
-        name VARCHAR(200) NOT NULL
+        name VARCHAR(200)
     )
 
     Table PersonFirmSet1

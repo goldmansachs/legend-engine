@@ -1,4 +1,4 @@
-// Copyright 2025 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Translation of tests/semistructured/testSemiStructuredFlattening.pure
-// to the RFPM variant-lift form per docs/copilot/2026-06-10-semistructured-rfpm-lift-translation-plan-simple.md.
+// Translation of tests/semistructured/testSemiStructuredFlattening.pure to the RFPM
+// variant-lift form.
 //
 // Source binding-based mapping replaced by a single lift mapping:
 //   firm: $src.FIRM_DETAILS->to(@Firm)->toOne()

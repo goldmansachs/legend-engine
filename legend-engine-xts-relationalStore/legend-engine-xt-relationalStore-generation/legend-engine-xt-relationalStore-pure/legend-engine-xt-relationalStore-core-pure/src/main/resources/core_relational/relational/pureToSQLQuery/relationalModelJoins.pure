@@ -1,4 +1,4 @@
-// Copyright 2021 Goldman Sachs
+// Copyright 2026 Goldman Sachs
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,45 +54,6 @@ import meta::pure::router::store::metamodel::*;
 import meta::pure::router::store::metamodel::clustering::*;
 import meta::pure::router::utils::*;
 import meta::relational::extension::*;
-
-// Model join property mapping: compiles a Pure lambda join condition into SQL.
-//
-// For each unique (source, target) pair, compiles the condition against a branch-specific
-// SWC (rooted at the raw table), packages as a synthetic RelationalPropertyMapping, then
-// delegates to processRelationalPropertyMapping which handles single-pair (doJoinToClass)
-// and multi-pair (buildSQLQueryOutManySetImplementations) flows unchanged.
-function meta::relational::functions::pureToSqlQuery::processModelJoinPropertyMapping(modelJoinPropertyMappings:ModelJoinPropertyMapping[*], property:AbstractProperty<Any>[1], propertyOwnerClass:Class<Any>[1], oldSrcOperation:SelectWithCursor[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
-{
-  print(if(!$context.debug, |'',
-          | $context.space+'>>> processModelJoinPropertyMapping START property='+$property.name->toOne()+' nodeId='+$nodeId+' mjpmCount='+$modelJoinPropertyMappings->size()->toString()+'\n'+
-            $context.space+'   srcOperation query> '+$oldSrcOperation.select->printDebugQuery($context.space, $extensions)));
-
-  // Collect distinct (source, target) pairs
-  let pairs = $modelJoinPropertyMappings
-     ->map(m | pair($m.sourceSetImplementationId, $m.targetSetImplementationId))
-     ->removeDuplicates({a,b | $a.first == $b.first && $a.second == $b.second});
-
-  print(if(!$context.debug, |'',
-          | $context.space+'   pairs: ['+$pairs->map(p | $p.first+'->'+$p.second)->joinStrings(', ')+']\n'));
-
-  // Compile each pair into a synthetic RelationalPropertyMapping
-  let syntheticRPMs = $pairs->map({p |
-     let mjpm = $modelJoinPropertyMappings
-        ->filter(m | $m.sourceSetImplementationId == $p.first && $m.targetSetImplementationId == $p.second)
-        ->at(0);
-     compileModelJoinForBranch($mjpm, $property, $oldSrcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions);
-  });
-
-  print(if(!$context.debug, |'',
-          | $context.space+'   syntheticRPMs: '+$syntheticRPMs->size()->toString()+'\n'));
-
-  let result = processRelationalPropertyMapping($syntheticRPMs, $property, $propertyOwnerClass, $oldSrcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions);
-
-  print(if(!$context.debug, |'',
-          | $context.space+'<<< processModelJoinPropertyMapping END\n'+
-            $context.space+'   result query> '+$result->cast(@SelectWithCursor).select->printDebugQuery($context.space, $extensions)));
-  $result;
-}
 
 // Compiles a single (source, target) pair's ModelJoin condition against branch-specific SWCs
 // (rooted at raw tables) and returns a synthetic RelationalPropertyMapping.

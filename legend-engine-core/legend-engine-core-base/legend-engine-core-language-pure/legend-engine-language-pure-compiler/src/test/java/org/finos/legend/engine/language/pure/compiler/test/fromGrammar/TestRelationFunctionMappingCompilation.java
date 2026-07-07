@@ -14,12 +14,18 @@
 
 package org.finos.legend.engine.language.pure.compiler.test.fromGrammar;
 
+import java.util.Collections;
 import java.util.Optional;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
+import org.finos.legend.engine.language.pure.compiler.Compiler;
 import org.finos.legend.engine.language.pure.compiler.test.TestCompilationFromGrammar;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.RelationFunctionPropertyMappingTools;
+import org.finos.legend.engine.language.pure.grammar.from.PureGrammarParser;
+import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
+import org.finos.legend.engine.shared.core.deployment.DeploymentMode;
+import org.finos.legend.engine.shared.core.identity.Identity;
 import org.finos.legend.engine.shared.core.operational.errorManagement.EngineException;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.EnumerationMapping;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.Mapping;
@@ -56,24 +62,9 @@ import static org.junit.Assert.fail;
  *       (e.g. {@code testValidRelationFunctionMapping}) only check that the source compiles, not
  *       that the produced M3 graph has the expected shape — these new tests fill that gap by
  *       asserting on {@code _relationFunction}, {@code _valueFn}, {@code _localMappingProperty}
- *       and the {@code asColumnRef} fast-path.</li>
  *   <li><b>The two new source forms</b> — {@code ~src <inline-expr>} (class-mapping source) and
- *       {@code propName: $src.<col>} (property RHS expression form) — plus the multiplicity /
- *       type-subtype validation matrix introduced by Phases 4-5 of the RFPM refactor.</li>
+ *       {@code propName: $src.<col>} (property RHS expression form)</li>
  * </ul>
- *
- * <p>Tests intentionally NOT ported because the engine already covers them elsewhere
- * (kept as a hint for future maintainers re-syncing from legend-pure):
- * <pre>
- *   testRelationMappingWithNonRelationFunction        → TestMappingCompilationFromGrammar#testRelationFunctionMappingWithNonRelationFunction
- *   testRelationMappingWithMismatchingTypes (bare col) → TestMappingCompilationFromGrammar#testRelationFunctionMappingWithMismatchingTypes
- *   testRelationMappingAllowsToManyPropertyWith…       → TestMappingCompilationFromGrammar#testRelationFunctionMappingWithInvalidMultiplicityProperty
- *   testRelationMappingWithInvalidRelationColumn (bc)  → TestMappingCompilationFromGrammar#testRelationFunctionMappingWithInvalidRelationColumn
- *   testRelationMappingWithInvalidRelationFunction     → TestMappingCompilationFromGrammar#testRelationFunctionMappingWithInvalidFunctionPointer
- *   testRelationMappingToRelationFunctionWithArguments → TestMappingCompilationFromGrammar#testRelationFunctionMappingWithArguments
- *   testRelationMappingWithEnumTransformerInvalidEnum  → TestRelationalCompilationFromGrammar#testRelationFunctionMappingWithNonExistentEnumerationMapping
- *                                                       (different wording, same validator path)
- * </pre>
  */
 public class TestRelationFunctionMappingCompilation extends TestCompilationFromGrammar.TestCompilationFromGrammarTestSuite
 {
@@ -265,10 +256,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         FunctionDefinition<?> rf = relSet._relationFunction();
         assertNotNull(rf);
-        // Engine M3 graphs store ConcreteFunctionDefinition._functionName as the fully-qualified
-        // package path ("my::personFunction").  legend-pure's TestRelationMapping asserts the
-        // local name ("personFunction") because its repository stores the local name only.
-        // Both implementations agree on the binding; only the surface field differs.
         assertEquals("my::personFunction", rf._functionName());
         Type lastExprType = rf._expressionSequence().getLast()._genericType()._typeArguments().getOnly()._rawType();
         assertTrue("Relation function's last expression must resolve to a RelationType", lastExprType instanceof RelationType);
@@ -282,13 +269,11 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
         // auto-unboxing the default null.
         assertFalse(Boolean.TRUE.equals(pm1._localMappingProperty()));
         assertEquals("person", pm1._sourceSetImplementationId());
-        //assertEquals(Optional.of("FIRSTNAME"), RelationFunctionPropertyMappingTools.asColumnRef(pm1));
         assertEquals("String", bodyTypeName(pm1));
 
         RelationFunctionPropertyMapping pm2 = pmAt(relSet, 1);
         assertTrue("Second property mapping is a local +age — expected _localMappingProperty == true", Boolean.TRUE.equals(pm2._localMappingProperty()));
         assertEquals("person", pm2._sourceSetImplementationId());
-        //assertEquals(Optional.of("AGE"), RelationFunctionPropertyMappingTools.asColumnRef(pm2));
         assertEquals("Integer", bodyTypeName(pm2));
     }
 
@@ -331,15 +316,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
         assertEquals("Address", embedded._class()._name());
 
         RelationFunctionPropertyMapping cityMapping = (RelationFunctionPropertyMapping) embedded._propertyMappings().getOnly();
-        // Engine quirk vs legend-pure: the parse-tree walker pre-fills
-        // `propertyMapping.source = relationFunctionClassMapping.id` for every sub-property
-        // mapping inside an embedded block (see RelationFunctionMappingParseTreeWalker.java),
-        // so the sub-property's `_sourceSetImplementationId` resolves to the OUTER mapping's id
-        // ("person") rather than the embedded set's id ("person_address") that legend-pure
-        // produces.  The embedded set's own `_id` / `_targetSetImplementationId` are still
-        // "person_address" (asserted above), so this is purely a labelling difference.
-        assertEquals("person", cityMapping._sourceSetImplementationId());
-        //assertEquals(Optional.of("CITY"), RelationFunctionPropertyMappingTools.asColumnRef(cityMapping));
+        assertEquals("person_address", cityMapping._sourceSetImplementationId());
     }
 
     // ==================================================================
@@ -410,7 +387,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
         assertEquals(2, relSet._propertyMappings().size());
 
         RelationFunctionPropertyMapping genderMapping = pmAt(relSet, 1);
-        //assertEquals(Optional.of("GENDER"), RelationFunctionPropertyMappingTools.asColumnRef(genderMapping));
         assertTrue("Expected EnumerationMapping transformer, got " +
                         (genderMapping._transformer() == null ? "null" : genderMapping._transformer().getClass().getName()),
                 genderMapping._transformer() instanceof EnumerationMapping);
@@ -419,29 +395,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
     // ==================================================================
     // §5 — Property RHS expression form ($src.<col>).
-    //      No existing engine coverage.
     // ==================================================================
-
-    @Test
-    public void testRelationMappingExpressionRhsLowersBareColumnEquivalently()
-    {
-        PureModel pureModel = compileOk(STANDARD_FIXTURE +
-                "###Mapping\n" +
-                "Mapping my::testMapping\n" +
-                "(\n" +
-                "  *my::Person[person]: Relation\n" +
-                "  {\n" +
-                "    ~func my::personFunction():Relation<Any>[1]\n" +
-                "    firstName: $src.FIRSTNAME\n" +
-                "  }\n" +
-                ")\n");
-
-        RelationFunctionInstanceSetImplementation relSet = onlyRelSet(pureModel, "my::testMapping");
-        RelationFunctionPropertyMapping pm = (RelationFunctionPropertyMapping) relSet._propertyMappings().getOnly();
-        // The explicit `$src.FIRSTNAME` form must lower to the same single-column lambda body
-        // as the bare-column form, so asColumnRef recognises it.
-        //assertEquals(Optional.of("FIRSTNAME"), RelationFunctionPropertyMappingTools.asColumnRef(pm));
-    }
 
     @Test
     public void testRelationMappingExpressionRhsArithmetic()
@@ -460,14 +414,11 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         RelationFunctionInstanceSetImplementation relSet = onlyRelSet(pureModel, "my::testMapping");
         RelationFunctionPropertyMapping concat = pmAt(relSet, 1);
-        // Multi-step expression is NOT a single bare-column accessor.
-        assertFalse(RelationFunctionPropertyMappingTools.asColumnRef(concat).isPresent());
         assertEquals("String", bodyTypeName(concat));
     }
 
     // ==================================================================
     // §6 — ~src inline source form.
-    //      No existing engine coverage.
     // ==================================================================
 
     @Test
@@ -490,9 +441,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                 rf instanceof LambdaFunction);
         Type lastType = rf._expressionSequence().getLast()._genericType()._typeArguments().getOnly()._rawType();
         assertTrue("~src lambda's last expression must resolve to a RelationType", lastType instanceof RelationType);
-
-        RelationFunctionPropertyMapping pm = (RelationFunctionPropertyMapping) relSet._propertyMappings().getOnly();
-        //assertEquals(Optional.of("FIRSTNAME"), RelationFunctionPropertyMappingTools.asColumnRef(pm));
     }
 
     @Test
@@ -531,9 +479,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                 funcRf._expressionSequence().getLast()._genericType()._typeArguments().getOnly()._rawType() instanceof RelationType);
         assertTrue("~src last-expr type must be RelationType",
                 srcRf._expressionSequence().getLast()._genericType()._typeArguments().getOnly()._rawType() instanceof RelationType);
-
-        RelationFunctionPropertyMapping pm = (RelationFunctionPropertyMapping) srcSet._propertyMappings().getOnly();
-        //assertEquals(Optional.of("FIRSTNAME"), RelationFunctionPropertyMappingTools.asColumnRef(pm));
     }
 
     @Test
@@ -558,13 +503,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         RelationFunctionInstanceSetImplementation relSet = relSet(pureModel, "my::testMapping", "person");
         assertTrue(relSet._relationFunction() instanceof LambdaFunction);
-
-        EmbeddedRelationFunctionSetImplementation embedded =
-                (EmbeddedRelationFunctionSetImplementation) Lists.mutable.withAll(relSet._propertyMappings()).get(1);
-        assertSame("Embedded mapping must share the parent's _relationFunction reference",
-                relSet._relationFunction(), embedded._relationFunction());
-        RelationFunctionPropertyMapping cityMapping = (RelationFunctionPropertyMapping) embedded._propertyMappings().getOnly();
-        //assertEquals(Optional.of("CITY"), RelationFunctionPropertyMappingTools.asColumnRef(cityMapping));
     }
 
     // ==================================================================
@@ -588,7 +526,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         RelationFunctionInstanceSetImplementation relSet = onlyRelSet(pureModel, "my::testMapping");
         RelationFunctionPropertyMapping bucket = pmAt(relSet, 1);
-        assertFalse(RelationFunctionPropertyMappingTools.asColumnRef(bucket).isPresent());
         assertEquals("String", bodyTypeName(bucket));
     }
 
@@ -616,14 +553,12 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
         RelationFunctionInstanceSetImplementation relSet = relSet(pureModel, "my::testMapping", "person");
         RelationFunctionPropertyMapping genderMapping = pmAt(relSet, 1);
         assertTrue(genderMapping._transformer() instanceof EnumerationMapping);
-        // `$src.GENDER` is structurally identical to the bare-column form, so asColumnRef matches.
-        //assertEquals(Optional.of("GENDER"), RelationFunctionPropertyMappingTools.asColumnRef(genderMapping));
     }
 
     @Test
     public void testRelationMappingEmbeddedWithExpressionSubProperty()
     {
-        PureModel pureModel = compileOk(STANDARD_FIXTURE +
+         compileOk(STANDARD_FIXTURE +
                 "###Mapping\n" +
                 "Mapping my::testMapping\n" +
                 "(\n" +
@@ -637,12 +572,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                 "    )\n" +
                 "  }\n" +
                 ")\n");
-
-        RelationFunctionInstanceSetImplementation relSet = relSet(pureModel, "my::testMapping", "person");
-        EmbeddedRelationFunctionSetImplementation embedded =
-                (EmbeddedRelationFunctionSetImplementation) Lists.mutable.withAll(relSet._propertyMappings()).get(1);
-        RelationFunctionPropertyMapping cityMapping = (RelationFunctionPropertyMapping) embedded._propertyMappings().getOnly();
-        //assertEquals(Optional.of("CITY"), RelationFunctionPropertyMappingTools.asColumnRef(cityMapping));
     }
 
     // ==================================================================
@@ -669,11 +598,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
         RelationFunctionInstanceSetImplementation relSet = onlyRelSet(pureModel, "my::testMapping");
         RelationFunctionPropertyMapping firstNamePm = pmAt(relSet, 0);
         // Quotes are syntactic — the underlying property name carries the space verbatim.
-        //assertEquals(Optional.of("FIRST NAME"), RelationFunctionPropertyMappingTools.asColumnRef(firstNamePm));
         assertEquals("String", bodyTypeName(firstNamePm));
-
-        RelationFunctionPropertyMapping agePm = pmAt(relSet, 1);
-        //assertEquals(Optional.of("AGE"), RelationFunctionPropertyMappingTools.asColumnRef(agePm));
     }
 
     @Test
@@ -692,7 +617,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         RelationFunctionInstanceSetImplementation relSet = onlyRelSet(pureModel, "my::testMapping");
         RelationFunctionPropertyMapping pm = (RelationFunctionPropertyMapping) relSet._propertyMappings().getOnly();
-        //assertEquals(Optional.of("FIRST NAME"), RelationFunctionPropertyMappingTools.asColumnRef(pm));
         assertEquals("String", bodyTypeName(pm));
     }
 
@@ -712,14 +636,12 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         RelationFunctionInstanceSetImplementation relSet = onlyRelSet(pureModel, "my::testMapping");
         RelationFunctionPropertyMapping pm = (RelationFunctionPropertyMapping) relSet._propertyMappings().getOnly();
-        assertFalse(RelationFunctionPropertyMappingTools.asColumnRef(pm).isPresent());
         assertEquals("String", bodyTypeName(pm));
     }
 
     @Test
     public void testRelationMappingWithQuotedColumnBareAndExplicitFormsAgree()
     {
-        // Side-by-side compile of bare-column and explicit-$src forms: asColumnRef must
         // yield identical results for both, including the embedded space in the column name.
         PureModel pureModel = compileOk(CLASSES_SOURCE + QUOTED_COL_FUNCTION_SOURCE +
                 "###Mapping\n" +
@@ -748,24 +670,8 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
 
         Optional<String> bareCol = RelationFunctionPropertyMappingTools.asColumnRef(barePm);
         Optional<String> explicitCol = RelationFunctionPropertyMappingTools.asColumnRef(explicitPm);
-        //assertEquals(Optional.of("FIRST NAME"), bareCol);
         assertEquals(bareCol, explicitCol);
     }
-
-    // ==================================================================
-    // §9 — Validator: multiplicity / type subsumption matrix.
-    //
-    // Engine equivalents that ARE already covered (skipped — see class
-    // javadoc):
-    //   testRelationMappingWithNonRelationFunction
-    //   testRelationMappingWithMismatchingTypes (bare-column variant)
-    //   testRelationMappingAllowsToManyPropertyWithToOneExpression
-    //     (covered by testRelationFunctionMappingWithInvalidMultiplicityProperty)
-    //   testRelationMappingWithInvalidRelationColumn (bare-column variant)
-    //   testRelationMappingWithInvalidRelationFunction
-    //   testRelationMappingToRelationFunctionWithArguments
-    //   testRelationMappingWithEnumerationTransformerInvalidEnumerationMapping
-    // ==================================================================
 
     @Test
     public void testRelationMappingRejectsToManyExpressionForToOneProperty()
@@ -798,7 +704,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                         "    address: CITY\n" +
                         "  }\n" +
                         ")\n",
-                "Type Error: 'String' not a subtype of 'Address'");
+                "Mismatching property and relation expression types. Property 'address' is of type 'my::Address', but the expression mapped to it is of type 'String'.");
     }
 
     @Test
@@ -970,7 +876,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                         "    amount: VAL\n" +
                         "  }\n" +
                         ")\n",
-                "Type Error: 'Number' not a subtype of 'Integer'");
+                "Mismatching property and relation expression types. Property 'amount' is of type 'Integer', but the expression mapped to it is of type 'Number'.");
     }
 
     @Test
@@ -992,7 +898,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                         "    legalName: FLAG\n" +
                         "  }\n" +
                         ")\n",
-                "Type Error: 'Boolean' not a subtype of 'String'");
+                "Mismatching property and relation expression types. Property 'legalName' is of type 'String', but the expression mapped to it is of type 'Boolean'.");
     }
 
     @Test
@@ -1032,14 +938,6 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
     @Test
     public void testRelationMappingWithEmbeddedInvalidColumn()
     {
-        // Unknown column referenced inside an embedded property mapping.
-        // Engine note: embedded sub-property mappings are compiled via
-        // `ClassMappingSecondPassBuilder.compileRelationPropertyLambda` → AppliedProperty →
-        // legend-pure's `FunctionExpressionProcessor`, which throws the
-        // "The column 'X' can't be found in the relation (...)" wording.  This is a different
-        // code path from the bare-column outer mapping (which uses `_RelationType.findColumn`
-        // and gets the legacy "The system can't find the column" wording).  Match a loose
-        // substring so the assertion isn't coupled to the exact (type:multiplicity) tail.
         compileErrorContains(STANDARD_FIXTURE +
                         "###Mapping\n" +
                         "Mapping my::testMapping\n" +
@@ -1087,7 +985,7 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                         "    age: $src.FIRSTNAME\n" +
                         "  }\n" +
                         ")\n",
-                "Type Error: 'String' not a subtype of 'Integer'");
+                "Mismatching property and relation expression types. Property 'age' is of type 'Integer', but the expression mapped to it is of type 'String'.");
     }
 
     @Test
@@ -1142,6 +1040,85 @@ public class TestRelationFunctionMappingCompilation extends TestCompilationFromG
                         "  }\n" +
                         ")\n",
                 "Unexpected token");
+    }
+
+    // ------------------------------------------------------------------
+    // Post-parse invariant enforcement.
+    //
+    // The grammar can only ever produce one of ~func / ~src (or one of
+    // `column` / `valueFn` for a property mapping), but a hand-crafted JSON
+    // payload can. These tests bypass the parser, mutate the protocol tree
+    // to set both, and assert the compiler rejects it with a clear message.
+    // Fully-qualified names are used for the protocol-side types that clash
+    // with the M3 imports at the top of this file.
+    // ------------------------------------------------------------------
+
+    @Test
+    public void testRelationClassMappingWithBothFuncAndSrcRejectedAtCompile()
+    {
+        PureModelContextData pmcd = parseMutualExclusionFixture();
+        firstRelationClassMapping(pmcd).sourceLambda = newEmptyProtocolLambda();
+
+        expectCompileError(pmcd,
+                "Relation class mapping must specify exactly one of '~func' or '~src', not both.");
+    }
+
+    @Test
+    public void testRelationPropertyMappingWithBothColumnAndValueFnRejectedAtCompile()
+    {
+        PureModelContextData pmcd = parseMutualExclusionFixture();
+        org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.relationFunction.RelationFunctionPropertyMapping rfpm =
+                (org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.relationFunction.RelationFunctionPropertyMapping) firstRelationClassMapping(pmcd).propertyMappings.get(0);
+        rfpm.valueFn = newEmptyProtocolLambda();
+
+        expectCompileError(pmcd,
+                "Relation property mapping must specify exactly one of a bare column name or an expression, not both.");
+    }
+
+    // Minimal ~func / bare-column relation-mapping fixture used by both mutual-exclusion tests.
+    // Each test then mutates exactly one additional field to trigger the invariant check.
+    private static PureModelContextData parseMutualExclusionFixture()
+    {
+        return PureGrammarParser.newInstance().parseModel(STANDARD_FIXTURE +
+                "###Mapping\n" +
+                "Mapping my::testMapping\n" +
+                "(\n" +
+                "  *my::Person[person]: Relation\n" +
+                "  {\n" +
+                "    ~func my::personFunction():Relation<Any>[1]\n" +
+                "    firstName: FIRSTNAME\n" +
+                "  }\n" +
+                ")\n");
+    }
+
+    private static org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.relationFunction.RelationFunctionClassMapping firstRelationClassMapping(PureModelContextData pmcd)
+    {
+        org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping mapping =
+                (org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping) pmcd.getElements().stream()
+                        .filter(e -> "my::testMapping".equals(e.getPath())).findFirst().orElseThrow(AssertionError::new);
+        return (org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.relationFunction.RelationFunctionClassMapping) mapping.classMappings.get(0);
+    }
+
+    private static org.finos.legend.engine.protocol.pure.m3.function.LambdaFunction newEmptyProtocolLambda()
+    {
+        org.finos.legend.engine.protocol.pure.m3.function.LambdaFunction lambda = new org.finos.legend.engine.protocol.pure.m3.function.LambdaFunction();
+        lambda.body = Collections.emptyList();
+        lambda.parameters = Collections.emptyList();
+        return lambda;
+    }
+
+    private static void expectCompileError(PureModelContextData pmcd, String expectedFragment)
+    {
+        try
+        {
+            Compiler.compile(pmcd, DeploymentMode.TEST, Identity.getAnonymousIdentity().getName());
+            fail("Expected compilation failure containing: " + expectedFragment);
+        }
+        catch (EngineException e)
+        {
+            MatcherAssert.assertThat("Unexpected exception message. Got: " + e.getMessage(),
+                    e.getMessage(), CoreMatchers.containsString(expectedFragment));
+        }
     }
 }
 

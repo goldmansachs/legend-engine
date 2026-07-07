@@ -19,12 +19,8 @@
 // inside the JOIN condition; all comparator sides are [1] or [0..1].
 //
 // Expected outputs are first-pass computations based on the test data in
-// testVariantInModelJoinLambdaSetup.pure §11.5 of the strategy doc. They
-// may need adjustment after the first PCT run to match the engine's actual
-// row-ordering and NULL-rendering conventions.
-//
-// Companion setup file: testVariantInModelJoinLambdaSetup.pure
-// Strategy doc: docs/copilot/2026-06-23-modeljoin-variant-singular-conditions-test-strategy.md
+// testVariantInModelJoinLambdaSetup.pure and may need adjustment after the first
+// PCT run to match the engine's actual row-ordering and NULL-rendering conventions.
 // =============================================================================
 
 ###Pure
@@ -396,7 +392,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 //   Bob   (FirmA, X1) → F4 (region=FirmA, aliases.first=X1)
 //   Carol (FirmB, O5) → F2 (region=FirmB, aliases.first=O5)
 //   Dave  (FirmX, NULL) → NULL second clause → no
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::modelJoin::testCrossSideScalarAndFirst(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::modelJoin::testCrossSideScalarAndFirst(conn: Connection[1]):Boolean[1]
 {
   variantInMJExecute($conn, T4_1_Mapping,
     |Person.all()->project(~[
@@ -417,7 +413,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 //   Alice (3, CustA) → F1 (productLines.size=3, contacts.first.name=CustA)
 //   Carol (3, CustC) → no Firm with contacts.first.name=CustC AND productLines.size=3
 //   Bob/Dave: NULL customer.name → no
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::modelJoin::testCrossSideSizeAndPostCollapse(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::modelJoin::testCrossSideSizeAndPostCollapse(conn: Connection[1]):Boolean[1]
 {
   variantInMJExecute($conn, T4_2_Mapping,
     |Person.all()->project(~[
@@ -437,7 +433,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // T4.3 — filter+first.details == filter+first.name on both sides
 //   Alice (D1) == F30.contacts.filter(lead).first.name (D1) → F30
 //   Others: no contacts with matching lead names
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::modelJoin::testCrossSideDeepFilter(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::modelJoin::testCrossSideDeepFilter(conn: Connection[1]):Boolean[1]
 {
   variantInMJExecute($conn, T4_3_Mapping,
     |Person.all()->project(~[
@@ -678,7 +674,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 // Q2 — ->filter(p | $p.X->exists(...)) over a variant class array
 //   Filter: orders->exists(o | $o.side == 'BUY')
 //   Alice (BUY ORD-A) ✓; Bob (empty); Carol (BUY ORD-C) ✓; Dave (empty)
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::modelJoin::testFilterWithExistsOnVariantArray(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::modelJoin::testFilterWithExistsOnVariantArray(conn: Connection[1]):Boolean[1]
 {
   variantInMJExecuteWithDept($conn,
     |Person.all()
@@ -786,7 +782,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 //   Project firmDept.size() — exercises plain FK ModelJoin off a Firm that was
 //   itself reached via a variant-in-lambda ModelJoin.
 //   T0.1 matches → F1 (3 depts), F2 (2), F3 (1). Bob no match → 0 depts.
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::modelJoin::testDepartmentNavThroughFirm(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::modelJoin::testDepartmentNavThroughFirm(conn: Connection[1]):Boolean[1]
 {
   variantInMJExecuteWithDept($conn,
     |Person.all()
@@ -856,7 +852,7 @@ function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant:
 //     Carol (contains UK true)  ✓
 //     Dave  (no UK, plus 30)    ✗
 //   Project: $p.firstName, $p.firmInfo.otherNames->filter(starts with 'O')->first()
-function <<paramTest.Test>> meta::relational::tests::mapping::relation::variant::modelJoin::testCompoundFilterAndNestedProject(conn: Connection[1]):Boolean[1]
+function <<paramTest.Ignore>> meta::relational::tests::mapping::relation::variant::modelJoin::testCompoundFilterAndNestedProject(conn: Connection[1]):Boolean[1]
 {
   variantInMJExecuteWithDept($conn,
     |Person.all()

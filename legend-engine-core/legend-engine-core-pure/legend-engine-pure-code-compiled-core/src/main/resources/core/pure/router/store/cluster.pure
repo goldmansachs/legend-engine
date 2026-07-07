@@ -603,33 +603,7 @@ function meta::pure::router::clustering::getDistinctClusterVSByStore(params:Valu
 
 function meta::pure::router::store::clustering::areStoreClustersCompatible(cluster1:StoreClusteredValueSpecification[1], cluster2:StoreClusteredValueSpecification[1], extensions:meta::pure::extension::Extension[*]):Boolean[1]
 {
-  // Two store clusters can be merged into a single execution unit when they share the same
-  // executionContext and runtime AND either:
-  //   (a) they target the same store (the classic case), or
-  //   (b) they target different stores of the same StoreContract that resolve to the same
-  //       physical Connection in the active runtime (the localised-XStore / shared-connection
-  //       case — e.g. a SingleConnectionRuntime auto-expanded to per-store ConnectionStores
-  //       all pointing at the same Connection).
-  //
-  // Arm (b) mirrors the locality semantic that the rest of the stack already assumes — see
-  // meta::pure::router::store::routing::maybeConvertXStoreToModelJoin (routing.pure:113-129)
-  // and the relational planExecution storeRuntime narrowing
-  // (core_relational/.../contract/storeContract.pure:281-285).
-  // Background: docs/copilot/2026-06-30-cluster-compat-same-connection-fusion-evaluation.md
-  let sameStorePath = $cluster1.store->elementToPath() == $cluster2.store->elementToPath();
-  let sameExeCtx    = $cluster1.exeCtx == $cluster2.exeCtx;
-  let sameRuntime   = meta::core::runtime::runtimeEquality($cluster1.runtime, $cluster2.runtime, $extensions);
-
-  let sameConnection = if(!$sameRuntime || $sameStorePath || $cluster1.runtime->isEmpty() || $cluster1.s != $cluster2.s,
-                          | false,
-                          | let runtime = $cluster1.runtime->toOne();
-                            let conn1   = $runtime->meta::core::runtime::connectionByElementFailSafe($cluster1.store);
-                            let conn2   = $runtime->meta::core::runtime::connectionByElementFailSafe($cluster2.store);
-                            $conn1->size() == 1 && $conn2->size() == 1
-                              && meta::core::runtime::connectionEquality($conn1->toOne(), $conn2->toOne(), $extensions);
-                        );
-
-  $sameExeCtx && $sameRuntime && ($sameStorePath || $sameConnection);
+  ($cluster1.store->elementToPath() == $cluster2.store->elementToPath()) && meta::core::runtime::runtimeEquality($cluster1.runtime, $cluster2.runtime, $extensions) && ($cluster1.exeCtx == $cluster2.exeCtx);
 }
 
 function <<access.private>> meta::pure::router::clustering::createLetFunction(orginalFunction:FunctionExpression[1], varExpressionName:String[1],  parentCluster:StoreMappingClusteredValueSpecification[1], extensions:meta::pure::extension::Extension[*]):SimpleFunctionExpression[1]

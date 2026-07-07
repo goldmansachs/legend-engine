@@ -62,7 +62,7 @@ function meta::relational::metamodel::execute::tests::executeLegendFunction(conn
 
 function meta::relational::metamodel::execute::tests::executeLegendFunction(func: FunctionDefinition<Any>[1], mapping: Mapping[1], db:Database[1], conn: Connection[1], csvs: String[*], expectedCsv: String[1]):Boolean[1]
 {
-  executeLegendFunction($func, $mapping, $db, $conn, $csvs, $expectedCsv, true)
+  executeLegendFunction($func, $mapping, $db, $conn, $csvs, $expectedCsv, false)
 }
 
 function meta::relational::metamodel::execute::tests::executeLegendFunction(func: FunctionDefinition<Any>[1], mapping: Mapping[1], db:Database[1], conn: Connection[1], csvs: String[*], expectedCsv: String[1], shouldDebug: Boolean[1]):Boolean[1]
@@ -91,8 +91,6 @@ function meta::relational::metamodel::execute::tests::executeLegendFunction(func
       assertEquals($expectedSql->toOne(), $actualSql);,
     | true;
   );
-
-  $rawPlan->extractSqlFromPlan()->println();
 
   let planWithTeardown = ^$rawPlan(rootExecutionNode =
     ^meta::pure::executionPlan::RelationalBlockExecutionNode(

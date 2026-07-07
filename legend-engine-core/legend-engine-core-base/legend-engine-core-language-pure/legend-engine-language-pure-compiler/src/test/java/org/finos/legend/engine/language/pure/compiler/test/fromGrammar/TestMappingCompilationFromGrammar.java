@@ -3331,14 +3331,6 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
     @Test
     public void testRelationFunctionMappingWithInvalidRelationColumn()
     {
-        // After the RFPM valueFn refactor, bare-column-form property mappings are lowered to
-        // `$src.<col>` lambdas at SecondPass and compiled through the standard property
-        // accessor pipeline.  Column-not-found errors therefore surface via legend-pure's
-        // `FunctionExpressionProcessor` with the new wording "The column 'X' can't be found
-        // in the relation (...)" rather than the old `_RelationType.findColumn` wording
-        // "The system can't find the column ...".  The relation row-type tail is also rendered
-        // with explicit multiplicity (`(FIRSTNAME:String[1], ...)`), which is engine-specific
-        // and not worth pinning — match the leading sentence instead.
         testRelationMapping("###Mapping\n" +
                 "Mapping my::testMapping\n" +
                 "(\n" +
@@ -3363,17 +3355,12 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "    firstName: AGE,\n" +
                 "    age: AGE\n" +
                 "  }\n" +
-                ")\n", "COMPILATION error at [37:5-18]: Type Error: 'Integer' not a subtype of 'String'");
+                ")\n", "COMPILATION error at [37:5-18]: Mismatching property and relation expression types. Property 'firstName' is of type 'String', but the expression mapped to it is of type 'Integer'.");
     }
 
     @Test
     public void testRelationFunctionMappingWithInvalidMultiplicityProperty()
     {
-        // After the valueFn refactor, the property multiplicity simply must subsume the lambda
-        // body multiplicity (rather than being constrained to [1] or [0..1]).  A property with
-        // multiplicity [*] mapped to a column with multiplicity [1] is now valid because [*] subsumes [1].
-        // (Originally this test referenced a non-existent NAME column; updated to FIRSTNAME which is
-        // declared as String[1] in the shared fixture, so the subsumption check is the only relevant one.)
         testRelationMapping("###Pure\n" +
                 "Class my::Person1\n" +
                 "{\n" +
@@ -3497,7 +3484,7 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "\n" +
                 "function my::personWithAddressFunction():meta::pure::metamodel::relation::Relation<Any>[1]\n" +
                 "{\n" +
-                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String, AGE:Integer, STREET:String, CITY:String)>);\n" +
+                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String[1], AGE:Integer[1], STREET:String[1], CITY:String[1])>);\n" +
                 "}\n" +
                 "###Mapping\n" +
                 "Mapping my::testMapping\n" +
@@ -3535,7 +3522,7 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "\n" +
                 "function my::personWithAddressFunction():meta::pure::metamodel::relation::Relation<Any>[1]\n" +
                 "{\n" +
-                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String, AGE:Integer, STREET:String, CITY:String)>);\n" +
+                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String[1], AGE:Integer[1], STREET:String[1], CITY:String[1])>);\n" +
                 "}\n" +
                 "###Mapping\n" +
                 "Mapping my::testMapping\n" +
@@ -3576,7 +3563,7 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
                 "\n" +
                 "function my::personWithAddressFunction():meta::pure::metamodel::relation::Relation<Any>[1]\n" +
                 "{\n" +
-                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String, AGE:Integer, STREET:String, CITY:String)>);\n" +
+                "  1->cast(@meta::pure::metamodel::relation::Relation<(FIRSTNAME:String[1], AGE:Integer[1], STREET:String[1], CITY:String[1])>);\n" +
                 "}\n" +
                 "###Mapping\n" +
                 "Mapping my::testMapping\n" +
@@ -4033,6 +4020,84 @@ public class TestMappingCompilationFromGrammar extends TestCompilationFromGramma
         org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.AssociationImplementation assocImpl = mapping._associationMappings().getFirst();
         // With union on Person side (2 members), we get 2 property mappings per direction = 4 total
         org.junit.Assert.assertEquals(4, assocImpl._propertyMappings().size());
+    }
+
+    @Test
+    public void testModelJoinAssociationMappingWithIfThenElseLambdaBranches()
+    {
+        test("###Pure\n" +
+                "Class test::Person\n" +
+                "{\n" +
+                "   firstName: String[1];\n" +
+                "   tag: String[1];\n" +
+                "}\n" +
+                "\n" +
+                "Class test::Firm\n" +
+                "{\n" +
+                "   id: String[1];\n" +
+                "}\n" +
+                "\n" +
+                "Association test::Firm_Person\n" +
+                "{\n" +
+                "   employees: test::Person[*];\n" +
+                "   employer: test::Firm[1];\n" +
+                "}\n\n" +
+                "###Mapping\n" +
+                "Mapping test::modelJoinIfMapping\n" +
+                "(\n" +
+                "   test::Person[p]: Pure {\n" +
+                "      ~src test::Person\n" +
+                "      firstName: $src.firstName,\n" +
+                "      tag: $src.tag\n" +
+                "   }\n" +
+                "   test::Firm[f]: Pure {\n" +
+                "      ~src test::Firm\n" +
+                "      id: $src.id\n" +
+                "   }\n\n" +
+                "   test::Firm_Person: ModelJoin {\n" +
+                "      {p:test::Person[1], f:test::Firm[1]|\n" +
+                "         if($p.tag == 'X', |$p.firstName, |$p.tag) == $f.id}\n" +
+                "   }\n" +
+                ")\n");
+    }
+
+    @Test
+    public void testModelJoinAssociationMappingWithInnerLambdaShadowingOuterParam()
+    {
+        test("###Pure\n" +
+                "Class test::Person\n" +
+                "{\n" +
+                "   name: String[1];\n" +
+                "   tags: String[*];\n" +
+                "}\n" +
+                "\n" +
+                "Class test::Firm\n" +
+                "{\n" +
+                "   id: String[1];\n" +
+                "}\n" +
+                "\n" +
+                "Association test::Firm_Person\n" +
+                "{\n" +
+                "   employees: test::Person[*];\n" +
+                "   employer: test::Firm[1];\n" +
+                "}\n\n" +
+                "###Mapping\n" +
+                "Mapping test::modelJoinShadowingMapping\n" +
+                "(\n" +
+                "   test::Person[p]: Pure {\n" +
+                "      ~src test::Person\n" +
+                "      name: $src.name,\n" +
+                "      tags: $src.tags\n" +
+                "   }\n" +
+                "   test::Firm[f]: Pure {\n" +
+                "      ~src test::Firm\n" +
+                "      id: $src.id\n" +
+                "   }\n\n" +
+                "   test::Firm_Person: ModelJoin {\n" +
+                "      {p:test::Person[1], f:test::Firm[1]|\n" +
+                "         $p.tags->filter(p|$p == $f.id)->size() > 0}\n" +
+                "   }\n" +
+                ")\n");
     }
 
 }

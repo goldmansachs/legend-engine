@@ -190,36 +190,19 @@ function meta::relational::contract::execution(sq:meta::pure::mapping::StoreQuer
    execution($sq.store->cast(@Database), $sq.vs, $ext, $m, $runtime, $sq.inScopeVars, $exeCtx, $extensions, $debug);
 }
 
-// Functions supported by relational execution
+// Functions supported by relational execution.
 //
-// Called from clustering via StoreContract.supports. The State passed in is the stub
-// `defaultState([], newMap([]))` built in relationalStoreContract above — it has empty
-// inScopeVars, empty mapping, no disableAutoFlatten, no functionReferenceScope, etc.
-// `isFunctionSupportedForCluster` therefore intentionally consults only (a) the static
-// `supportedFunctions` map — real processors only — and (b) `getClusteringContextPredicates`,
-// whose fe-only predicates are safe to evaluate against a stub State (the narrower
-// function type statically enforces state-safety at this call site).
+// Called from clustering with a stub State (empty inScopeVars/mapping/etc.), so
+// `isFunctionSupportedForCluster` only consults the static `supportedFunctions` map and the
+// fe-only predicates in `getClusteringContextPredicates`. The full `contextBasedSupportedFunctions`
+// registry is NOT used here — its predicates depend on State fields that are empty at this
+// call site. Context-only functions that must be claimed for clustering register either an
+// fe-only AST predicate or an unconditional-true clustering predicate; mis-claims fall
+// through to `processContextOnlyFunctionFallback` at PureToSQL time and fail loudly.
 //
-// The full `contextBasedSupportedFunctions` registry (with `{fe, vars, state -> Boolean}`
-// predicates) is NOT consulted here; its predicates would inspect empty State fields and
-// give wrong answers (and produce surprising println / fail side-effects). Context-only
-// functions that need clustering claim carry either an fe-only AST predicate (`canProcessAt`,
-// `canProcessMatch`, `canProcessTypeName`, `isNewPairFunction`) or an unconditional-true
-// entry in `getClusteringContextPredicates` (today: `fold`, `isNotEmpty_Any_MANY`,
-// `indexOf`, `instanceOf`). Mis-claims via the unconditional-true path fall through to
-// `processContextOnlyFunctionFallback` at PureToSQL time and fail loudly.
-//
-// `at()` is claimed via its AST-only `canProcessAt` predicate, which correctly returns
-// false when the receiver is an already-routed (non-`NoSet`) `RoutedValueSpecification`
-// — so the cluster correctly defers to the platform cluster for plain relational
-// `->at(0).property` chains (see test `testPlatformExpressionDependencyOnAFromExpression`).
-//
-// See docs/copilot/2026-07-01-unify-context-supported-functions-single-registry-plan.md.
-//
-// clusteringEscapeFunctions covers the remaining cases where the function is not in
-// either registry but should still be claimed by the relational cluster (router quirks).
-// Each entry in that list should eventually be migrated into one of the registries — see
-// docs/copilot/2026-06-25-ssdbg-firing-during-clustering-decouple-findSupportedFunction-plan.md.
+// `clusteringEscapeFunctions` is a small tail of functions not in either registry that must
+// still be claimed by the relational cluster (router quirks); each entry should eventually
+// migrate into a registry.
 function meta::relational::contract::supports(f:FunctionExpression[1], state: State[1]):Boolean[1]
 {
   if($f->meta::pure::router::utils::isUnionOnGraphFetch(true),
@@ -229,16 +212,7 @@ function meta::relational::contract::supports(f:FunctionExpression[1], state: St
   );
 }
 
-// Functions that are *not* registered in either the static or context-based registries
-// but must still be claimed by the relational cluster at routing time. These exist
-// because the router / pre-evaluation pipeline does not currently descend into them
-// deeply enough for the regular registry lookup to fire, and there is a PureToSQL
-// processor (or upstream interception) that handles them.
-//
-// `fold` and `indexOf` were historically in this list; they are now caught automatically
-// by isFunctionSupportedForCluster because they carry unconditional-true entries in
-// `getClusteringContextPredicates` (paired with catchall handlers in
-// `getContextBasedSupportedFunctions`).
+// Escape list — see `supports` above.
 function meta::relational::contract::clusteringEscapeFunctions():meta::pure::metamodel::function::Function<Any>[*]
 {
   [

@@ -1722,77 +1722,40 @@ function meta::relational::functions::pureToSqlQuery::processPropertyMapping(pro
 function meta::relational::functions::pureToSqlQuery::processPropertyMappingReturnPropertyMapping(propertyMapping:PropertyMapping[*], currentPropertyMapping:PropertyMapping[*], propertyOwnerClass:Class<Any>[1], srcOperation:SelectWithCursor[1], state:State[1], joinType:JoinType[1], nodeId:String[1],
                                                                        aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):OperationWithParentPropertyMapping[1]
 {
-   print(if(!$context.debug, |'',
-            | $context.space+'*>Process Property: \''+$propertyMapping.property->at(0).name->toOne()+'\' ('+$propertyMapping->map(p|$p.owner->toOne().id+'->'+$p.targetSetImplementationId)->joinStrings(',')+') '+$nodeId+ ',inFilter:' + $state.inFilter->toString() + '\n'+
+  print(if(!$context.debug, |'',
+          | $context.space+'*>Process Property: \''+$propertyMapping.property->at(0).name->toOne()+'\' ('+$propertyMapping->map(p|$p.owner->toOne().id+'->'+$p.targetSetImplementationId)->joinStrings(',')+') '+$nodeId+ ',inFilter:' + $state.inFilter->toString() + '\n'+
 
-              $context.space+'   (Q)Source Operation>  '+$srcOperation->cast(@SelectWithCursor).select->printDebugQuery($context.space, $extensions)));
+            $context.space+'   (Q)Source Operation>  '+$srcOperation->cast(@SelectWithCursor).select->printDebugQuery($context.space, $extensions)));
 
-   // Partition the input by kind so RFPM and MJPM normalization can be expressed ass
-   // independent operations. RFPM transformation is per-element (1:1); MJPM compilation
-   // is per (sourceId, targetId) pair after dedup, so it operates on the collection.
-   let mjpms    = $propertyMapping->filter(pm | $pm->instanceOf(ModelJoinPropertyMapping))->cast(@ModelJoinPropertyMapping);
-   let nonMjpms = $propertyMapping->filter(pm | !$pm->instanceOf(ModelJoinPropertyMapping));
+  let normalizedPropertyMappings = $propertyMapping->map(pm | 
+    $pm->match([
+      rfpm: RelationFunctionPropertyMapping[1] |
+        let transformedPm = $rfpm->transformRelationFunctionPropertyMappingToRelational($srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions);
+        $transformedPm->buildPossibleEnumMappingPushDown(^$state(pushDownEnumTransformations = true));,
+      mjpm: ModelJoinPropertyMapping[1] | 
+        $mjpm->compileModelJoinForBranch($mjpm.property->cast(@AbstractProperty<Any>), $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions),
+      pm: PropertyMapping[1] | $pm
+    ])
+  );
 
-   // Normalize RelationFunctionPropertyMapping into RelationalPropertyMapping
-   // (transformRelationPropertyMappingsToRelational is just constructor calls — no caching needed).
-   let rfpmNormalized = $nonMjpms->map(pm | $pm->match([
-                                         rf: RelationFunctionPropertyMapping[1] | $rf->transformRelationFunctionPropertyMappingToRelational($srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions),
-                                         pm: PropertyMapping[1] | $pm
-                                    ]));
+  let res = $normalizedPropertyMappings->match([
+    s:SemiStructuredRelationalPropertyMapping[*] | processSemiStructuredRelationalPropertyMapping($s, $normalizedPropertyMappings.property->at(0), $propertyOwnerClass, $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions),
+    r:RelationalPropertyMapping[*] | processRelationalPropertyMapping($r, $normalizedPropertyMappings.property->at(0), $propertyOwnerClass, $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions),
+    r:CrossSetImplementationPropertyMapping[*] | processCrossPropertyMapping($r, $normalizedPropertyMappings.property->at(0), $propertyOwnerClass, $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions),
+    e:EmbeddedRelationalInstanceSetImplementation[*] | if(($state.inGetterFlow == true || $state.milestoningUseOtherwise == true) && $e->size() == 1 && $e->toOne()->instanceOf(OtherwiseEmbeddedRelationalInstanceSetImplementation),
+                                                          | processRelationalPropertyMapping($e->toOne()->cast(@OtherwiseEmbeddedRelationalInstanceSetImplementation).otherwisePropertyMapping->cast(@RelationalPropertyMapping), $normalizedPropertyMappings.property->at(0), $propertyOwnerClass, $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions);,
+                                                          | $srcOperation;
+                                                      ),
+    e:EmbeddedSetImplementation[*] | $srcOperation;
+  ]);
 
-   // Normalize ModelJoinPropertyMapping into synthetic RelationalPropertyMapping by
-   // compiling the join condition once per unique (source, target) pair.
-   let mjpmNormalized = if($mjpms->isEmpty(),
-      | [],
-      | let pairs = $mjpms
-           ->map(m | pair($m.sourceSetImplementationId, $m.targetSetImplementationId))
-           ->removeDuplicates({a,b | $a.first == $b.first && $a.second == $b.second});
-        $pairs->map({p |
-           let mjpm = $mjpms->filter(m | $m.sourceSetImplementationId == $p.first && $m.targetSetImplementationId == $p.second)->at(0);
-           compileModelJoinForBranch($mjpm, $mjpm.property->cast(@AbstractProperty<Any>), $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@PropertyMapping);
-        });
-   );
+  let result = $res->wrapIfNecessary($normalizedPropertyMappings);
 
-   let normalizedPropertyMapping = $rfpmNormalized->concatenate($mjpmNormalized);
+  print(if(!$context.debug, |'',
+          | $context.space+'<*Process Property Result: \''+$normalizedPropertyMappings.property->at(0).name->toOne()+'\' ('+$normalizedPropertyMappings->map(p|$p.owner->toOne().id+'->'+$p.targetSetImplementationId)->joinStrings(',')+') '+$nodeId+ ',inFilter:' + $state.inFilter->toString() + '\n'+
+            $context.space+'            '+$res->cast(@SelectWithCursor).select->printDebugQuery($context.space, $extensions)));
 
-   let normalizedState = if($propertyMapping->exists(pm | $pm->match([rf: RelationFunctionPropertyMapping[1] | $rf.transformer->isNotEmpty() && $rf.transformer->toOne()->instanceOf(EnumerationMapping), pm: PropertyMapping[1] | false])),
-       | ^$state(pushDownEnumTransformations=true),
-       | $state
-   );
-
-   let res = $normalizedPropertyMapping->match([
-               s:SemiStructuredRelationalPropertyMapping[*] | processSemiStructuredRelationalPropertyMapping($s, $normalizedPropertyMapping.property->at(0), $propertyOwnerClass, $srcOperation, $normalizedState, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions),
-               r:RelationalPropertyMapping[*] | processRelationalPropertyMapping($r, $normalizedPropertyMapping.property->at(0), $propertyOwnerClass, $srcOperation, $normalizedState, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions),
-               r:CrossSetImplementationPropertyMapping[*] | processCrossPropertyMapping($r, $normalizedPropertyMapping.property->at(0), $propertyOwnerClass, $srcOperation, $normalizedState, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions),
-               e:EmbeddedRelationalInstanceSetImplementation[*] | if(($normalizedState.inGetterFlow == true || $normalizedState.milestoningUseOtherwise == true) && $e->size() == 1 && $e->toOne()->instanceOf(OtherwiseEmbeddedRelationalInstanceSetImplementation),
-                                                                     | processRelationalPropertyMapping($e->toOne()->cast(@OtherwiseEmbeddedRelationalInstanceSetImplementation).otherwisePropertyMapping->cast(@RelationalPropertyMapping), $normalizedPropertyMapping.property->at(0), $propertyOwnerClass, $srcOperation, $normalizedState, $joinType, $nodeId, $aggFromMap, $context->shift(), $extensions);,
-                                                                     | $srcOperation;
-                                                                  ),
-               e:EmbeddedSetImplementation[*] | $srcOperation;
-             ]);
-
-   // Wrap once at the single exit point. wrapIfNecessary preserves a value that is already an
-   // OperationWithParentPropertyMapping (the RFPM lift router's output, carrying its synthesised
-   // PM as the currentPropertyMapping) and wraps a bare RelationalOperationElement with the
-   // input default (every other arm).
-   //
-   // Propagate RFPM-normalised PMs (SS-embedded / SS-RPM / RPM) as the parent context so
-   // downstream findPropertyMapping hits BRANCH A (buildSemiStructuredPropertyMapping) for
-   // variant-lifted classes — otherwise the raw RFPM leaks upward and the next property hop
-   // (e.g. `.otherNames` on a variant-lifted `firmInfo` targeting an unmapped class) falls
-   // into findPropertyMapping's BRANCH-C class-mapping lookup and fails its assertSize.
-   // MJPMs keep raw-MJPM propagation (compileModelJoinForBranch's synthetic RPM has a
-   // mismatched .owner / .sourceSetImplementationId shape and would change downstream
-   // findPropertyMapping's class-mapping lookup for model-join navigation).
-   // See docs/copilot/2026-07-05-post-rebase-rfpm-lift-wrapping-currentpm-regression-fix-plan.md
-   let wrapPM = $rfpmNormalized->concatenate($mjpms->cast(@PropertyMapping));
-   let result = $res->wrapIfNecessary($wrapPM);
-
-   print(if(!$context.debug, |'',
-            | $context.space+'<*Process Property Result: \''+$normalizedPropertyMapping.property->at(0).name->toOne()+'\' ('+$normalizedPropertyMapping->map(p|$p.owner->toOne().id+'->'+$p.targetSetImplementationId)->joinStrings(',')+') '+$nodeId+ ',inFilter:' + $state.inFilter->toString() + '\n'+
-              $context.space+'            '+$res->cast(@SelectWithCursor).select->printDebugQuery($context.space, $extensions)));
-
-   $result;
+  $result;
 }
 
 function meta::relational::functions::pureToSqlQuery::doJoinToClass(relationalPropertyMapping:RelationalPropertyMapping[1], c:Class<Any>[1], base:SelectWithCursor[1], joinType:JoinType[1], nodeId:String[1], state:State[1], context:DebugContext[1], extensions:Extension[*]):SelectWithCursor[1]
@@ -2108,7 +2071,7 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::buildSy
     let colType = $c.classifierGenericType.typeArguments->at(1).rawType->toOne();
     ^RelationFunctionColumn(
       column = $c,
-      name   = $c.name->toOne(),
+      name   = $c.name->toOne()->addQuotesIfNecessary(),
       type   = meta::relational::mapping::pureTypeToDataType($colType)->toOne()
     );
   );
@@ -2285,17 +2248,17 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::assertR
 function <<access.private>> meta::relational::functions::pureToSqlQuery::buildRelationalPropertyMappingForRfpm(
     pm:RelationFunctionPropertyMapping[1], cm:RelationFunctionInstanceSetImplementation[1],
     rhs:RfpmValueFnResult[1]
-):PropertyMapping[1]
+):RelationalPropertyMapping[1]
 {
   assertRfpmTargetTypeSupported($pm);
 
   let propType = $pm.property.genericType.rawType->toOne();
 
   if(!$rhs.isVariant,
-    | buildRelationalPropertyMappingForRfpm($pm, $rhs.relop)->cast(@PropertyMapping),
+    | buildRelationalPropertyMappingForRfpm($pm, $rhs.relop),
     | if($propType->instanceOf(Class),
-        | buildSsEmbeddedSetForRfpm($pm, $cm, $propType->cast(@Class<Any>), $rhs.relop)->cast(@PropertyMapping),
-        | buildSsRelationalPropertyMappingForRfpm($pm, $rhs.relop)->cast(@PropertyMapping)
+        | buildSsEmbeddedSetForRfpm($pm, $cm, $propType->cast(@Class<Any>), $rhs.relop),
+        | buildSsRelationalPropertyMappingForRfpm($pm, $rhs.relop)
       )
   );
 }
@@ -2322,7 +2285,7 @@ function meta::relational::functions::pureToSqlQuery::transformRelationFunctionP
     pm:RelationFunctionPropertyMapping[1],
     oldSrcOperation:SelectWithCursor[1], state:State[1],
     joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1],
-    context:DebugContext[1], extensions:Extension[*]):PropertyMapping[1]
+    context:DebugContext[1], extensions:Extension[*]):RelationalPropertyMapping[1]
 {
   let cm        = $state->getClassMappingById($pm.sourceSetImplementationId)->toOne()->cast(@RelationFunctionInstanceSetImplementation);
   let isBinding = $pm.transformer->isNotEmpty() && $pm.transformer->toOne()->instanceOf(BindingTransformer);
@@ -2331,7 +2294,7 @@ function meta::relational::functions::pureToSqlQuery::transformRelationFunctionP
   if($isBinding,
     | // Mode 1 — Binding: target is always the property's return type (a Class).
       let targetClass = $pm.property->functionReturnType().rawType->toOne()->cast(@Class<Any>);
-      buildSsEmbeddedSetForRfpm($pm, $cm, $targetClass, $rhs.relop)->cast(@PropertyMapping);,
+      buildSsEmbeddedSetForRfpm($pm, $cm, $targetClass, $rhs.relop);,
     | // Mode 2 — Lift: dispatch by variant-ness / target type.
       buildRelationalPropertyMappingForRfpm($pm, $cm, $rhs);
   );
@@ -9646,8 +9609,7 @@ function meta::relational::functions::pureToSqlQuery::replaceAliasInSelectWithCu
 }
 
 // ============================================================================================
-// Context-based applicability registries (unified 2026-07-01; supersedes the 2026-06-29
-// state-dep / state-indep split and the 2026-06-30 explicit-fallback tail block)
+// Context-based applicability registries
 // ============================================================================================
 // Functions whose relational handler depends on context are registered here in two
 // tightly-coupled registries:
@@ -9661,8 +9623,7 @@ function meta::relational::functions::pureToSqlQuery::replaceAliasInSelectWithCu
 //     entries which delegate to fe-only helpers). Context-only functions whose only
 //     handler is variant-aware carry a `{fe, vars, state | true}` catchall at the tail
 //     pointing at `processContextOnlyFunctionFallback` so mis-claims at clustering time
-//     surface loudly here rather than producing silently-wrong SQL. Today the catchall
-//     applies to `fold`, `isNotEmpty_Any_MANY`, `indexOf`, `instanceOf`.
+//     surface loudly here rather than producing silently-wrong SQL.
 //
 //   * getClusteringContextPredicates() — a curated subset of fe-only predicates used at
 //     clustering time. Predicates take only the FunctionExpression by type, statically
@@ -9685,8 +9646,6 @@ function meta::relational::functions::pureToSqlQuery::replaceAliasInSelectWithCu
 //     processor or its behaviour is fe-shape dependent — add a matching entry in (B).
 //     For handler-only context functions, (B) uses `{fe | true}`; for shape-dependent
 //     ones, (B) uses the fe-only AST predicate directly.
-//
-// See docs/copilot/2026-07-01-unify-context-supported-functions-single-registry-plan.md.
 // ============================================================================================
 
 function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFunctions():Map<meta::pure::metamodel::function::Function<Any>, List<Pair<meta::pure::metamodel::function::Function<{FunctionExpression[1],Map<VariableExpression, ValueSpecification>[1], State[1]->Boolean[1]}>, meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>>>>[1]

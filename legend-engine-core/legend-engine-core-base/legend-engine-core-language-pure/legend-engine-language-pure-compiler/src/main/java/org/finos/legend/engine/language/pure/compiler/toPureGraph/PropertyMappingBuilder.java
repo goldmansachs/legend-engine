@@ -384,15 +384,21 @@ public class PropertyMappingBuilder implements PropertyMappingVisitor<org.finos.
     @Override
     public PropertyMapping visit(RelationFunctionPropertyMapping propertyMapping)
     {
+        // Protocol invariant: exactly one of `column` (bare-column form) / `valueFn` (inline
+        // expression form) must be set. Enforce here rather than trusting the wire format —
+        // a malformed JSON payload otherwise silently favours one branch in ClassMappingSecondPassBuilder
+        // and drops the other. Absence of both is tolerated at this stage; the missing
+        // definition is surfaced later by MappingValidator.
+        if (propertyMapping.column != null && !propertyMapping.column.isEmpty() && propertyMapping.valueFn != null)
+        {
+            throw new EngineException("Relation property mapping must specify exactly one of a bare column name or an expression, not both.", propertyMapping.sourceInformation, EngineErrorType.COMPILATION);
+        }
+
         SourceInformation sourceInfo = SourceInformationHelper.toM3SourceInformation(propertyMapping.sourceInformation);
 
         Property<?, ?> property = resolveRelationFunctionMappedProperty(propertyMapping);
 
-        // Multiplicity / type compatibility is no longer enforced here.  The valueFn
-        // lambda body's inferred multiplicity and type are checked in
-        // MappingValidator.validateRelationPropertyMappings, after the SecondPass has
-        // bound $src to the relation function's row type and the type-inference pass
-        // has run.  At this point we just build the skeleton property mapping; the
+        // At this point we just build the skeleton property mapping; the
         // _valueFn slot is filled in ClassMappingSecondPassBuilder.visit(RelationFunctionClassMapping).
 
         org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.relation.RelationFunctionPropertyMapping relationFunctionPropertyMapping = new Root_meta_pure_mapping_relation_RelationFunctionPropertyMapping_Impl("", sourceInfo, context.pureModel.getClass("meta::pure::mapping::relation::RelationFunctionPropertyMapping"))
@@ -485,26 +491,6 @@ public class PropertyMappingBuilder implements PropertyMappingVisitor<org.finos.
                 ._class((Class<?>) property._genericType()._rawType())
                 ._owner(immediateParent)
                 ._parent(immediateParent._parent());
-
-        // The parser walker stamps every property pointer's `_class` with the OUTER class
-        // mapping's class (it has no type information at parse time).  Rewrite each child
-        // sub-property pointer to point at the embedded mapping's target class so that
-        // HelperMappingBuilder.getMappedProperty resolves the property against the right
-        // class.  Without this, `address ( city: CITY )` looks up `city` on Person, not Address.
-        if (propertyMapping.propertyMappings != null)
-        {
-            String targetClassPath = HelperModelBuilder.getElementFullPath(
-                    (org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement) property._genericType()._rawType(),
-                    context.pureModel.getExecutionSupport());
-            propertyMapping.propertyMappings.forEach(subPm ->
-            {
-                if (subPm.property != null && subPm.localMappingProperty == null)
-                {
-                    subPm.property._class = targetClassPath;
-                }
-            });
-        }
-
         RichIterable<org.finos.legend.pure.m3.coreinstance.meta.pure.mapping.PropertyMapping> compiledPropertyMappings =
                 propertyMapping.propertyMappings == null
                         ? org.eclipse.collections.api.factory.Lists.immutable.empty()

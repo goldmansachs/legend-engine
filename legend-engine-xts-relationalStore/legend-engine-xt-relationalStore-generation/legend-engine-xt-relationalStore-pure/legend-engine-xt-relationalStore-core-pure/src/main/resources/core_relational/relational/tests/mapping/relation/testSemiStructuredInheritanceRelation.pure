@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Translation of tests/semistructured/testSemiStructuredInheritanceMapping.pure
-// to the RFPM variant-lift form per docs/copilot/2026-06-10-semistructured-rfpm-lift-translation-plan-simple.md.
+// Translation of tests/semistructured/testSemiStructuredInheritanceMapping.pure to the RFPM
+// variant-lift form.
 //
 // Sources merged:
 //   testSemiStructuredInheritanceMapping.pure -> InheritanceSemiStructuredMapping

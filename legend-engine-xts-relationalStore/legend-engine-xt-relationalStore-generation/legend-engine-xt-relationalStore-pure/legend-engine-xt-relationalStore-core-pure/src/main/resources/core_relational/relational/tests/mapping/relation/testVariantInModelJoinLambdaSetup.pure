@@ -24,8 +24,6 @@
 // Pattern:
 //   - VariantInMJ_BaseMapping declares the Person/Firm class mappings.
 //   - Per-test mappings include the base + add a unique Person_Firm ModelJoin.
-//
-// See docs/copilot/2026-06-23-modeljoin-variant-singular-conditions-test-strategy.md
 // =============================================================================
 
 
