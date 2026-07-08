@@ -1697,9 +1697,8 @@ function meta::relational::functions::pureToSqlQuery::processProperty(property:A
                        |^$srcOperation(select = ^$query(columns+=$col)));
          ^OperationWithParentPropertyMapping(element = $res, currentPropertyMapping = []);
       ,| let propertyMappings = findPropertyMapping($property, $propertyOwnerClass, $currentPropertyMapping, $propertyMappingFromRouter, $state.mapping->toOne(),$context);
-         // Pass `propertyMappings` as both the PM-to-process and the default `currentPropertyMapping`.
-         // Non-RFPM dispatch arms inherit the default unchanged; the RFPM lift router overrides the
-         // default with its synthesised SS-embedded set / SS PM / RPM at the function exit's wrapIfNecessary.
+         // Found property mapping may get normalized during processing (RFPM/MJPM).
+         // So, also return currentPropertyMapping post normalization.
          processPropertyMappingReturnPropertyMapping($propertyMappings, $propertyMappings, $propertyOwnerClass, $srcOperation, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions);
    );
 }
@@ -1716,9 +1715,6 @@ function meta::relational::functions::pureToSqlQuery::processPropertyMapping(pro
 
 // Rich variant: returns OperationWithParentPropertyMapping[1] carrying both the resolved relop
 // (in `.element`) and the parent PropertyMapping[*] (in `.currentPropertyMapping`).
-//
-// `currentPropertyMapping:PropertyMapping[*]` is the *default* propagated context — used by the
-// match arms that don't override (every PM type except RFPM).
 function meta::relational::functions::pureToSqlQuery::processPropertyMappingReturnPropertyMapping(propertyMapping:PropertyMapping[*], currentPropertyMapping:PropertyMapping[*], propertyOwnerClass:Class<Any>[1], srcOperation:SelectWithCursor[1], state:State[1], joinType:JoinType[1], nodeId:String[1],
                                                                        aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):OperationWithParentPropertyMapping[1]
 {
@@ -4562,18 +4558,6 @@ function meta::relational::functions::pureToSqlQuery::processToMany(f:FunctionEx
 
   let select = $operation.select;
   ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = $toValue),|^$select(columns = $toValue)));    
-}
-
-function meta::relational::functions::pureToSqlQuery::processPutAllMap(f:FunctionExpression[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
-{
-  let map = $f.parametersValues->at(0)->processValueSpecification($currentPropertyMapping, $operation, $vars, ^$state(inFilter = false), $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@SelectWithCursor).select.columns;
-
-  let mapToPut = $f.parametersValues->at(1)->processValueSpecification($currentPropertyMapping, $operation, $vars, ^$state(inFilter = false), $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@SelectWithCursor).select.columns;
-
-  let dynaFunc = newDynaFunction('mapConcatenate', $map->concatenate($mapToPut));
-
-  let select = $operation.select;
-  ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = $dynaFunc),|^$select(columns = $dynaFunc)));
 }
 
 function meta::relational::functions::pureToSqlQuery::processDynaFunction(f:FunctionExpression[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
@@ -8287,34 +8271,6 @@ function meta::relational::functions::pureToSqlQuery::processStringPlus(expressi
     buildJoinStrings(mergeSQLQueryData($args->map(x | extractSelectSQLQuery($x)), $nodeId, $state, $context, $extensions), $emptyString, $emptyString, $emptyString, $operation, $nodeId, $state, $state.inFilter, $aggFromMap, $context, $extensions);
 }
 
-function meta::relational::functions::pureToSqlQuery::processVariantJoinStrings(expression:FunctionExpression[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
-{
-   let params = $expression.parametersValues->evaluateAndDeactivate();
-   let size = $params->size();
-   let firstParam = $params->at(0);
-   let semiStructuredPropertyMapping = $firstParam->resolveSemiStructuredBasePropertyMapping($currentPropertyMapping, $operation, $vars, $state, $joinType, $nodeId, $aggFromMap, $context, $extensions);
-
-   let inputResult = $firstParam->processValueSpecification($currentPropertyMapping, $operation, $vars, ^$state(disableAutoFlatten = true, inFilter = false), $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@SelectWithCursor);
-   let value = if($state.inFilter, |$inputResult.select.filteringOperation, |$inputResult.select.columns);
-   let inputRelOp = $value->toVariantFriendlyValue($firstParam.genericType->genericTypeToDataType($firstParam.multiplicity));
-
-   let separator = if(eq($size, 1),
-                      | ^Literal(value=''),
-                      | $params->at(if(eq($size, 2), |1, |2))->processValueSpecification($currentPropertyMapping, $operation, $vars, ^$state(inFilter = false), $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@SelectWithCursor).select.columns->toOne()
-                  );
-   let arrayToStringDyna = newDynaFunction('array_to_string', [$inputRelOp, $separator]);
-   let resultDyna = if(eq($size, 4),
-                       | let prefix = $params->at(1)->processValueSpecification($currentPropertyMapping, $operation, $vars, ^$state(inFilter = false), $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@SelectWithCursor).select.columns->toOne();
-                         let suffix = $params->at(3)->processValueSpecification($currentPropertyMapping, $operation, $vars, ^$state(inFilter = false), $joinType, $nodeId, $aggFromMap, $context, $extensions)->cast(@SelectWithCursor).select.columns->toOne();
-                         newDynaFunction('concat', [$prefix, $arrayToStringDyna, $suffix]);,
-                       | $arrayToStringDyna
-                   );
-
-   let select = $operation.select;
-   let resultOp = ^$operation(select = $state.inFilter->if(|^$select(filteringOperation = $resultDyna), |^$select(columns = $resultDyna)));
-   ^OperationWithParentPropertyMapping(element = $resultOp, currentPropertyMapping = $semiStructuredPropertyMapping);
-}
-
 function meta::relational::functions::pureToSqlQuery::processJoinStrings(expression:FunctionExpression[1], currentPropertyMapping:PropertyMapping[*], operation:SelectWithCursor[1], vars:Map<VariableExpression, ValueSpecification>[1], state:State[1], joinType:JoinType[1], nodeId:String[1], aggFromMap:List<ColumnGroup>[1], context:DebugContext[1], extensions:Extension[*]):RelationalOperationElement[1]
 {
     let params = $expression.parametersValues;
@@ -9452,7 +9408,7 @@ Class meta::relational::functions::pureToSqlQuery::ProcessingSide
 
 function meta::relational::functions::pureToSqlQuery::findSupportedFunction(fe:FunctionExpression[1], vars:Map<VariableExpression, ValueSpecification>[1], state: State[1]):meta::pure::metamodel::function::Function<{FunctionExpression[1], PropertyMapping[0..1], SelectWithCursor[1], Map<VariableExpression, ValueSpecification>[1], State[1], JoinType[1], String[1], List<ColumnGroup>[1], DebugContext[1], Extension[*]->RelationalOperationElement[1]}>[0..1]
 {
-  // Two-tier dispatch (2026-07-01 merge of the 2026-06-29 split):
+  // Two-tier dispatch:
   //   Tier 1: context registry — a single list of (predicate, handler) pairs per FE key
   //           evaluated in registration order. Predicates take {fe, vars, state}; predicates
   //           that don't need vars/state simply ignore them (see the four AST-only entries
@@ -9969,7 +9925,7 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
       first = meta::pure::functions::collection::slice_T_MANY__Integer_1__Integer_1__T_MANY_,
       second = [
         pair(
-          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInputWithAutoFlattenDisabled_ValueSpecification_1__Map_1__State_1__Boolean_1_,
           meta::relational::functions::pureToSqlQuery::processVariantSlice_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
         ),
         pair(
@@ -9982,7 +9938,7 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
       first = meta::pure::functions::collection::concatenate_T_MANY__T_MANY__T_MANY_,
       second = [
         pair(
-          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInputWithAutoFlattenDisabled_ValueSpecification_1__Map_1__State_1__Boolean_1_,
           meta::relational::functions::pureToSqlQuery::processVariantConcatenate_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
         ),
         pair(
@@ -9995,7 +9951,7 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
       first = meta::pure::functions::collection::drop_T_MANY__Integer_1__T_MANY_,
       second = [
         pair(
-          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInputWithAutoFlattenDisabled_ValueSpecification_1__Map_1__State_1__Boolean_1_,
           meta::relational::functions::pureToSqlQuery::processVariantDrop_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
         ),
         pair(
@@ -10008,7 +9964,7 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
       first = meta::pure::functions::collection::take_T_MANY__Integer_1__T_MANY_,
       second = [
         pair(
-          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInputWithAutoFlattenDisabled_ValueSpecification_1__Map_1__State_1__Boolean_1_,
           meta::relational::functions::pureToSqlQuery::processVariantTake_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
         ),
         pair(
@@ -10060,7 +10016,7 @@ function meta::relational::functions::pureToSqlQuery::getContextBasedSupportedFu
       first = meta::pure::functions::collection::distinct_T_MANY__T_MANY_,
       second = [
         pair(
-          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput_ValueSpecification_1__Map_1__State_1__Boolean_1_,
+          meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInputWithAutoFlattenDisabled_ValueSpecification_1__Map_1__State_1__Boolean_1_,
           meta::relational::functions::pureToSqlQuery::processVariantRemoveDuplicates_FunctionExpression_1__PropertyMapping_MANY__SelectWithCursor_1__Map_1__State_1__JoinType_1__String_1__List_1__DebugContext_1__Extension_MANY__RelationalOperationElement_1_
         ),
         pair(
