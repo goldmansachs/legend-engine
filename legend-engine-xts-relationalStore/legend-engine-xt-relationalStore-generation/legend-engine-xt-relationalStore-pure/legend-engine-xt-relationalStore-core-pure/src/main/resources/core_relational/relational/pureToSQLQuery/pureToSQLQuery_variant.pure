@@ -194,89 +194,74 @@ function meta::relational::functions::pureToSqlQuery::isSemiStructuredArrayInput
 // Walks back from a property access in a Pure expression like
 //   $p.firmInfo.address.lines->first()  OR  $p.firmInfo.countries->first().someToManyProp->first()
 // to locate the *entry-point* property mapping — the property mapping that sits at the
-// boundary between the relational source (StoreMappingRouted) and the semi-structured chain.
+// boundary between the relational source (StoreMappingRouted seed) and the semi-structured chain.
 //
-// NoSetRoutedValueSpecification (auto-mapped property hop) is stripped by the build/cluster
-// pipeline for VS-shaped AST but survives inside lambdas embedded as the `func` field of
-// non-VS InstanceValue values (col(...), agg(...), KeyExpression, ...). The walk-back therefore
-// treats NoSet as a transparent wrapper, alongside FunctionRouted.
+// The walker threads a `candidate` property through the recursion:
+//   - each property FE overwrites `candidate` with its own $prop and descends into the receiver;
+//   - each non-property FE (first/filter/map/cast/...) RESETS `candidate` to `[]` and descends
+//     into its first parameter (Pure's ->fn pipeline desugaring). The reset enforces the
+//     invariant that the entry property must be directly connected to the source with no
+//     intervening non-property hop — otherwise it is not at the "boundary" defined above;
+//   - when the walk terminates at a StoreMappingRouted, `candidate` (if any) is by construction
+//     the property closest to the source; we resolve its PMs against `$s.sets` in place.
 //
-// AST shape handled:
-//   - NoSetRoutedValueSpecification → transparent wrapper, unwrap (auto-mapped property hop)
-//   - FunctionRoutedValueSpecification → transparent wrapper, unwrap
-//   - property FE (func is AbstractProperty) → in-chain, may be the entry if its inner
-//     receiver has reached the source
-//   - non-property FE (first/filter/map/cast/...) → intermediate, step over by descending
-//     into the first parameter (Pure's ->fn pipeline desugaring)
-//   - anything else (StoreMappingRouted, VariableExpression, InstanceValue, ...) → source
-// Whether the entry property is actually semi-structured is decided by the caller
-// (`isSemiStructuredArrayExpression`) via a PM-type check on the resolved PM, not by AST shape.
-// Returns true iff `v` is the source of the SS chain (terminal — StoreMappingRouted, variable,
-// instance value, ...), i.e. not a still-in-chain form (NoSet, FunctionRouted, or any FE).
-function <<access.private>> meta::relational::functions::pureToSqlQuery::reachedChainSource(v: ValueSpecification[1]):Boolean[1]
-{
-  $v->evaluateAndDeactivate()->match([
-    n: NoSetRoutedValueSpecification[1]    | $n.value->reachedChainSource(),       // auto-mapped property hop — still in chain
-    f: FunctionRoutedValueSpecification[1] | $f.value->reachedChainSource(),
-    fe: FunctionExpression[1]              | false,  // property hop or intermediate non-property fn — still in chain
-    a: Any[1]                              | true    // StoreMappingRouted, VariableExpression, InstanceValue, etc.
-  ]);
-}
-
-// Extracts the SetImplementations contributed by the source of the SS chain. The source is
-// expected to be a StoreMappingRoutedValueSpecification (the routed form of the seed value
-// e.g. $persons); other ExtendedRouted wrappers (PlatformRouted, etc.) and FunctionRouted are
-// transparent. Anything else returns [], which is fine — the caller treats an empty PM list
-// as "no exclusion needed".
-function <<access.private>> meta::relational::functions::pureToSqlQuery::extractRoutedSetsForSemiStructuredCheck(v: ValueSpecification[1]):SetImplementation[*]
-{
-  $v->evaluateAndDeactivate()->match([
-    s: StoreMappingRoutedValueSpecification[1] | $s.sets,
-    r: ExtendedRoutedValueSpecification[1]     | $r.value->extractRoutedSetsForSemiStructuredCheck(),
-    f: FunctionRoutedValueSpecification[1]     | $f.value->extractRoutedSetsForSemiStructuredCheck(),
-    a: Any[1]                                  | []
-  ]);
-}
-
-// Walks the receiver chain back to its source (the StoreMappingRouted seed) and returns the
-// PropertyMapping(s) of the property closest to that source. That property is the "entry"
-// of the chain — the boundary between relational table land and whatever-comes-next (SS,
-// regular relational, etc.). The caller decides whether the entry PM type indicates a
-// semi-structured chain.
-function <<access.private>> meta::relational::functions::pureToSqlQuery::findSemiStructuredEntryPropertyMapping(receiver: ValueSpecification[1]):PropertyMapping[*]
+// Wrapper transparency: NoSetRouted, FunctionRouted and (non-mapping) ExtendedRouted subtypes
+// are all stripped without disturbing `candidate`. NoSet in particular is stripped by the
+// build/cluster pipeline for VS-shaped AST but survives inside lambdas embedded as the `func`
+// field of non-VS InstanceValue values (col(...), agg(...), KeyExpression, ...), so its own
+// arm is retained. `StoreMappingRouted` is matched *before* the generic `ExtendedRouted` arm
+// so the specialised terminal wins even though `StoreMappingRouted <: ExtendedRouted`.
+//
+// Router facts driving the design (see `store/routing.pure::routeFunctionExpressionProperty`):
+//   - a property FE with a regular relational PM is wrapped in `StoreMappingRoutedValueSpec`;
+//   - an auto-mapped property FE (SS / class-target RFPM / BindingTransformer RFPM) is wrapped
+//     in `NoSetRoutedValueSpec`, and the `shouldBeRouted=false` cascade forces every subsequent
+//     property FE in the same chain into NoSet too;
+//   - non-property FEs (first/filter/map/cast/...) are not wrapped by the property router;
+//   - the seed SMR (wrapping the class InstanceValue or a lambda VariableExpression) never has
+//     `.propertyMapping` populated by routing or by `buildStoreMappingRouted` — resolution must
+//     go through `$s.sets` and a property-name lookup.
+//
+// Whether the resolved entry PM actually indicates a semi-structured chain is decided by the
+// caller (`isSemiStructuredArrayExpression`) via a PM-type check, not by AST shape.
+function <<access.private>> meta::relational::functions::pureToSqlQuery::findSourceRelationalPropertyMapping(receiver: ValueSpecification[1], candidate: AbstractProperty<Any>[0..1]):PropertyMapping[*]
 {
   $receiver->evaluateAndDeactivate()->match([
-    n: NoSetRoutedValueSpecification[1] |
-      // Auto-mapped property hop wrapper — transparent; unwrap and continue. Survives in
-      // lambdas held by non-VS InstanceValues (col(...) / agg(...) / KeyExpression etc.).
-      $n.value->findSemiStructuredEntryPropertyMapping(),
-    f: FunctionRoutedValueSpecification[1] |
-      // Routed wrapper around a sub-expression — unwrap and continue.
-      $f.value->findSemiStructuredEntryPropertyMapping(),
+    n: NoSetRoutedValueSpecification[1]        | $n.value->findSourceRelationalPropertyMapping($candidate),
+    f: FunctionRoutedValueSpecification[1]     | $f.value->findSourceRelationalPropertyMapping($candidate),
+    s: StoreMappingRoutedValueSpecification[1] |
+      // Terminal — resolve `candidate` against the seed's sets. An empty candidate means the
+      // receiver was the source itself (no upstream property access) — nothing to look up.
+      if ($candidate->isEmpty(),
+        | [],
+        | $s.sets->filter(x | $x->instanceOf(InstanceSetImplementation))->cast(@InstanceSetImplementation)
+              ->map(x | $x->propertyMappingsByPropertyName($candidate->toOne().name->toOne()));
+      );,
+    r: ExtendedRoutedValueSpecification[1]     | $r.value->findSourceRelationalPropertyMapping($candidate),
     fe: FunctionExpression[1] |
       $fe.func->match([
         prop: AbstractProperty<Any>[1] |
-          // Property hop — check whether its receiver IS the chain source.
-          let innerReceiver = $fe.parametersValues->evaluateAndDeactivate()->at(0);
-          if ($innerReceiver->reachedChainSource(),
-            | // innerReceiver is the chain source; $prop is the entry-point property.
-              let srcSets = $innerReceiver->extractRoutedSetsForSemiStructuredCheck();
-              $srcSets->filter(s | $s->instanceOf(InstanceSetImplementation))->cast(@InstanceSetImplementation)
-                ->map(s | $s->_propertyMappingsByPropertyName($prop.name->toOne()));,
-            | // Still inside the chain — keep walking; deeper recursion will find the entry.
-              $innerReceiver->findSemiStructuredEntryPropertyMapping();
-          );,
+          // Property hop — this property becomes the new candidate. Deeper recursion decides
+          // whether it survives (bottoms out at StoreMappingRouted) or gets superseded.
+          $fe.parametersValues->evaluateAndDeactivate()->at(0)->findSourceRelationalPropertyMapping($prop);,
         a: Any[1] |
-          // Intermediate non-property Pure call (first/filter/map/cast/...). Step over by
-          // descending into the first parameter (the pipeline receiver, by Pure's ->fn desugaring).
+          // Intermediate non-property call (first/filter/map/cast/...). Step over by descending
+          // into the first parameter, RESETTING candidate — see block comment above.
           let firstParam = $fe.parametersValues->evaluateAndDeactivate()->first();
           if ($firstParam->isEmpty(),
             | [],
-            | $firstParam->toOne()->findSemiStructuredEntryPropertyMapping();
+            | $firstParam->toOne()->findSourceRelationalPropertyMapping([]);
           );
       ]);,
-    a: Any[1] | []   // Variable/InstanceValue/StoreMappingRouted source with no upstream property access — nothing to find.
+    a: Any[1] | []
   ]);
+}
+
+// Entry-point overload that seeds the walk with an empty candidate. Preserves the single-arg
+// call-site signature used by `isSemiStructuredArrayExpression`.
+function <<access.private>> meta::relational::functions::pureToSqlQuery::findSourceRelationalPropertyMapping(receiver: ValueSpecification[1]):PropertyMapping[*]
+{
+  $receiver->findSourceRelationalPropertyMapping([]);
 }
 
 // Returns true iff the entry PM is one of the SS-eligible PM kinds:
@@ -285,7 +270,7 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::findSem
 //   - RelationFunctionPropertyMapping with a BindingTransformer (legacy SS path).
 // Mirrors the conditions that drive NoSet emission in routing.pure
 // (`isAutoMappedRelationFunctionPropertyMapping`).
-function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiStructuredEntryPropertyMapping(pm: PropertyMapping[1]):Boolean[1]
+function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiStructuredPropertyMapping(pm: PropertyMapping[1]):Boolean[1]
 {
   $pm->match([
     sspm: SemiStructuredRelationalPropertyMapping[1] | true,
@@ -312,8 +297,8 @@ function <<access.private>> meta::relational::functions::pureToSqlQuery::isSemiS
           //      e.g. `location: Binding ... : @Join | ...`).
           let isToMany      = !$prop.multiplicity->hasToOneUpperBound();
           let receiver      = $fe.parametersValues->evaluateAndDeactivate()->at(0);
-          let entryPm       = $receiver->findSemiStructuredEntryPropertyMapping();
-          let isEntrySS     = $entryPm->exists(pm | $pm->isSemiStructuredEntryPropertyMapping());
+          let entryPm       = $receiver->findSourceRelationalPropertyMapping();
+          let isEntrySS     = $entryPm->exists(pm | $pm->isSemiStructuredPropertyMapping());
           let notAcrossJoin = !$entryPm->exists(pm |
                                   $pm->instanceOf(SemiStructuredRelationalPropertyMapping)
                                   && $pm->cast(@SemiStructuredRelationalPropertyMapping).relationalOperationElement->instanceOf(RelationalOperationElementWithJoin)

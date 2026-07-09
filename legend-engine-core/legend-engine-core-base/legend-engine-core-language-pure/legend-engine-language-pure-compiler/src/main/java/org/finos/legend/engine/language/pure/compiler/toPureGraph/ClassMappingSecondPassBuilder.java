@@ -225,7 +225,11 @@ public class ClassMappingSecondPassBuilder implements ClassMappingVisitor<SetImp
                 RelationFunctionEmbeddedPropertyMapping pEmb = (RelationFunctionEmbeddedPropertyMapping) protocolPm;
                 EmbeddedRelationFunctionSetImplementation mEmb = (EmbeddedRelationFunctionSetImplementation) m3Pm;
                 mEmb._relationFunction(relationFunction);
-                buildValueFunctionsForPropertyMappings(pEmb.propertyMappings, mEmb, relationFunction, srcType);
+                // Can be null for Inline embedded
+                if (pEmb.propertyMappings != null && !pEmb.propertyMappings.isEmpty())
+                {
+                    buildValueFunctionsForPropertyMappings(pEmb.propertyMappings, mEmb, relationFunction, srcType);
+                }
             }
         }
     }

@@ -899,6 +899,11 @@ Mapping meta::relational::tests::mapping::relation::MixedCaseAssociationChainMap
     employees[firm, person]: $this.id == $that.firmId,
     firm[person, firm]:      $this.firmId == $that.id
   }
+
+  // Person_Firm: ModelJoin
+  // {
+  //   {employees:Person[1], firm:Firm[1]|$firm.id == $employees.firmId}
+  // }
 )
 
 ###Pure
