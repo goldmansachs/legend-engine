@@ -26,6 +26,7 @@ import org.finos.legend.engine.test.shared.framework.TestServerResource;
 import org.finos.legend.pure.code.core.CoreRelationalDatabricksCodeRepositoryProvider;
 import org.finos.legend.pure.code.core.VariantCodeRepositoryProvider;
 import org.finos.legend.pure.m3.pct.reports.config.PCTReportConfiguration;
+import org.finos.legend.pure.m3.pct.reports.config.exclusion.AdapterQualifier;
 import org.finos.legend.pure.m3.pct.reports.config.exclusion.ExclusionSpecification;
 import org.finos.legend.pure.m3.pct.reports.model.Adapter;
 import org.finos.legend.pure.m3.pct.shared.model.ReportScope;
@@ -45,31 +46,7 @@ public class Test_Relational_Databricks_VariantFunctions_PCT extends PCTReportCo
             one("meta::pure::functions::variant::convert::tests::to::testToIntegerFromStringFloat_Function_1__Boolean_1_", "\"Execution error message mismatch.\nThe actual message was \"Unexpected error executing function with params [Anonymous_Lambda]\"\nwhere the expected message was:\"For input string: \"1.25\"\"\""),
             one("meta::pure::functions::variant::convert::tests::to::testToListFromNonArrayVariant_Function_1__Boolean_1_", "\"Execution error message mismatch.\nThe actual message was \"Unexpected error executing function with params [Anonymous_Lambda]\"\nwhere the expected message was:\"List<Variant> is not managed yet!\"\""),
             one("meta::pure::functions::variant::convert::tests::to::testToStrictDateFromWrongString_Function_1__Boolean_1_", "\"Execution error message mismatch.\nThe actual message was \"No error was thrown\"\nwhere the expected message was:\"StrictDate must be a calendar day, got: 2020\"\""),
-            one("meta::pure::functions::variant::convert::tests::to::testToMapWithVariantValues_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::convert::tests::to::testToMapWithIntegerValue_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
             one("meta::pure::functions::variant::convert::tests::to::testToEnum_Function_1__Boolean_1_", "\"Execution error message mismatch.\nThe actual message was \"No error was thrown\"\nwhere the expected message was:\"Month is not managed yet!\"\""),
-
-            pack("meta::pure::functions::variant::convert::tests::toVariant", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::convert::tests::toVariant::testListOfMap_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::convert::tests::toVariant::testMapOfMap_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::convert::tests::toVariant::testMapOfVariantValues_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::convert::tests::toVariant::testMapWithMultipleKeys_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::convert::tests::toVariant::testMapWithPrimitiveValues_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-
-            //fold
-            one("meta::pure::functions::variant::tests::collection::fold::testFold_FromVariantAsPrimitive_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::collection::fold::testFold_FromVariant_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-
-            // map
-            one("meta::pure::functions::variant::tests::collection::map::testMap_FromVariantAsPrimitive_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::tests::collection::map::testMap_FromVariant_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-
-            // filter
-            one("meta::pure::functions::variant::tests::collection::filter::testFilter_FromVariant_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::tests::collection::filter::testFilter_FromVariantAsPrimitive_Function_1__Boolean_1_", "[unsupported-api] The function 'toVariant' (state: [Select, false]) is not supported yet"),
-
-            pack("meta::pure::functions::variant::navigation::tests::get", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-
 
             one("meta::pure::functions::variant::convert::tests::to::testToClassWithInheritance_Function_1__Boolean_1_", "\"mapping missing and cannot construct return type for class: meta::pure::functions::variant::convert::tests::to::Pet\""),
             one("meta::pure::functions::variant::convert::tests::to::testToClass_Function_1__Boolean_1_", "\"mapping missing and cannot construct return type for class: meta::pure::functions::variant::convert::tests::to::Person\""),
@@ -77,22 +54,32 @@ public class Test_Relational_Databricks_VariantFunctions_PCT extends PCTReportCo
             one("meta::pure::functions::variant::convert::tests::toMany::testToClass_Function_1__Boolean_1_", "\"mapping missing and cannot construct return type for class: meta::pure::functions::variant::convert::tests::toMany::Person\""),
             one("meta::pure::functions::variant::convert::tests::toMany::testToManyFromNonArray_Function_1__Boolean_1_", "\"Execution error message mismatch.\nThe actual message was \"Unexpected error executing function with params [Anonymous_Lambda]\"\nwhere the expected message was:\"Expect variant that contains an 'ARRAY', but got 'STRING'\"\""),
 
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedProperty_manyToMany_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedProperty_manyToOne_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedProperty_oneToMany_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_manyToMany_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_manyToOne_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_oneToMany_Function_1__Boolean_1_", "[unsupported-api] The function 'array_flatten' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_oneToOne_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessQualifiedProperty_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedProperty_oneToOne_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessProperty_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassWithInheritanceAndAccessProperty_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassWithInheritanceAndInstanceOf_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassWithInheritanceAndInstanceOf_withTypeLookup_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassWithInheritanceUsingCustomTypePropertyAndClassToType_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassWithInheritanceUsingCustomTypeProperty_Function_1__Boolean_1_", "[unsupported-api] Semi structured array element processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::variant::tests::convert::to::model::testToClassWithInheritanceAndInstanceOf_withTypeLookup_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks")
+            // Databricks Snowflake-parity triage (run2)
+            // toVariant of a map builds a typed MAP that Databricks refuses to cast to VARIANT (Snowflake uses object-construct)
+            one("meta::pure::functions::variant::convert::tests::toVariant::testListOfMap_Function_1__Boolean_1_", "cannot cast \"MAP<STRING, BIGINT>\" to \"VARIANT\"", AdapterQualifier.unsupportedFeature),
+            one("meta::pure::functions::variant::convert::tests::toVariant::testMapOfMap_Function_1__Boolean_1_", "cannot cast \"MAP<STRING, BIGINT>\" to \"VARIANT\"", AdapterQualifier.unsupportedFeature),
+            one("meta::pure::functions::variant::convert::tests::toVariant::testMapOfVariantValues_Function_1__Boolean_1_", "cannot cast \"MAP<STRING, VARIANT>\" to \"VARIANT\"", AdapterQualifier.unsupportedFeature),
+            one("meta::pure::functions::variant::convert::tests::toVariant::testMapWithMultipleKeys_Function_1__Boolean_1_", "cannot cast \"MAP<STRING, BIGINT>\" to \"VARIANT\"", AdapterQualifier.unsupportedFeature),
+            one("meta::pure::functions::variant::convert::tests::toVariant::testMapWithPrimitiveValues_Function_1__Boolean_1_", "cannot cast \"MAP<STRING, BIGINT>\" to \"VARIANT\"", AdapterQualifier.unsupportedFeature),
+
+            // toVariant of nested lists/variants loses element typing: values come back JSON-encoded
+            one("meta::pure::functions::variant::convert::tests::toVariant::testListOfList_Function_1__Boolean_1_", "actual:   '[1]'", AdapterQualifier.needsInvestigation),
+            one("meta::pure::functions::variant::convert::tests::toVariant::testListOfVariants_Function_1__Boolean_1_", "actual:   '[\"1\",\"2\",\"3\"]'", AdapterQualifier.needsInvestigation),
+
+            // nested get on a parse_json value fails when the element is a scalar STRING rather than a complex type
+            one("meta::pure::functions::variant::navigation::tests::get::testNestedGet_arrayToMap_Function_1__Boolean_1_", "Need a complex type [STRUCT, ARRAY, MAP] but got \"STRING\"", AdapterQualifier.needsInvestigation),
+            one("meta::pure::functions::variant::navigation::tests::get::testNestedGet_mapToArray_Function_1__Boolean_1_", "Unrecognized token 'sun'", AdapterQualifier.needsInvestigation),
+
+            // filter/fold over a VARIANT array: elements are JSON-encoded, and aggregate() seed types disagree
+            one("meta::pure::functions::variant::tests::collection::filter::testFilter_FromVariant_Function_1__Boolean_1_", "actual:   '[\"1\",\"3\"]'", AdapterQualifier.needsInvestigation),
+            one("meta::pure::functions::variant::tests::collection::fold::testFold_FromVariant_Function_1__Boolean_1_", "The third parameter requires the \"INT\" type", AdapterQualifier.needsImplementation),
+            one("meta::pure::functions::variant::tests::collection::fold::testFold_FromVariantAsPrimitive_Function_1__Boolean_1_", "The third parameter requires the \"INT\" type", AdapterQualifier.needsImplementation),
+
+            // toClass over a VARIANT with a nested many-property: extraction cannot cast STRING to ARRAY<STRING>
+            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedProperty_manyToMany_Function_1__Boolean_1_", "cannot cast \"STRING\" to \"ARRAY<STRING>\"", AdapterQualifier.needsInvestigation),
+            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_manyToMany_Function_1__Boolean_1_", "cannot cast \"STRING\" to \"ARRAY<STRING>\"", AdapterQualifier.needsInvestigation),
+            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_manyToOne_Function_1__Boolean_1_", "Match failure: null", AdapterQualifier.needsInvestigation),
+            one("meta::pure::functions::variant::tests::convert::to::model::testToClassAndAccessNestedQualifiedProperty_oneToMany_Function_1__Boolean_1_", "Match failure: null", AdapterQualifier.needsInvestigation)
     );
 
     public static Test suite()

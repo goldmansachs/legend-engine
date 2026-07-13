@@ -60,35 +60,15 @@ public class Test_Relational_Databricks_GrammarFunctions_PCT extends PCTReportCo
 
             //filter
             one("meta::pure::functions::collection::tests::filter::testFilterInstance_Function_1__Boolean_1_", "Error dynamically evaluating value specification (from /platform/pure/grammar/functions/collection/iteration/filter.pure:49cc46-50); error compiling generated Java code", AdapterQualifier.unsupportedFeature),
-            one("meta::pure::functions::collection::tests::filter::testFilterLiteralFromVar_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::collection::tests::filter::testFilterLiteral_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
-            one("meta::pure::functions::collection::tests::filter::testLambdaAsFunctionParameter_Function_1__Boolean_1_", "[unsupported-api] relational lambda processing not supported for Database Type: Databricks"),
 
             //first
             one("meta::pure::functions::collection::tests::first::testFirstComplex_Function_1__Boolean_1_", "Expected at most one object, but found many"),
-            one("meta::pure::functions::collection::tests::first::testFirstSimple_Function_1__Boolean_1_", "\"[unsupported-api] The function 'array_first' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::first::testFirstOnEmptySet_Function_1__Boolean_1_", "\"[unsupported-api] The function 'array_first' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::first::testFirstOnOneElement_Function_1__Boolean_1_", "\"[unsupported-api] The function 'array_first' (state: [Select, false]) is not supported yet\""),
 
             //map
             one("meta::pure::functions::collection::tests::map::testMapInstance_Function_1__Boolean_1_", "type not supported: meta::pure::functions::collection::tests::map::model::M_GeographicEntityType"),
             one("meta::pure::functions::collection::tests::map::testMapRelationshipFromManyToMany_Function_1__Boolean_1_", "Error dynamically evaluating value specification (from /platform/pure/grammar/functions/collection/iteration/map.pure:63cc79-83); error compiling generated Java code", AdapterQualifier.unsupportedFeature),
             one("meta::pure::functions::collection::tests::map::testMapRelationshipFromManyToOne_Function_1__Boolean_1_", "Error dynamically evaluating value specification (from /platform/pure/grammar/functions/collection/iteration/map.pure:52cc64-68); error compiling generated Java code", AdapterQualifier.unsupportedFeature),
             one("meta::pure::functions::collection::tests::map::testMapRelationshipFromOneToOne_Function_1__Boolean_1_", "Error during dynamic reactivation: Error dynamically evaluating value specification (from /platform/pure/grammar/functions/collection/iteration/map.pure:43cc92-98); error compiling generated Java code", AdapterQualifier.unsupportedFeature),
-
-            //range
-            one("meta::pure::functions::collection::tests::range::testRangeWithStep_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::range::testRangeWithVariables_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::range::testRange_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::range::testReverseRange_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::range::testRangeWithStartStopEqual_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::range::testReverseRangeWithPositiveStep_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-            one("meta::pure::functions::collection::tests::range::testReverseRangeWithStep_Function_1__Boolean_1_", "\"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\""),
-
-            //size
-            one("meta::pure::functions::collection::tests::size::testSize_Function_1__Boolean_1_", "[unsupported-api] The function 'array_size' (state: [Select, false]) is not supported yet"),
-            one("meta::pure::functions::collection::tests::size::testSizeEmpty_Function_1__Boolean_1_", "[unsupported-api] The function 'array_size' (state: [Select, false]) is not supported yet"),
-
 
             // Compare
             pack("meta::pure::functions::lang::tests::compare", "\"No SQL translation exists for the PURE function 'compare_T_1__T_1__Integer_1_'.", AdapterQualifier.unsupportedFeature),
@@ -124,11 +104,13 @@ public class Test_Relational_Databricks_GrammarFunctions_PCT extends PCTReportCo
             one("meta::pure::functions::string::tests::plus::testPlusInCollect_Function_1__Boolean_1_", "No SQL translation exists for the PURE function 'at_T_MANY__Integer_1__T_1_'. \nIf you would like to add a SQL translation for the function then follow the step-by-step guide on the PURE wiki."),
             one("meta::pure::functions::string::tests::plus::testPlusInIterate_Function_1__Boolean_1_", "Match failure: StoreMappingClusteredValueSpecificationObject instanceOf StoreMappingClusteredValueSpecification"),
             // New PCT tests from legend-pure2 migration (mirrored from H2 defaults)
-            one("meta::pure::functions::collection::tests::range::testRangeStepError_Function_1__Boolean_1_", "\"Execution error message mismatch.\nThe actual message was \"[unsupported-api] The function 'range' (state: [Select, false]) is not supported yet\"\nwhere the expected message was:\"range step must not be 0\"\""),
             one("meta::pure::functions::collection::tests::getAll::testBasic_Function_1__Boolean_1_", "Cast exception: InstanceValue cannot be cast to StoreMappingRoutedValueSpecification"),
             // Pure boolean literals serialized as strings in Databricks SQL — needs investigation
             one("meta::pure::functions::boolean::tests::conjunctions::and::testBasicAnd_Function_1__Boolean_1_", "Cannot resolve \"(true AND true)\" due to data type mismatch", AdapterQualifier.needsInvestigation),
-            one("meta::pure::functions::boolean::tests::conjunctions::or::testBasicOr_Function_1__Boolean_1_", "Cannot resolve \"(true OR true)\" due to data type mismatch", AdapterQualifier.needsInvestigation)
+            one("meta::pure::functions::boolean::tests::conjunctions::or::testBasicOr_Function_1__Boolean_1_", "Cannot resolve \"(true OR true)\" due to data type mismatch", AdapterQualifier.needsInvestigation),
+
+            // range: Databricks sequence() does not raise the "range step must not be 0" error the test expects
+            one("meta::pure::functions::collection::tests::range::testRangeStepError_Function_1__Boolean_1_", "range step must not be 0", AdapterQualifier.assertErrorMismatch)
     );
 
     public static Test suite()
