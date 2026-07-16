@@ -24,6 +24,7 @@ function <<PCT.function, PCT.platformOnly>> meta::pure::functions::relation::toS
 function <<PCT.function, PCT.platformOnly>> meta::pure::functions::relation::toString<T>(rel:Relation<T>[1], typesAndMuls : Boolean[1]):String[1]
 {
     let cols = $rel->columns();
+    println($cols.name);
     '#TDS\n'+
     '   '+$cols->map(c| let name = $c.name->toOne()->trim();
                         let isSimple = $name->startsWith('\'') || $name->matches('^[a-zA-Z0-9_]+$');
