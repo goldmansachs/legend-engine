@@ -1,0 +1,185 @@
+// Copyright 2024 Goldman Sachs
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// -----------------------------------------------------------------------------
+// Minimal reproducer for the source-tree-calculation error
+//
+//   "No intermediate-class property of <Root> returns <Commission> -
+//    cannot build path back to owner."
+//
+// ROOT CAUSE
+// ----------
+// The assert fires in
+// meta::pure::graphFetch::buildPropertyPathUptoOwner (graphExtension.pure ~L878)
+// because the map
+//
+//     childPropertiesMap = owner->allNestedProperties()->groupBy(returnType)
+//
+// used to reconstruct a back-path to `owner` does not contain any property
+// returning `Commission`.
+//
+// Yet the source model DOES have a property returning Commission --
+// `BaseTrade.commission` -- and BaseTrade is reachable from the owner via
+// `event.trade` (Trade extends BaseTrade). The map is missing that
+// property because of a bug in
+// meta::pure::functions::meta::allNestedProperties
+// (metaExtension.pure L126-148):
+//
+//   * It collects properties via `allProperties(class)`, which returns
+//     ONLY the class's own directly-declared properties, not inherited
+//     ones.
+//   * It uses `hierarchicalProperties(class)` (which DOES walk
+//     generalisations) only to discover nested class TYPES to recurse
+//     into.
+//
+// Consequence: a property declared on a superclass is used to discover
+// nested types, but is itself NEVER added to the output list. So
+// `BaseTrade.commission` never appears in `allNestedProperties(Payload)`,
+// and `childPropertiesMap[Commission]` is empty.
+//
+// TRIGGER
+// -------
+// The intermediate-handling branch of `enrichSourceTreeNodeForProperty`
+// only fires when `scanProperties` on a mapping expression yields a
+// property tree that is NOT rooted at `owner`. The most common way to
+// achieve that is to construct an intermediate object with the `new`
+// (`^`) function inside a class mapping and delegate the resulting
+// object to a second class mapping via `[classMappingId]`. The second
+// class mapping's `~src` is the intermediate type, and its property
+// expressions therefore navigate properties whose ownerClass is the
+// intermediate type (or a class reached from it).
+//
+// This reproducer replicates that exactly:
+//   * Source hierarchy Payload -> Event -> Trade (Trade extends
+//     BaseTrade; BaseTrade declares `commission: Commission[0..1]`).
+//   * Root mapping constructs a fresh `^Commission(...)` from
+//     `$src.event.trade.commission` and hands it to a second class
+//     mapping via `[commOutCM]`.
+//   * The second class mapping has `~src Commission` and reads
+//     `$src.executionCommission.payBy.oe.identifier` -- exactly the
+//     original phantom chain (minus the outer commission hop, which is
+//     the one the algorithm now has to synthesise as a back-path).
+//
+// When `calculateSourceTree` runs on this mapping the second class
+// mapping's expressions cause `scanProperties` to return a tree rooted
+// at `Commission`. `isTreeRootOwner` (owner=Payload, root=Commission)
+// returns false, so `enrichSourceTreeNodeForProperty` enters the
+// intermediate-handling branch and calls
+// `buildPropertyPathUptoOwner(pTree, Payload, childPropertiesMap)`.
+// That walker reaches a node with `propOwner = Commission`, looks up
+// `childPropertiesMap.get(Commission)`, gets an empty list because of
+// the `allNestedProperties` inheritance bug, and asserts with the exact
+// message the user reported.
+// -----------------------------------------------------------------------------
+/////////////////////////  SOURCE model  ///////////////////////////////////////
+Class test::phantom::src::Payload
+{
+  event: test::phantom::src::Event[1];
+}
+Class test::phantom::src::Event
+{
+  trade: test::phantom::src::Trade[1];
+}
+// -- Trade hierarchy: the crucial superclass property ------------------------
+// `commission: Commission[0..1]` is declared HERE on BaseTrade. Because
+// `allProperties(Trade)` reports only Trade's own properties, the
+// `commission` property will never enter `allNestedProperties(Payload)`
+// -- this is what causes `childPropertiesMap[Commission]` to be empty.
+Class <<meta::pure::profiles::typemodifiers.abstract>>
+  test::phantom::src::BaseTrade
+{
+  // Route the runtime actually uses (kept for realism; not required to
+  // trigger the assert).
+  parties:    test::phantom::src::Party[*];
+  // *** The property that goes missing from childPropertiesMap. ***
+  // Mirrors BaseTrade.commission: CommissionCharge[0..1] in example.alloy.
+  commission: test::phantom::src::Commission[0..1];
+}
+Class test::phantom::src::Trade extends test::phantom::src::BaseTrade
+{
+  tradeDate: StrictDate[1];
+}
+// -- Commission / Charge / Party / Identifier --------------------------------
+// Mirrors CommissionCharge -> TransactionCharge -> TradeParty -> Identifier
+// in the real model.
+Class test::phantom::src::Commission
+{
+  executionCommission: test::phantom::src::Charge[0..1];
+  totalCommission:     test::phantom::src::Charge[1];
+}
+Class test::phantom::src::Charge
+{
+  payBy:  test::phantom::src::Party[1];
+  payTo:  test::phantom::src::Party[1];
+  amount: Float[1];
+}
+Class test::phantom::src::Party
+{
+  oe: test::phantom::src::Identifier[0..1];
+}
+Class test::phantom::src::Identifier
+{
+  identifier:     String[1];
+  identifierType: String[0..1];
+}
+/////////////////////////  TARGET model  ///////////////////////////////////////
+Class test::phantom::tgt::Out
+{
+  commissionInfo: test::phantom::tgt::CommissionOut[0..1];
+}
+Class test::phantom::tgt::CommissionOut
+{
+  // The single field we want to project all the way through the phantom
+  // chain: identifier of the party paying the execution-commission charge.
+  chargedPartyId: String[0..1];
+}
+/////////////////////////  MAPPING  ////////////////////////////////////////////
+Mapping test::phantom::mapping::PhantomPathMapping
+(
+  // Root class mapping. Constructs an INTERMEDIATE Commission using `^`
+  // and delegates to `CommissionOut[commOutCM]` (whose ~src is Commission).
+  //
+  // This is what forces `scanProperties` on the child class mapping's
+  // property expressions to yield a property tree rooted at `Commission`
+  // rather than at `Payload` -- driving `enrichSourceTreeNodeForProperty`
+  // into the intermediate-handling branch on the next recursion.
+  *test::phantom::tgt::Out: Pure
+  {
+    ~src test::phantom::src::Payload
+    commissionInfo[commOutCM]: ^test::phantom::src::Commission(
+      // Source data is drawn from BaseTrade.commission via inheritance,
+      // exactly the path that is missing from allNestedProperties(Payload).
+      executionCommission = $src.event.trade.commission.executionCommission,
+      totalCommission     = $src.event.trade.commission.totalCommission->toOne()
+    )
+  }
+  // Second class mapping with ~src Commission. Its expression navigates the
+  // full phantom chain from the user's report:
+  //
+  //   Commission.executionCommission
+  //     -> Charge.payBy
+  //     -> Party.oe
+  //     -> Identifier.identifier
+  //
+  // When the source tree is calculated for this class mapping, the walker
+  // needs to reconstruct a back-path from the Commission-rooted property
+  // tree up to owner Payload, and fails on the very first hop
+  // (Commission) because childPropertiesMap has no property returning
+  // Commission (BaseTrade.commission is invisible to allNestedProperties
+  // due to the inheritance bug).
+  test::phantom::tgt::CommissionOut[commOutCM]: Pure
+  {
+    ~src test::phantom::src::Commission
+    chargedPartyId: $src.executionCommission.payBy.oe.identifier->toOne()
+  }
+)
