@@ -461,7 +461,7 @@ public class TestDataSpaceAnalyticsArtifactGenerationExtension
     @Test
     public void testAnalyticsForDataSpaceWithDataSpaceInfoAnnotations() throws Exception
     {
-        // Tests all new DataSpaceInfo profile features: stereotypes (Certified, InDevelopment, External, Verified)
+        // Tests all new DataSpaceInfo profile features: stereotypes (InDevelopment, External, Verified)
         // and tags (topics, relatedDataSpaces, deprecationNotice)
         String pureModel =
                 "###Mapping\n" +
@@ -472,7 +472,7 @@ public class TestDataSpaceAnalyticsArtifactGenerationExtension
                 "  mappings: [model::MyMapping];\n" +
                 "}\n" +
                 "###DataSpace\n" +
-                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.Certified>>\n" +
+                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.Verified>>\n" +
                 "  {meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.topics = 'Securities, Equities',\n" +
                 "   meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.relatedDataSpaces = 'model::OtherSpace',\n" +
                 "   meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.deprecationNotice = 'Use model::NewSpace'}\n" +
@@ -504,8 +504,7 @@ public class TestDataSpaceAnalyticsArtifactGenerationExtension
             DataSpaceAnalysisResult result = objectMapper.readValue(analyticsResult.content, DataSpaceAnalysisResult.class);
 
             Assert.assertNotNull("info should be present for DataSpaces with DataSpaceInfo annotations", result.info);
-            Assert.assertEquals(Boolean.TRUE, result.info.isCertified);
-            Assert.assertNull("isVerified should be absent (not set)", result.info.isVerified);
+            Assert.assertEquals(Boolean.TRUE, result.info.isVerified);
             Assert.assertNull("isInDevelopment should be absent (not set)", result.info.isInDevelopment);
             Assert.assertNull("isExternal should be absent (not set)", result.info.isExternal);
             Assert.assertNotNull(result.info.topics);
@@ -709,7 +708,6 @@ public class TestDataSpaceAnalyticsArtifactGenerationExtension
             Assert.assertNotNull(result.info);
             Assert.assertEquals(Boolean.TRUE, result.info.isInDevelopment);
             Assert.assertEquals(Boolean.TRUE, result.info.isExternal);
-            Assert.assertNull(result.info.isCertified);
             Assert.assertNull(result.info.isVerified);
             Assert.assertNull(result.info.deprecationNotice);
         }

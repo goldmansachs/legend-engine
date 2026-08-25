@@ -22,7 +22,6 @@ import meta::pure::functions::doc::*;
 Class meta::pure::metamodel::dataSpace::analytics::DataSpaceInfoAnalysisResult
 {
   isVerified: Boolean[0..1];
-  isCertified: Boolean[0..1];
   isInDevelopment: Boolean[0..1];
   isExternal: Boolean[0..1];
   topics: String[*];
@@ -50,7 +49,6 @@ function <<access.private>> meta::pure::metamodel::dataSpace::analytics::resolve
   if($hasAnnotations,
     | ^DataSpaceInfoAnalysisResult(
         isVerified        = if($dataSpace.stereotypes->exists(s | $s.profile->elementToPath() == $profilePath && $s.value == 'Verified'), | true, | []),
-        isCertified       = if($dataSpace.stereotypes->exists(s | $s.profile->elementToPath() == $profilePath && $s.value == 'Certified'), | true, | []),
         isInDevelopment   = if($dataSpace.stereotypes->exists(s | $s.profile->elementToPath() == $profilePath && $s.value == 'InDevelopment'), | true, | []),
         isExternal        = if($dataSpace.stereotypes->exists(s | $s.profile->elementToPath() == $profilePath && $s.value == 'External'), | true, | []),
         topics            = $dataSpace.taggedValues->filter(t | $t.tag.profile->elementToPath() == $profilePath && $t.tag.value == 'topics')->map(t | $t.value->split(',')->map(s | $s->trim())->filter(s | $s->length() > 0)),

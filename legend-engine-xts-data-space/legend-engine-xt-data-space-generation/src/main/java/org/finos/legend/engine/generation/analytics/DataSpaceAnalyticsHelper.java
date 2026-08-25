@@ -479,7 +479,6 @@ public class DataSpaceAnalyticsHelper
         {
             DataSpaceInfoAnalysisResult dataSpaceInfo = new DataSpaceInfoAnalysisResult();
             dataSpaceInfo.isVerified = pureInfo._isVerified();
-            dataSpaceInfo.isCertified = pureInfo._isCertified();
             dataSpaceInfo.isInDevelopment = pureInfo._isInDevelopment();
             dataSpaceInfo.isExternal = pureInfo._isExternal();
             dataSpaceInfo.topics = pureInfo._topics() == null || pureInfo._topics().toList().isEmpty() ? null : new ArrayList<>(pureInfo._topics().toList());

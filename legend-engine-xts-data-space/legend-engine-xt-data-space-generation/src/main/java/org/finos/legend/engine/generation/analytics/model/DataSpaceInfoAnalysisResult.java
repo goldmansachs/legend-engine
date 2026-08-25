@@ -23,7 +23,6 @@ public class DataSpaceInfoAnalysisResult
 {
     // Stereotypes — only present in result when true
     public Boolean isVerified;
-    public Boolean isCertified;
     public Boolean isInDevelopment;
     public Boolean isExternal;
 

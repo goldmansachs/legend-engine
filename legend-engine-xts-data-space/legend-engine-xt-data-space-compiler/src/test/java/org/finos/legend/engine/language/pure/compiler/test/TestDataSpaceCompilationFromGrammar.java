@@ -1805,21 +1805,6 @@ public class TestDataSpaceCompilationFromGrammar extends TestCompilationFromGram
                 "  defaultExecutionContext: 'Context 1';\n" +
                 "}\n");
 
-        // Certified
-        test(mappingAndRuntime +
-                "###DataSpace\n" +
-                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.Certified>> model::dataSpace\n" +
-                "{\n" +
-                "  executionContexts:\n" +
-                "  [\n" +
-                "    {\n" +
-                "      name: 'Context 1';\n" +
-                "      mapping: model::dummyMapping;\n" +
-                "      defaultRuntime: model::dummyRuntime;\n" +
-                "    }\n" +
-                "  ];\n" +
-                "  defaultExecutionContext: 'Context 1';\n" +
-                "}\n");
 
         // External
         test(mappingAndRuntime +
@@ -1922,7 +1907,7 @@ public class TestDataSpaceCompilationFromGrammar extends TestCompilationFromGram
                 "  ];\n" +
                 "}\n\n" +
                 "###DataSpace\n" +
-                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.Certified>>" +
+                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.Verified>>" +
                 " {meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.topics = 'Securities, Equities'," +
                 " meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.relatedDataSpaces = 'model::OtherDataSpace'," +
                 " meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.deprecationNotice = 'Use model::NewDataSpace'}" +

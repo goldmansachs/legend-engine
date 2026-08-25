@@ -20,7 +20,6 @@ Profile meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo
     stereotypes: [
         Verified,
         InDevelopment,
-        Certified,
         External
     ];
     tags: [
