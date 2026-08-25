@@ -459,6 +459,263 @@ public class TestDataSpaceAnalyticsArtifactGenerationExtension
     }
 
     @Test
+    public void testAnalyticsForDataSpaceWithDataSpaceInfoAnnotations() throws Exception
+    {
+        // Tests all new DataSpaceInfo profile features: stereotypes (Certified, InDevelopment, External, Verified)
+        // and tags (topics, relatedDataSpaces, deprecationNotice)
+        String pureModel =
+                "###Mapping\n" +
+                "Mapping model::MyMapping ()\n" +
+                "###Runtime\n" +
+                "Runtime model::MyRuntime\n" +
+                "{\n" +
+                "  mappings: [model::MyMapping];\n" +
+                "}\n" +
+                "###DataSpace\n" +
+                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.Certified>>\n" +
+                "  {meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.topics = 'Securities, Equities',\n" +
+                "   meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.relatedDataSpaces = 'model::OtherSpace',\n" +
+                "   meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.deprecationNotice = 'Use model::NewSpace'}\n" +
+                "  model::MySpace\n" +
+                "{\n" +
+                "  executionContexts:\n" +
+                "  [\n" +
+                "    {\n" +
+                "      name: 'prod';\n" +
+                "      mapping: model::MyMapping;\n" +
+                "      defaultRuntime: model::MyRuntime;\n" +
+                "    }\n" +
+                "  ];\n" +
+                "  defaultExecutionContext: 'prod';\n" +
+                "  title: 'My Space';\n" +
+                "}\n";
+
+        PureModelContextData pureModelContextData = PureGrammarParser.newInstance().parseModel(pureModel, false);
+        PureModel compiledModel = Compiler.compile(pureModelContextData, DeploymentMode.TEST, Identity.getAnonymousIdentity().getName());
+        DataSpaceAnalyticsArtifactGenerationExtension extension = new DataSpaceAnalyticsArtifactGenerationExtension();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement packageableElement = compiledModel.getPackageableElement("model::MySpace");
+        Assert.assertTrue(extension.canGenerate(packageableElement));
+
+        for (String pureClient : testVersions)
+        {
+            List<Artifact> outputs = extension.generate(packageableElement, compiledModel, pureModelContextData, pureClient);
+            Artifact analyticsResult = outputs.stream().filter(a -> "AnalyticsResult.json".equals(a.path)).findFirst()
+                    .orElseThrow(() -> new AssertionError("AnalyticsResult.json not found"));
+            DataSpaceAnalysisResult result = objectMapper.readValue(analyticsResult.content, DataSpaceAnalysisResult.class);
+
+            Assert.assertNotNull("info should be present for DataSpaces with DataSpaceInfo annotations", result.info);
+            Assert.assertEquals(Boolean.TRUE, result.info.isCertified);
+            Assert.assertNull("isVerified should be absent (not set)", result.info.isVerified);
+            Assert.assertNull("isInDevelopment should be absent (not set)", result.info.isInDevelopment);
+            Assert.assertNull("isExternal should be absent (not set)", result.info.isExternal);
+            Assert.assertNotNull(result.info.topics);
+            Assert.assertEquals(2, result.info.topics.size());
+            Assert.assertTrue(result.info.topics.contains("Securities"));
+            Assert.assertTrue(result.info.topics.contains("Equities"));
+            Assert.assertNotNull(result.info.relatedDataSpaces);
+            Assert.assertEquals(1, result.info.relatedDataSpaces.size());
+            Assert.assertEquals("model::OtherSpace", result.info.relatedDataSpaces.get(0));
+            Assert.assertEquals("Use model::NewSpace", result.info.deprecationNotice);
+        }
+    }
+
+    @Test
+    public void testAnalyticsInfoTopicsSplittingWithComplicatedValues() throws Exception
+    {
+        // Exercises the comma-split logic in resolveDataSpaceInfoAnalysisResult:
+        //   - erratic whitespace around separators (leading/trailing/inner spaces)
+        //   - empty entries between commas (",,", trailing/leading commas)
+        //   - Pure-grammar escape sequences: escaped apostrophe (\') and backslash (\\)
+        //   - special characters preserved verbatim: hyphens, ampersands, slashes, parentheses, digits
+        // NOTE: split(',') is intentionally naive. Values that themselves contain a comma
+        // will be split — this test documents that contract by not including such values.
+        String pureModel =
+                "###Mapping\n" +
+                "Mapping model::MyMapping ()\n" +
+                "###Runtime\n" +
+                "Runtime model::MyRuntime\n" +
+                "{\n" +
+                "  mappings: [model::MyMapping];\n" +
+                "}\n" +
+                "###DataSpace\n" +
+                "DataSpace {meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.topics = " +
+                "'  Securities  ,,Fixed-Income , Equities & ETFs ,,,FX/Rates ,  Alt\\'s (Private) , ,Backslash\\\\Path'} " +
+                "model::MySpace\n" +
+                "{\n" +
+                "  executionContexts:\n" +
+                "  [\n" +
+                "    {\n" +
+                "      name: 'prod';\n" +
+                "      mapping: model::MyMapping;\n" +
+                "      defaultRuntime: model::MyRuntime;\n" +
+                "    }\n" +
+                "  ];\n" +
+                "  defaultExecutionContext: 'prod';\n" +
+                "}\n";
+
+        PureModelContextData pureModelContextData = PureGrammarParser.newInstance().parseModel(pureModel, false);
+        PureModel compiledModel = Compiler.compile(pureModelContextData, DeploymentMode.TEST, Identity.getAnonymousIdentity().getName());
+        DataSpaceAnalyticsArtifactGenerationExtension extension = new DataSpaceAnalyticsArtifactGenerationExtension();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement packageableElement = compiledModel.getPackageableElement("model::MySpace");
+
+        for (String pureClient : testVersions)
+        {
+            List<Artifact> outputs = extension.generate(packageableElement, compiledModel, pureModelContextData, pureClient);
+            Artifact analyticsResult = outputs.stream().filter(a -> "AnalyticsResult.json".equals(a.path)).findFirst()
+                    .orElseThrow(() -> new AssertionError("AnalyticsResult.json not found"));
+            DataSpaceAnalysisResult result = objectMapper.readValue(analyticsResult.content, DataSpaceAnalysisResult.class);
+
+            Assert.assertNotNull(result.info);
+            Assert.assertNotNull(result.info.topics);
+            List<String> expected = java.util.Arrays.asList(
+                    "Securities",
+                    "Fixed-Income",
+                    "Equities & ETFs",
+                    "FX/Rates",
+                    "Alt's (Private)",
+                    "Backslash\\Path"
+            );
+            Assert.assertEquals("Empty entries should be dropped and each value trimmed", expected, result.info.topics);
+        }
+    }
+
+    @Test
+    public void testAnalyticsInfoTopicsAcrossMultipleTaggedValues() throws Exception
+    {
+        // A user may want to attach the same tag multiple times rather than cramming
+        // everything into one comma-separated string. Each occurrence should contribute
+        // its own entries to the flattened `topics` list.
+        String pureModel =
+                "###Mapping\n" +
+                "Mapping model::MyMapping ()\n" +
+                "###Runtime\n" +
+                "Runtime model::MyRuntime\n" +
+                "{\n" +
+                "  mappings: [model::MyMapping];\n" +
+                "}\n" +
+                "###DataSpace\n" +
+                "DataSpace {meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.topics = 'Securities, Equities'," +
+                "           meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.topics = 'FX,Rates'} " +
+                "model::MySpace\n" +
+                "{\n" +
+                "  executionContexts:\n" +
+                "  [\n" +
+                "    {\n" +
+                "      name: 'prod';\n" +
+                "      mapping: model::MyMapping;\n" +
+                "      defaultRuntime: model::MyRuntime;\n" +
+                "    }\n" +
+                "  ];\n" +
+                "  defaultExecutionContext: 'prod';\n" +
+                "}\n";
+
+        PureModelContextData pureModelContextData = PureGrammarParser.newInstance().parseModel(pureModel, false);
+        PureModel compiledModel = Compiler.compile(pureModelContextData, DeploymentMode.TEST, Identity.getAnonymousIdentity().getName());
+        DataSpaceAnalyticsArtifactGenerationExtension extension = new DataSpaceAnalyticsArtifactGenerationExtension();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement packageableElement = compiledModel.getPackageableElement("model::MySpace");
+
+        for (String pureClient : testVersions)
+        {
+            List<Artifact> outputs = extension.generate(packageableElement, compiledModel, pureModelContextData, pureClient);
+            Artifact analyticsResult = outputs.stream().filter(a -> "AnalyticsResult.json".equals(a.path)).findFirst()
+                    .orElseThrow(() -> new AssertionError("AnalyticsResult.json not found"));
+            DataSpaceAnalysisResult result = objectMapper.readValue(analyticsResult.content, DataSpaceAnalysisResult.class);
+
+            Assert.assertNotNull(result.info);
+            Assert.assertNotNull(result.info.topics);
+            Assert.assertEquals(4, result.info.topics.size());
+            Assert.assertTrue(result.info.topics.containsAll(java.util.Arrays.asList("Securities", "Equities", "FX", "Rates")));
+        }
+    }
+
+    @Test
+    public void testAnalyticsInfoAbsentWhenNoDataSpaceInfoAnnotations() throws Exception
+    {
+        String pureModel =
+                "###Mapping\n" +
+                "Mapping model::MyMapping ()\n" +
+                "###Runtime\n" +
+                "Runtime model::MyRuntime\n" +
+                "{\n" +
+                "  mappings: [model::MyMapping];\n" +
+                "}\n" +
+                "###DataSpace\n" +
+                "DataSpace model::MySpace\n" +
+                "{\n" +
+                "  executionContexts:\n" +
+                "  [\n" +
+                "    {\n" +
+                "      name: 'prod';\n" +
+                "      mapping: model::MyMapping;\n" +
+                "      defaultRuntime: model::MyRuntime;\n" +
+                "    }\n" +
+                "  ];\n" +
+                "  defaultExecutionContext: 'prod';\n" +
+                "}\n";
+
+        PureModelContextData pureModelContextData = PureGrammarParser.newInstance().parseModel(pureModel, false);
+        PureModel compiledModel = Compiler.compile(pureModelContextData, DeploymentMode.TEST, Identity.getAnonymousIdentity().getName());
+        DataSpaceAnalyticsArtifactGenerationExtension extension = new DataSpaceAnalyticsArtifactGenerationExtension();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement packageableElement = compiledModel.getPackageableElement("model::MySpace");
+
+        for (String pureClient : testVersions)
+        {
+            List<Artifact> outputs = extension.generate(packageableElement, compiledModel, pureModelContextData, pureClient);
+            Artifact analyticsResult = outputs.stream().filter(a -> "AnalyticsResult.json".equals(a.path)).findFirst()
+                    .orElseThrow(() -> new AssertionError("AnalyticsResult.json not found"));
+            DataSpaceAnalysisResult result = objectMapper.readValue(analyticsResult.content, DataSpaceAnalysisResult.class);
+            Assert.assertNull("info should be absent when no DataSpaceInfo annotations are present", result.info);
+        }
+    }
+
+    @Test
+    public void testAnalyticsInfoInDevelopmentAndExternalStereotypes() throws Exception
+    {
+        String pureModel =
+                "###Mapping\n" +
+                "Mapping model::MyMapping ()\n" +
+                "###Runtime\n" +
+                "Runtime model::MyRuntime\n" +
+                "{\n" +
+                "  mappings: [model::MyMapping];\n" +
+                "}\n" +
+                "###DataSpace\n" +
+                "DataSpace <<meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.InDevelopment, meta::pure::metamodel::dataSpace::profiles::DataSpaceInfo.External>>\n" +
+                "  model::MySpace\n" +
+                "{\n" +
+                "  executionContexts:\n" +
+                "  [\n" +
+                "    {\n" +
+                "      name: 'prod';\n" +
+                "      mapping: model::MyMapping;\n" +
+                "      defaultRuntime: model::MyRuntime;\n" +
+                "    }\n" +
+                "  ];\n" +
+                "  defaultExecutionContext: 'prod';\n" +
+                "}\n";
+
+        PureModelContextData pureModelContextData = PureGrammarParser.newInstance().parseModel(pureModel, false);
+        PureModel compiledModel = Compiler.compile(pureModelContextData, DeploymentMode.TEST, Identity.getAnonymousIdentity().getName());
+        DataSpaceAnalyticsArtifactGenerationExtension extension = new DataSpaceAnalyticsArtifactGenerationExtension();
+        org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.PackageableElement packageableElement = compiledModel.getPackageableElement("model::MySpace");
+
+        for (String pureClient : testVersions)
+        {
+            List<Artifact> outputs = extension.generate(packageableElement, compiledModel, pureModelContextData, pureClient);
+            Artifact analyticsResult = outputs.stream().filter(a -> "AnalyticsResult.json".equals(a.path)).findFirst()
+                    .orElseThrow(() -> new AssertionError("AnalyticsResult.json not found"));
+            DataSpaceAnalysisResult result = objectMapper.readValue(analyticsResult.content, DataSpaceAnalysisResult.class);
+
+            Assert.assertNotNull(result.info);
+            Assert.assertEquals(Boolean.TRUE, result.info.isInDevelopment);
+            Assert.assertEquals(Boolean.TRUE, result.info.isExternal);
+            Assert.assertNull(result.info.isCertified);
+            Assert.assertNull(result.info.isVerified);
+            Assert.assertNull(result.info.deprecationNotice);
+        }
+    }
+
+    @Test
     public void testAnalyticsForDataSpaceWithRelationExecutableWithoutExecutionContexts() throws Exception
     {
         Artifact analyticsArtifact = runExtensionAndGetAnalytics("models/dataSpaceWithRelationExecutableNoExecutionContexts.pure", "domain::COVIDDataspace");
