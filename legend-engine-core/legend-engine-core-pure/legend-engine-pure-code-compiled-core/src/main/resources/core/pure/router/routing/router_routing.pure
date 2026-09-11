@@ -1050,7 +1050,16 @@ function meta::pure::router::routing::shouldStopFunctions(extensions:meta::pure:
     meta::pure::functions::relation::lessThanAny_U_$0_1$__Relation_1__Boolean_1_,
     meta::pure::functions::relation::lessThanAll_U_$0_1$__Relation_1__Boolean_1_,
     meta::pure::functions::relation::lessThanEqualAny_U_$0_1$__Relation_1__Boolean_1_,
-    meta::pure::functions::relation::lessThanEqualAll_U_$0_1$__Relation_1__Boolean_1_
+    meta::pure::functions::relation::lessThanEqualAll_U_$0_1$__Relation_1__Boolean_1_,
+    // Mapping-introspection helpers: their Pure bodies navigate $mapping.enumerationMappings.
+    // If the router descends, that navigation is pre-evaluated with a compile-time-known
+    // Mapping and the resulting EnumerationMapping instances get baked into the plan as
+    // InstanceValue literals. The Java platform binder's processInstanceValue switch has
+    // no case for EnumerationMapping and fails with "Unhandled value type". Treating them
+    // as opaque here keeps the call whole; at execute-time the compiled Java for the Pure
+    // body is invoked directly.
+    meta::pure::mapping::getSourceEnumValues_Mapping_1__Enumeration_1__T_MANY_,
+    meta::pure::mapping::getSourceEnumValuesByName_Mapping_1__Enumeration_1__String_1__T_MANY_
   ]->concatenate($extensions.routerExtensions().shouldStopRouting)
 }
 

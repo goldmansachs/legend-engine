@@ -1317,7 +1317,13 @@ function meta::external::language::java::transform::defaultProhibitedFunctions(e
       Nil,
       Unit,
       Function,
-      meta::pure::graphFetch::RootGraphFetchTree
+      meta::pure::graphFetch::RootGraphFetchTree,
+      // Exempts functions whose signature carries a Mapping parameter (e.g.
+      // meta::pure::mapping::getSourceEnumValues / getSourceEnumValuesByName).
+      // These helpers are already opaque to the router via shouldStopFunctions,
+      // so Java-gen only emits an invocation of the compiled Pure body -- it
+      // never has to materialise a Mapping value.
+      meta::pure::mapping::Mapping
    ];
 
    let excludeTestPackages = [
