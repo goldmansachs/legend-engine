@@ -121,6 +121,8 @@ all backends. See [Testing Strategy — PCT](testing/testing-strategy.md#5-pct-p
 | [Exploration & Discovery](guides/exploration.md) | Systematic approach for new engineers exploring the codebase |
 | [Pure IDE Delta-Compiler Debugging](guides/pure-ide-delta-compiler-debugging.md) | Driving the Pure IDE over HTTP to delta-compile and run `.pure` code in seconds instead of a full Maven rebuild |
 | [Identity, Authentication & Traceability](guides/identity-authentication-guide.md) | Identity model, credential types, authentication flows, vault integration, end-to-end traceability |
+| [Java 11 Server Boundary — Upgrade Plan](guides/java11-server-boundary-plan.md) | The enforced Java 8 / Java 11 split, and the Dropwizard 3.0 / Jetty 10 / Jackson 2.19 upgrades behind it |
+| [Java 11 Server Boundary — Handoff](guides/java11-server-boundary-handoff.md) | Current state of the upgrade branches, where the build stops, and what to do next |
 | [Logging, Tracing & Observability](guides/logging-tracing-observability.md) | Structured logging with `LogInfo`, OpenTracing, OpenTelemetry, Prometheus metrics |
 
 ### Standards & Process
