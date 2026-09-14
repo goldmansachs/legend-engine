@@ -16,9 +16,9 @@ package org.finos.legend.engine.query.graphQL.api.format.generation.api;
 
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function0;
 import org.eclipse.collections.api.list.MutableList;
@@ -51,7 +51,7 @@ import javax.ws.rs.core.Response;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
 @Deprecated
-@Api(tags = "Z - Deprecated - Generation - Schema")
+@Tag(name = "Z - Deprecated - Generation - Schema")
 @Path("pure/v1/schemaGeneration")
 @Produces(MediaType.APPLICATION_JSON)
 public class GraphQLGenerationService
@@ -67,9 +67,9 @@ public class GraphQLGenerationService
     @Deprecated
     @POST
     @Path("graphql")
-    @ApiOperation(value = "Generates GraphQL schema for a given class and transitive dependencies")
+    @Operation(summary = "Generates GraphQL schema for a given class and transitive dependencies")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response generateGraphQL(GraphQLGenerationInput generateGraphQLInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateGraphQL(GraphQLGenerationInput generateGraphQLInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

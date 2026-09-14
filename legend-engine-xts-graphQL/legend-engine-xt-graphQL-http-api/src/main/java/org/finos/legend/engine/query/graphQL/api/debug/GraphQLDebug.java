@@ -18,9 +18,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.factory.Maps;
 import org.eclipse.collections.api.list.MutableList;
@@ -74,7 +74,7 @@ import java.util.function.Function;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 import static org.finos.legend.pure.generated.core_pure_protocol_protocol.Root_meta_alloy_metadataServer_alloyToJSON_Any_1__String_1_;
 
-@Api(tags = "GraphQL - Debug")
+@Tag(name = "GraphQL - Debug")
 @Path("graphQL/v1/debug")
 public class GraphQLDebug extends GraphQL
 {
@@ -135,37 +135,37 @@ public class GraphQLDebug extends GraphQL
 
     @Deprecated
     @POST
-    @ApiOperation(value = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project",  notes = "DEPRECATED - Use the generateGraphFetch APIs that include 'workspace' or 'groupWorkspace' as path parameters")
+    @Operation(summary = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project",  description = "DEPRECATED - Use the generateGraphFetch APIs that include 'workspace' or 'groupWorkspace' as path parameters")
     @Path("generateGraphFetch/dev/{projectId}/{workspaceId}/query/{queryClassPath}")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generateGraphFetchDev(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, Query query, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateGraphFetchDev(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, Query query, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         return this.generateGraphFetchDevWithUserWorkspace(request, workspaceId, projectId, queryClassPath, query, pm);
     }
 
     @POST
-    @ApiOperation(value = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project (user workspace)")
+    @Operation(summary = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project (user workspace)")
     @Path("generateGraphFetch/dev/{projectId}/workspace/{workspaceId}/query/{queryClassPath}")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generateGraphFetchDevWithUserWorkspace(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, Query query, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateGraphFetchDevWithUserWorkspace(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, Query query, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         return this.generateGraphFetchDevImpl(request, workspaceId, false, projectId, queryClassPath, query, pm);
     }
 
 
     @POST
-    @ApiOperation(value = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project (group workspace)")
+    @Operation(summary = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project (group workspace)")
     @Path("generateGraphFetch/dev/{projectId}/groupWorkspace/{workspaceId}/query/{queryClassPath}")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generateGraphFetchDevWithGroupWorkspace(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, Query query, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateGraphFetchDevWithGroupWorkspace(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, Query query, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         return this.generateGraphFetchDevImpl(request, workspaceId, true, projectId, queryClassPath, query, pm);
     }
 
-    private Response generateGraphFetchDevImpl(HttpServletRequest request, String workspaceId, boolean isGroupWorkspace, String projectId, String queryClassPath, Query query, ProfileManager<CommonProfile> pm)
+    private Response generateGraphFetchDevImpl(HttpServletRequest request, String workspaceId, boolean isGroupWorkspace, String projectId, String queryClassPath, Query query, ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -180,16 +180,16 @@ public class GraphQLDebug extends GraphQL
     }
 
     @POST
-    @ApiOperation(value = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project (group workspace)")
+    @Operation(summary = "Generate Pure graphFetch(s) from a graphQL query using metadata from SDLC project (group workspace)")
     @Path("generateGraphFetch/dev/{projectId}/groupWorkspace/{workspaceId}/query/{queryClassPath}/mapping/{mappingPath}/runtime/{runtimePath}/binding/{bindingPath}")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generateGraphFetchDevWithGroupWorkspace(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, @PathParam("mappingPath") String mappingPath, @PathParam("runtimePath") String runtimePath, @PathParam("bindingPath") String bindingPath,  Query query, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateGraphFetchDevWithGroupWorkspace(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("projectId") String projectId, @PathParam("queryClassPath") String queryClassPath, @PathParam("mappingPath") String mappingPath, @PathParam("runtimePath") String runtimePath, @PathParam("bindingPath") String bindingPath,  Query query, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         return this.generateGraphFetchDevImpl(request, workspaceId, true, projectId, queryClassPath, mappingPath, runtimePath, bindingPath, query, pm);
     }
 
-    private Response generateGraphFetchDevImpl(HttpServletRequest request, String workspaceId, boolean isGroupWorkspace, String projectId, String queryClassPath, String mappingPath, String runtimePath, String bindingPath, Query query, ProfileManager<CommonProfile> pm)
+    private Response generateGraphFetchDevImpl(HttpServletRequest request, String workspaceId, boolean isGroupWorkspace, String projectId, String queryClassPath, String mappingPath, String runtimePath, String bindingPath, Query query, ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -204,11 +204,11 @@ public class GraphQLDebug extends GraphQL
     }
 
     @POST
-    @ApiOperation(value = "Generate Pure graphFetch(s) from a graphQL query")
+    @Operation(summary = "Generate Pure graphFetch(s) from a graphQL query")
     @Path("generateGraphFetch/prod/{groupId}/{artifactId}/{versionId}/query/{queryClassPath}")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generateGraphFetchProd(@Context HttpServletRequest request, @PathParam("groupId") String groupId, @PathParam("artifactId") String artifactId, @PathParam("versionId") String versionId, @PathParam("queryClassPath") String queryClassPath, Query query, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateGraphFetchProd(@Context HttpServletRequest request, @PathParam("groupId") String groupId, @PathParam("artifactId") String artifactId, @PathParam("versionId") String versionId, @PathParam("queryClassPath") String queryClassPath, Query query, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -234,11 +234,11 @@ public class GraphQLDebug extends GraphQL
     }
 
     @POST
-    @ApiOperation(value = "Generate a Pure Instance builder from a GraphQL document serialized as JSON")
+    @Operation(summary = "Generate a Pure Instance builder from a GraphQL document serialized as JSON")
     @Path("generatePureInstanceBuilder")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response generatePureInstanceBuilder(@Context HttpServletRequest request, String json, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generatePureInstanceBuilder(@Context HttpServletRequest request, String json, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

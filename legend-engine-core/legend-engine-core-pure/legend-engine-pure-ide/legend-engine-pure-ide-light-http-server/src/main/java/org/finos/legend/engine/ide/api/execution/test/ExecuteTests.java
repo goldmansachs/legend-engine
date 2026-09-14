@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.execution.test;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.list.ListIterable;
 import org.eclipse.collections.api.tuple.primitive.BooleanObjectPair;
 import org.finos.legend.engine.ide.session.PureSession;
@@ -38,7 +38,7 @@ import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-@Api(tags = "Execute Tests")
+@Tag(name = "Execute Tests")
 @Path("/")
 public class ExecuteTests
 {

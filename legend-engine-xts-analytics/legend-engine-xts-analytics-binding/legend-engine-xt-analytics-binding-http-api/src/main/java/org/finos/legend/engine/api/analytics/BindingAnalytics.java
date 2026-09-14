@@ -17,9 +17,9 @@ package org.finos.legend.engine.api.analytics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
@@ -52,7 +52,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.Objects;
 
-@Api(tags = "Analytics - Model")
+@Tag(name = "Analytics - Model")
 @Path("pure/v1/analytics/binding")
 public class BindingAnalytics
 {
@@ -67,12 +67,12 @@ public class BindingAnalytics
 
     @POST
     @Path("modelCoverage")
-    @ApiOperation(value = "Analyze the binding to identify models covered by the binding")
+    @Operation(summary = "Analyze the binding to identify models covered by the binding")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response analyzeBindingModelCoverage(BindingModelCoverageAnalysisInput input,
                                                 @QueryParam("includeBinding") @DefaultValue("true") boolean includeBinding,
-                                                @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                                                @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

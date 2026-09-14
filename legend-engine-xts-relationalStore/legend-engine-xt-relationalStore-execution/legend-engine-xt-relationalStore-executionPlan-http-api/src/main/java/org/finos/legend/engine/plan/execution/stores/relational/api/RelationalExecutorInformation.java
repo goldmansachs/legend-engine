@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.plan.execution.stores.relational.api;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.finos.legend.engine.plan.execution.stores.relational.connection.ds.state.ConnectionStateManager;
 
 import javax.ws.rs.DELETE;
@@ -26,7 +26,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-@Api(tags = "Server")
+@Tag(name = "Server")
 @Path("server/v1")
 @Produces(MediaType.APPLICATION_JSON)
 public class RelationalExecutorInformation
@@ -39,7 +39,7 @@ public class RelationalExecutorInformation
 
     @GET
     @Path("executorInfo")
-    @ApiOperation(value = "Provides information about executors (like connections pools, etc.)")
+    @Operation(summary = "Provides information about executors (like connections pools, etc.)")
     public Response executePureGet()
     {
         return Response.status(200).type(MediaType.APPLICATION_JSON).entity(connectionStateManager.getConnectionStateManagerPOJO()).build();
@@ -47,7 +47,7 @@ public class RelationalExecutorInformation
 
     @GET
     @Path("executorInfo/relational/pools/{poolName}")
-    @ApiOperation(value = "Provides database pool information ")
+    @Operation(summary = "Provides database pool information ")
     public Response getPoolInformation(@PathParam("poolName") String poolName)
     {
         return Response.status(200).type(MediaType.APPLICATION_JSON).entity(connectionStateManager.findByPoolName(poolName)).build();
@@ -55,7 +55,7 @@ public class RelationalExecutorInformation
 
     @DELETE
     @Path("executorInfo/relational/pools/{poolName}")
-    @ApiOperation(value = "delete and evict connections in this database pool ")
+    @Operation(summary = "delete and evict connections in this database pool ")
     public Response delete(@PathParam("poolName") String poolName)
     {
         return Response.status(200).type(MediaType.APPLICATION_JSON).entity(connectionStateManager.closeAndRemoveConnectionPool(poolName)).build();
@@ -63,7 +63,7 @@ public class RelationalExecutorInformation
 
     @GET
     @Path("executorInfo/relational/{user}")
-    @ApiOperation(value = "Provides pool information by user ")
+    @Operation(summary = "Provides pool information by user ")
     public Response getUserInformation(@PathParam("user") String user)
     {
         return Response.status(200).type(MediaType.APPLICATION_JSON).entity(connectionStateManager.getPoolInformationByUser(user)).build();

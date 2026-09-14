@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.ide.api;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.eclipse.collections.api.tuple.Pair;
 import org.finos.legend.engine.ide.api.execution.function.manager.ContentType;
 import org.finos.legend.engine.ide.api.execution.function.manager.ExecutionManager;
@@ -33,7 +33,7 @@ import javax.ws.rs.core.Context;
 import java.io.IOException;
 import java.util.Map;
 
-@Api(tags = "Service")
+@Tag(name = "Service")
 @Path("")
 public class Service
 {
@@ -46,7 +46,7 @@ public class Service
 
     @GET
     @Path("{path:.+}")
-    @ApiOperation(value = "")
+    @Operation(summary = "")
     public void exec(@Context HttpServletRequest request, @Context HttpServletResponse response, @PathParam("path") String path) throws IOException
     {
         Pair<CoreInstance, Map<String, String[]>> result = this.pureSession.getPureRuntime().getURLPatternLibrary().tryExecution("/" + path, this.pureSession.getPureRuntime().getProcessorSupport(), request.getParameterMap());

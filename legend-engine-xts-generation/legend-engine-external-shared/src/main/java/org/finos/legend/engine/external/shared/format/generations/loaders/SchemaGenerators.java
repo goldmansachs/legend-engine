@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.external.shared.format.generations.loaders;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.finos.legend.engine.external.shared.format.generations.description.FileGenerationDescription;
 import org.finos.legend.engine.external.shared.format.generations.description.GenerationConfigurationDescription;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Deprecated
-@Api(tags = "Z - Deprecated - Generation - Schema")
+@Tag(name = "Z - Deprecated - Generation - Schema")
 @Path("pure/v1/schemaGeneration")
 @Produces(MediaType.APPLICATION_JSON)
 public class SchemaGenerators
@@ -55,7 +55,7 @@ public class SchemaGenerators
     @Deprecated
     @GET
     @Path("availableGenerations")
-    @ApiOperation(value = "Get all schema generations available alongside their configuration properties")
+    @Operation(summary = "Get all schema generations available alongside their configuration properties")
     @Consumes({MediaType.APPLICATION_JSON})
     public Response schemaGenerationDescriptions()
     {

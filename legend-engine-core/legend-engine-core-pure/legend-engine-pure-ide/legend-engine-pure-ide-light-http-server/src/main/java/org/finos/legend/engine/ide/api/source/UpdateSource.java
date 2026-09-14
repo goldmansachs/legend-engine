@@ -16,7 +16,7 @@ package org.finos.legend.engine.ide.api.source;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function;
 import org.eclipse.collections.api.map.MutableMap;
@@ -40,7 +40,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.regex.Pattern;
 
-@Api(tags = "Source")
+@Tag(name = "Source")
 @Path("/")
 public class UpdateSource
 {

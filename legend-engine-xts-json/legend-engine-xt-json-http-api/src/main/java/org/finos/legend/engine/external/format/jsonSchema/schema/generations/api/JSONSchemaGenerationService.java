@@ -16,9 +16,9 @@ package org.finos.legend.engine.external.format.jsonSchema.schema.generations.ap
 
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.block.function.Function0;
 import org.eclipse.collections.api.list.MutableList;
 import org.finos.legend.engine.external.format.jsonSchema.schema.generations.GenerateJSONSchemaInput;
@@ -52,7 +52,7 @@ import java.util.List;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
 @Deprecated
-@Api(tags = "Z - Deprecated - Generation - Schema")
+@Tag(name = "Z - Deprecated - Generation - Schema")
 @Path("pure/v1/schemaGeneration")
 @Produces(MediaType.APPLICATION_JSON)
 @Singleton
@@ -70,9 +70,9 @@ public class JSONSchemaGenerationService
     @Deprecated
     @POST
     @Path("jsonSchema")
-    @ApiOperation(value = "Generates JSON schema for a given class and transitive dependencies")
+    @Operation(summary = "Generates JSON schema for a given class and transitive dependencies")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response generateJSONSchema(GenerateJSONSchemaInput generateJSONSchemaInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateJSONSchema(GenerateJSONSchemaInput generateJSONSchemaInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

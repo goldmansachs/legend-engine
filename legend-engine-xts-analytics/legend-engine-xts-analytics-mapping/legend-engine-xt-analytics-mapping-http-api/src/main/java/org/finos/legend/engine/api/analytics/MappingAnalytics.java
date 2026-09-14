@@ -17,9 +17,9 @@ package org.finos.legend.engine.api.analytics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.utility.ListIterate;
 import org.finos.legend.engine.api.analytics.model.MappingModelCoverageAnalysisInput;
@@ -54,7 +54,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-@Api(tags = "Analytics - Model")
+@Tag(name = "Analytics - Model")
 @Path("pure/v1/analytics/mapping")
 public class MappingAnalytics
 {
@@ -68,14 +68,14 @@ public class MappingAnalytics
 
     @POST
     @Path("modelCoverage")
-    @ApiOperation(value = "Analyze the mapping to generate information about mapped classes and mapped properties of each class")
+    @Operation(summary = "Analyze the mapping to generate information about mapped classes and mapped properties of each class")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response analyzeModelCoverage(MappingModelCoverageAnalysisInput input,
                                          @QueryParam("returnMappedEntityInfo") @DefaultValue("false") boolean returnMappedEntityInfo,
                                          @QueryParam("returnMappedPropertyInfo") @DefaultValue("false") boolean returnMappedPropertyInfo,
                                          @QueryParam("returnLightGraph") @DefaultValue("false") boolean returnLightGraph,
-                                         @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                                         @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -98,11 +98,11 @@ public class MappingAnalytics
 
     @POST
     @Path("runtimeCompatibility")
-    @ApiOperation(value = "Analyze the mapping to identify compatible runtimes")
+    @Operation(summary = "Analyze the mapping to identify compatible runtimes")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response analyzeMappingRuntimeCompatibility(MappingRuntimeCompatibilityAnalysisInput input,
-                                                       @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                                                       @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

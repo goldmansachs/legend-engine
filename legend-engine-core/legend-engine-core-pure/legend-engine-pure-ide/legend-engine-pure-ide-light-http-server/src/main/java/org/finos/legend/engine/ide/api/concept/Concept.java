@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.concept;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.finos.legend.engine.ide.session.PureSession;
 import org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.property.QualifiedProperty;
 import org.finos.legend.pure.m3.navigation.Instance;
@@ -38,7 +38,7 @@ import javax.ws.rs.core.StreamingOutput;
 import java.io.IOException;
 import java.io.OutputStream;
 
-@Api(tags = "Concepts")
+@Tag(name = "Concepts")
 @Path("/")
 public class Concept
 {

@@ -14,9 +14,9 @@
 
 package org.finos.legend.engine.language.pure.relational.api.relationalElement;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.list.MutableList;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.relational.api.relationalElement.input.DatabaseToModelGenerationInput;
@@ -45,7 +45,7 @@ import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
 
-@Api(tags = "Pure - Relational")
+@Tag(name = "Pure - Relational")
 @Path("pure/v1/relational")
 public class RelationalElementAPI
 {
@@ -69,10 +69,10 @@ public class RelationalElementAPI
 
     @POST
     @Path("generateModelsFromDatabaseSpecification")
-    @ApiOperation(value = "Autogenerate models JSON from database specification")
+    @Operation(summary = "Autogenerate models JSON from database specification")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generateModelsFromDatabaseSpecification(DatabaseToModelGenerationInput input, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateModelsFromDatabaseSpecification(DatabaseToModelGenerationInput input, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -97,9 +97,9 @@ public class RelationalElementAPI
 
     @GET
     @Path("connection/supportedDbAuthenticationFlows")
-    @ApiOperation(value = "Get all available Database Authentication Flows")
+    @Operation(summary = "Get all available Database Authentication Flows")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getDbDataSourceAuthComb(@Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response getDbDataSourceAuthComb(@Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

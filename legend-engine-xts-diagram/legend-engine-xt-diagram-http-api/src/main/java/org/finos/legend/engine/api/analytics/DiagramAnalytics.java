@@ -17,9 +17,9 @@ package org.finos.legend.engine.api.analytics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
@@ -55,7 +55,7 @@ import java.util.Objects;
 
 import static org.finos.legend.engine.language.pure.compiler.toPureGraph.HelperDiagramBuilder.getDiagram;
 
-@Api(tags = "Analytics - Model")
+@Tag(name = "Analytics - Model")
 @Path("pure/v1/analytics/diagram")
 public class DiagramAnalytics
 {
@@ -70,12 +70,12 @@ public class DiagramAnalytics
 
     @POST
     @Path("modelCoverage")
-    @ApiOperation(value = "Analyze the diagram to identify models covered by the diagram")
+    @Operation(summary = "Analyze the diagram to identify models covered by the diagram")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response analyzeDiagramModelCoverage(DiagramModelCoverageAnalysisInput input,
                                                 @QueryParam("includeDiagram") @DefaultValue("true") boolean includeDiagram,
-                                                @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                                                @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

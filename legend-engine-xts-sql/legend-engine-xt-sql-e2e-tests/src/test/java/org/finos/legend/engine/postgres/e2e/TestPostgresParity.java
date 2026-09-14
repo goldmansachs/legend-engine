@@ -14,7 +14,8 @@
 
 package org.finos.legend.engine.postgres.e2e;
 
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.list.mutable.FastList;
@@ -86,6 +87,7 @@ import java.util.Set;
  */
 
 @Testcontainers
+@org.junit.jupiter.api.extension.ExtendWith(DropwizardExtensionsSupport.class)
 public class TestPostgresParity
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestPostgresParity.class);
@@ -106,7 +108,7 @@ public class TestPostgresParity
     private static Map<String, List<FunctionCatalogExtractor.PgFunction>> functionCatalog;
     private static Map<String, List<OperatorCatalogExtractor.PgOperator>> operatorCatalog;
     private static Set<String> knownTables;
-    private static ResourceTestRule resourceTestRule;
+    private static ResourceExtension resourceTestRule;
     private static Connection legendConnection;
 
     static final String[] TEST_FILES = {
@@ -253,14 +255,14 @@ public class TestPostgresParity
                 FastList.newListWith(sourceProvider),
                 generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers)
         );
-        resourceTestRule = ResourceTestRule.builder()
+        resourceTestRule = ResourceExtension.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                 .addResource(sqlExecute)
                 .addResource(new MockPac4jFeature())
                 .addResource(new CatchAllExceptionMapper())
                 .bootstrapLogging(false)
                 .build();
-        // Dropwizard 1.3.x only provides ResourceTestRule (JUnit 4 @Rule).
+        // Dropwizard 1.3.x only provides ResourceExtension (JUnit 4 @Rule).
         // Since we use JUnit 5, we must reflectively invoke the lifecycle methods.
         startResourceTestRule(resourceTestRule);
         ServerConfig serverConfig = new ServerConfig();
@@ -727,18 +729,18 @@ public class TestPostgresParity
     }
 
     /**
-     * Starts a Dropwizard 1.3.x ResourceTestRule in a JUnit 5 context.
-     * ResourceTestRule is a JUnit 4 @Rule; its lifecycle must be driven reflectively.
+     * Starts a Dropwizard 1.3.x ResourceExtension in a JUnit 5 context.
+     * ResourceExtension is a JUnit 4 @Rule; its lifecycle must be driven reflectively.
      */
-    private static void startResourceTestRule(ResourceTestRule rule) throws Exception
+    private static void startResourceTestRule(ResourceExtension rule) throws Exception
     {
-        java.lang.reflect.Field resourceField = ResourceTestRule.class.getDeclaredField("resource");
+        java.lang.reflect.Field resourceField = ResourceExtension.class.getDeclaredField("resource");
         resourceField.setAccessible(true);
         Object resource = resourceField.get(rule);
         resource.getClass().getMethod("before").invoke(resource);
     }
 
-    private static void stopResourceTestRule(ResourceTestRule rule)
+    private static void stopResourceTestRule(ResourceExtension rule)
     {
         if (rule == null)
         {
@@ -746,14 +748,14 @@ public class TestPostgresParity
         }
         try
         {
-            java.lang.reflect.Field resourceField = ResourceTestRule.class.getDeclaredField("resource");
+            java.lang.reflect.Field resourceField = ResourceExtension.class.getDeclaredField("resource");
             resourceField.setAccessible(true);
             Object resource = resourceField.get(rule);
             resource.getClass().getMethod("after").invoke(resource);
         }
         catch (Exception e)
         {
-            LOGGER.debug("Error stopping ResourceTestRule", e);
+            LOGGER.debug("Error stopping ResourceExtension", e);
         }
     }
 

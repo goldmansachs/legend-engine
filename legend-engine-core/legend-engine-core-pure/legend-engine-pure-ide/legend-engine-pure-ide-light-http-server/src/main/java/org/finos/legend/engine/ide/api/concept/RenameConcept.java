@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.concept;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.multimap.list.MutableListMultimap;
 import org.eclipse.collections.impl.factory.Multimaps;
@@ -33,7 +33,7 @@ import javax.ws.rs.core.StreamingOutput;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 
-@Api(tags = "Concepts")
+@Tag(name = "Concepts")
 @Path("/")
 public class RenameConcept
 {

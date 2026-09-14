@@ -17,8 +17,8 @@
 package org.finos.legend.engine.testData.generation.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.list.MutableList;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
@@ -37,7 +37,7 @@ import org.finos.legend.engine.testData.generation.service.TestDataGenerationSer
 import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.jax.rs.annotations.Pac4JProfileManager;
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
@@ -50,7 +50,7 @@ import javax.ws.rs.core.UriInfo;
 
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
-@Api(tags = "Testing")
+@Tag(name = "Testing")
 @Path("pure/v1/testData/generation")
 @Produces(MediaType.APPLICATION_JSON)
 public class TestDataGeneration
@@ -65,10 +65,10 @@ public class TestDataGeneration
 
     @POST
     @Path("DONOTUSE_generateTestData")
-    @ApiOperation(value = "Studio WIP: will not be backward compatible until we remove the DONOTUSE flag")
+    @Operation(summary = "Studio WIP: will not be backward compatible until we remove the DONOTUSE flag")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Prometheus(name = "generate test data")
-    public Response generateTestData(TestDataGenerationInput input, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> profileManager, @Context UriInfo uriInfo)
+    public Response generateTestData(TestDataGenerationInput input, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager profileManager, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(profileManager);
         Identity identity = Identity.makeIdentity(profiles);

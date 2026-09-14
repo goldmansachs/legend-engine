@@ -15,9 +15,9 @@
 package org.finos.legend.engine.testable.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.tuple.Pair;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
@@ -54,7 +54,7 @@ import org.pac4j.jax.rs.annotations.Pac4JProfileManager;
 import org.slf4j.Logger;
 
 
-@Api(tags = "Testing")
+@Tag(name = "Testing")
 @Path("pure/v1/testable")
 @Produces(MediaType.APPLICATION_JSON)
 public class TestableApi
@@ -76,10 +76,10 @@ public class TestableApi
 
     @POST
     @Path("runTests")
-    @ApiOperation(value = "Run tests on testables")
+    @Operation(summary = "Run tests on testables")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Prometheus(name = "run tests", doc = "Test run duration summary")
-    public Response doTests(RunTestsInput input, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> profileManager, @Context UriInfo uriInfo)
+    public Response doTests(RunTestsInput input, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager profileManager, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(profileManager);
         Identity identity = Identity.makeIdentity(profiles);
@@ -103,9 +103,9 @@ public class TestableApi
 
     @POST
     @Path("debugTests")
-    @ApiOperation(value = "Debug testables")
+    @Operation(summary = "Debug testables")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
-    public Response debugTests(RunTestsInput input, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> profileManager)
+    public Response debugTests(RunTestsInput input, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager profileManager)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(profileManager);
         Identity identity = Identity.makeIdentity(profiles);

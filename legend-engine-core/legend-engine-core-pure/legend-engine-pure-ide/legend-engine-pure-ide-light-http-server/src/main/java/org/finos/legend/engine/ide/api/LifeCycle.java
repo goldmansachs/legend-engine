@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.finos.legend.engine.ide.session.PureSession;
 import org.finos.legend.pure.m3.serialization.runtime.PureRuntime;
 
@@ -28,7 +28,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import java.io.IOException;
 
-@Api(tags = "LifeCycle")
+@Tag(name = "LifeCycle")
 @Path("/")
 public class LifeCycle
 {

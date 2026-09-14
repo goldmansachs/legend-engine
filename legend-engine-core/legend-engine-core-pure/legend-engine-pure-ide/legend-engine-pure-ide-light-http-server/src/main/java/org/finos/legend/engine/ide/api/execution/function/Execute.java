@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.execution.function;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.factory.Stacks;
 import org.eclipse.collections.impl.utility.MapIterate;
 import org.finos.legend.engine.ide.api.execution.function.manager.ContentType;
@@ -36,7 +36,7 @@ import javax.ws.rs.core.StreamingOutput;
 import java.util.Map;
 import java.util.Stack;
 
-@Api(tags = "Execute")
+@Tag(name = "Execute")
 @Path("/")
 public class Execute
 {

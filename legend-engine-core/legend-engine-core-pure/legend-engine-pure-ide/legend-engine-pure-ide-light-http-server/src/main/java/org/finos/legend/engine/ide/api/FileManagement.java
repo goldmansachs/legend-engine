@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.block.predicate.Predicate;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.utility.LazyIterate;
@@ -44,7 +44,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-@Api(tags = "File Management")
+@Tag(name = "File Management")
 @Path("/")
 public class FileManagement
 {

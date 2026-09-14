@@ -16,9 +16,9 @@ package org.finos.legend.engine.query.sql.api.schema;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.set.MutableSet;
 import org.eclipse.collections.impl.utility.ListIterate;
@@ -49,7 +49,7 @@ import java.util.List;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 import static org.finos.legend.pure.generated.platform_pure_essential_meta_graph_elementToPath.Root_meta_pure_functions_meta_elementToPath_PackageableElement_1__String_1_;
 
-@Api(tags = "SQL - Schema")
+@Tag(name = "SQL - Schema")
 @Path("sql/v1/schema")
 public class SqlSchema
 {
@@ -64,11 +64,11 @@ public class SqlSchema
 
     @POST
     @Path("getSchema")
-    @ApiOperation(value = "Provide available tables queryable by SQL expressions for a project.")
+    @Operation(summary = "Provide available tables queryable by SQL expressions for a project.")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response getSchema(PureModelContext model,
-                              @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                              @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         try
         {

@@ -27,9 +27,9 @@ import java.util.Objects;
 
 public class ProfileManagerHelper
 {
-    public static Subject extractSubject(ProfileManager<?> pm)
+    public static Subject extractSubject(ProfileManager pm)
     {
-        return (pm == null) ? null : extractSubject(pm.getAll(true));
+        return (pm == null) ? null : extractSubject(pm.getProfiles());
     }
 
     public static Subject extractSubject(Iterable<? extends UserProfile> profiles)
@@ -44,12 +44,13 @@ public class ProfileManagerHelper
                 .getFirst();
     }
 
-    public static <T extends CommonProfile> MutableList<T> extractProfiles(ProfileManager<T> pm)
+    public static MutableList<CommonProfile> extractProfiles(ProfileManager pm)
     {
         if (pm != null)
         {
-            return Lists.fixedSize.ofAll(pm.getAll(true));
-
+            // pac4j 5's ProfileManager is no longer generic and returns UserProfile; the engine's
+            // call sites are all written against CommonProfile, so narrow here rather than at 62 sites.
+            return Lists.mutable.ofAll(LazyIterate.selectInstancesOf(pm.getProfiles(), CommonProfile.class));
         }
         return Lists.fixedSize.empty();
     }

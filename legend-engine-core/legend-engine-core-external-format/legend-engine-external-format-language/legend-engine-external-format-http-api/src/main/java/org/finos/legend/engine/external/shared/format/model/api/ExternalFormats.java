@@ -17,9 +17,9 @@ package org.finos.legend.engine.external.shared.format.model.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.list.MutableList;
 import org.finos.legend.engine.external.shared.format.model.ExternalFormatExtension;
 import org.finos.legend.engine.external.shared.format.model.ExternalFormatExtensionLoader;
@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
 
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
-@Api(tags = "External - Format")
+@Tag(name = "External - Format")
 @Path("pure/v1/external/format")
 @Produces(MediaType.APPLICATION_JSON)
 public class ExternalFormats
@@ -74,7 +74,7 @@ public class ExternalFormats
 
     @GET
     @Path("availableFormats")
-    @ApiOperation(value = "Get all external formats available")
+    @Operation(summary = "Get all external formats available")
     @Consumes({MediaType.APPLICATION_JSON})
     public Response codeGenerationDescriptions()
     {
@@ -94,9 +94,9 @@ public class ExternalFormats
 
     @POST
     @Path("generateModel")
-    @ApiOperation(value = "Generates a model from a schema for the external format")
+    @Operation(summary = "Generates a model from a schema for the external format")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response generateModel(GenerateModelInput generateModelInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateModel(GenerateModelInput generateModelInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -124,9 +124,9 @@ public class ExternalFormats
 
     @POST
     @Path("generateSchema")
-    @ApiOperation(value = "Generates a schema in an external format from a model")
+    @Operation(summary = "Generates a schema in an external format from a model")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response generateSchema(GenerateSchemaInput generateSchemaInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateSchema(GenerateSchemaInput generateSchemaInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

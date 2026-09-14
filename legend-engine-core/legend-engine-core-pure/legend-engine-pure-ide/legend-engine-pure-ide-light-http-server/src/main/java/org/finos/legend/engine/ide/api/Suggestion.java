@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.factory.Sets;
@@ -54,7 +54,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-@Api(tags = "Suggestion")
+@Tag(name = "Suggestion")
 @Path("/")
 public class Suggestion
 {

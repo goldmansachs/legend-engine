@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.server.core.emit;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.apache.commons.io.IOUtils;
 
 import javax.ws.rs.GET;
@@ -27,7 +27,7 @@ import javax.ws.rs.core.StreamingOutput;
 import java.io.InputStream;
 import java.util.Objects;
 
-@Api(tags = "EMIT")
+@Tag(name = "EMIT")
 @Path("emit")
 public class EMIT
 {
@@ -35,7 +35,7 @@ public class EMIT
 
     @GET
     @Path("html")
-    @ApiOperation(value = "EMIT coverage report in HTML")
+    @Operation(summary = "EMIT coverage report in HTML")
     @Produces(MediaType.TEXT_HTML)
     public Response htmlEMIT()
     {

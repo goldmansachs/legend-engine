@@ -17,7 +17,8 @@ package org.finos.legend.engine.language.dataquality.api;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 
 import javax.ws.rs.client.Entity;
 
@@ -47,10 +48,9 @@ import org.finos.legend.engine.shared.core.deployment.DeploymentMode;
 import org.finos.legend.engine.shared.core.identity.Identity;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQuality;
 import org.glassfish.jersey.test.TestProperties;
-import org.junit.ClassRule;
-import org.junit.Ignore;
+import org.junit.jupiter.api.Disabled;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -60,15 +60,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@org.junit.jupiter.api.extension.ExtendWith(DropwizardExtensionsSupport.class)
 public class TestDataQualityApi
 {
 
@@ -79,11 +80,9 @@ public class TestDataQualityApi
 
     private static final ObjectMapper objectMapper = ObjectMapperFactory.getNewStandardObjectMapperWithPureProtocolExtensionSupports();
     private static final PureModelContextData pureModelContextData = GrammarParseTestUtils.loadPureModelContextFromResource("inputs/test-data.pure", TestDataQualityApi.class);
+    public static final ResourceExtension resources = getResourceTestRule();
 
-    @ClassRule
-    public static final ResourceTestRule resources = getResourceTestRule();
-
-    public static ResourceTestRule getResourceTestRule()
+    public static ResourceExtension getResourceTestRule()
 
     {
         DeploymentMode deploymentMode = DeploymentMode.TEST;
@@ -105,7 +104,7 @@ public class TestDataQualityApi
                 null
         );
 
-        return ResourceTestRule.builder()
+        return ResourceExtension.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                 .addResource(api)
                 .addResource(new MockPac4jFeature())
@@ -303,7 +302,7 @@ public class TestDataQualityApi
         assertFalse(DataQualityPropertyPathTreeGenerator.isDataQualityInstance(packageableElement2));
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testDataQualityGetPropertyPathTree_WithNullDataQualityValidation() throws IOException
     {

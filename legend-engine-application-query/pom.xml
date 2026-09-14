@@ -27,6 +27,14 @@
 
 
 
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <!-- 2.10 bundles an ASM that cannot read Java 11 class files -->
+        <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
+    </properties>
+
     <dependencies>
         <!-- ENGINE -->
         <dependency>
@@ -120,11 +128,11 @@
 
         <!-- ANNOTATIONS -->
         <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.swagger</groupId>
+            <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-annotations</artifactId>
         </dependency>
         <!-- ANNOTATIONS -->

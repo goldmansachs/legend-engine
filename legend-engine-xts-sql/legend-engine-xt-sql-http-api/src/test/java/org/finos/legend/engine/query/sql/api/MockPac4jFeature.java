@@ -65,16 +65,16 @@ public class MockPac4jFeature extends AbstractBinder
         @Override
         protected Factory<?> createValueFactory(Parameter parameter)
         {
-            return new Factory<ProfileManager<CommonProfile>>()
+            return new Factory<ProfileManager>()
             {
                 @Override
-                public ProfileManager<CommonProfile> provide()
+                public ProfileManager provide()
                 {
                     return null;
                 }
 
                 @Override
-                public void dispose(ProfileManager<CommonProfile> commonProfileProfileManager)
+                public void dispose(ProfileManager commonProfileProfileManager)
                 {
 
                 }

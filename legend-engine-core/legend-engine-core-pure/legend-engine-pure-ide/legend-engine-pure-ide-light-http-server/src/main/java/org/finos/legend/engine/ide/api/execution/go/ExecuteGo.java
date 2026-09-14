@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.execution.go;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.finos.legend.engine.ide.session.PureSession;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,7 +25,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 
-@Api(tags = "Execute")
+@Tag(name = "Execute")
 @Path("/")
 public class ExecuteGo
 {

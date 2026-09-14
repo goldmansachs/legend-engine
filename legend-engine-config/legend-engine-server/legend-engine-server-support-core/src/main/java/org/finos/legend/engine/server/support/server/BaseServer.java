@@ -16,11 +16,11 @@ package org.finos.legend.engine.server.support.server;
 
 import com.codahale.metrics.health.HealthCheck;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import io.dropwizard.Application;
+import io.dropwizard.core.Application;
 import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
 import io.dropwizard.configuration.SubstitutingSourceProvider;
-import io.dropwizard.setup.Bootstrap;
-import io.dropwizard.setup.Environment;
+import io.dropwizard.core.setup.Bootstrap;
+import io.dropwizard.core.setup.Environment;
 import io.federecio.dropwizard.swagger.SwaggerBundle;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
 import org.eclipse.collections.impl.utility.LazyIterate;

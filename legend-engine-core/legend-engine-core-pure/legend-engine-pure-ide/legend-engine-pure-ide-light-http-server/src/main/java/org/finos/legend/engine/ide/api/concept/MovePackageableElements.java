@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.concept;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.multimap.list.MutableListMultimap;
@@ -37,7 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.regex.Pattern;
 
-@Api(tags = "Concepts")
+@Tag(name = "Concepts")
 @Path("/")
 public class MovePackageableElements
 {

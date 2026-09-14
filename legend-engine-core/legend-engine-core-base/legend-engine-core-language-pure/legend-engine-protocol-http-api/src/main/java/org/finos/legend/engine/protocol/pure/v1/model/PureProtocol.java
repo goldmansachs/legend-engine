@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.protocol.pure.v1.model;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.eclipse.collections.api.block.function.Function0;
 import org.eclipse.collections.api.factory.Maps;
 import org.eclipse.collections.api.factory.Sets;
@@ -37,14 +37,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Api(tags = "Pure - Protocol")
+@Tag(name = "Pure - Protocol")
 @Path("pure/v1/protocol/pure")
 @Produces(MediaType.APPLICATION_JSON)
 public class PureProtocol
 {
     @GET
     @Path("getClassifierPathMap")
-    @ApiOperation(value = "Get the mapping between element protocol serialization type and element classifier path")
+    @Operation(summary = "Get the mapping between element protocol serialization type and element classifier path")
     @Consumes({MediaType.APPLICATION_JSON})
     public Response getClassifierPathMap()
     {
@@ -71,7 +71,7 @@ public class PureProtocol
 
     @GET
     @Path("getSubtypeInfo")
-    @ApiOperation(value = "Get the protocol serialization subtype information")
+    @Operation(summary = "Get the protocol serialization subtype information")
     @Consumes({MediaType.APPLICATION_JSON})
     public Response getSubtypeInfo()
     {

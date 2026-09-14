@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.postgres.e2e;
 
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import org.finos.legend.engine.postgres.protocol.sql.handler.legend.bridge.sql.LegendHttpClient;
 
 import javax.ws.rs.client.Entity;
@@ -27,9 +27,9 @@ import java.io.InputStream;
  */
 public class E2eLegendTestClient extends LegendHttpClient
 {
-    private final ResourceTestRule resourceTestRule;
+    private final ResourceExtension resourceTestRule;
 
-    public E2eLegendTestClient(ResourceTestRule resourceTestRule)
+    public E2eLegendTestClient(ResourceExtension resourceTestRule)
     {
         super(null, null, null);
         this.resourceTestRule = resourceTestRule;

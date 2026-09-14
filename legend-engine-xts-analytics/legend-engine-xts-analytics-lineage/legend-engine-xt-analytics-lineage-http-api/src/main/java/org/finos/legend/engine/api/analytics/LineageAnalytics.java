@@ -18,8 +18,8 @@ package org.finos.legend.engine.api.analytics;
 
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.factory.Lists;
 import org.eclipse.collections.impl.factory.Maps;
@@ -60,7 +60,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-@Api(tags = "Analytics - Model")
+@Tag(name = "Analytics - Model")
 @Path("pure/v1/analytics/lineage")
 public class LineageAnalytics
 {
@@ -76,10 +76,10 @@ public class LineageAnalytics
 
     @POST
     @Path("model/propertyPathTree")
-    @ApiOperation(value = "Analyze the function to get property path tree")
+    @Operation(summary = "Analyze the function to get property path tree")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response functionTree(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response functionTree(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -103,10 +103,10 @@ public class LineageAnalytics
 
     @POST
     @Path("model/class")
-    @ApiOperation(value = "Analyze the function to get referenced model classes")
+    @Operation(summary = "Analyze the function to get referenced model classes")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response classLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response classLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -133,10 +133,10 @@ public class LineageAnalytics
 
     @POST
     @Path("store/relational/database")
-    @ApiOperation(value = "Analyze the function and mapping to get referenced databases and tables")
+    @Operation(summary = "Analyze the function and mapping to get referenced databases and tables")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response databaseLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response databaseLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -166,10 +166,10 @@ public class LineageAnalytics
 
     @POST
     @Path("store/relational/reportColumn")
-    @ApiOperation(value = "Analyze the function and mapping to get referenced database columns for projected columns")
+    @Operation(summary = "Analyze the function and mapping to get referenced database columns for projected columns")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response reportLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response reportLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -196,10 +196,10 @@ public class LineageAnalytics
 
     @POST
     @Path("store/relational/relationTree")
-    @ApiOperation(value = "Analyze the function and mapping to get relation join tree")
+    @Operation(summary = "Analyze the function and mapping to get relation join tree")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response relationTree(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response relationTree(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

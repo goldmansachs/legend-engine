@@ -16,9 +16,9 @@ package org.finos.legend.engine.external.language.morphir.api;
 
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function0;
 import org.eclipse.collections.api.list.MutableList;
@@ -50,7 +50,7 @@ import javax.ws.rs.core.Response;
 
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
-@Api(tags = "External - Generation - Code")
+@Tag(name = "External - Generation - Code")
 @Path("pure/v1/codeGeneration")
 @Produces(MediaType.APPLICATION_JSON)
 public class MorphirGenerationService
@@ -65,9 +65,9 @@ public class MorphirGenerationService
 
     @POST
     @Path("morphir")
-    @ApiOperation(value = "Generates Morphir IR from PureModel")
+    @Operation(summary = "Generates Morphir IR from PureModel")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response generateMorphirIR(MorphirGenerationInput generateMorphirIRInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response generateMorphirIR(MorphirGenerationInput generateMorphirIRInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

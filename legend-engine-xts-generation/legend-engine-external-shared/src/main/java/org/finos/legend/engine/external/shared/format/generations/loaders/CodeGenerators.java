@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.external.shared.format.generations.loaders;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.finos.legend.engine.external.shared.format.generations.description.FileGenerationDescription;
 import org.finos.legend.engine.external.shared.format.generations.description.GenerationConfigurationDescription;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
@@ -36,7 +36,7 @@ import javax.ws.rs.core.Response;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Api(tags = "External - Generation - Code")
+@Tag(name = "External - Generation - Code")
 @Path("pure/v1/codeGeneration")
 @Produces(MediaType.APPLICATION_JSON)
 public class CodeGenerators
@@ -52,7 +52,7 @@ public class CodeGenerators
 
     @GET
     @Path("availableGenerations")
-    @ApiOperation(value = "Get all code generations available alongside their configuration properties")
+    @Operation(summary = "Get all code generations available alongside their configuration properties")
     @Consumes({MediaType.APPLICATION_JSON})
     public Response codeGenerationDescriptions()
     {

@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.finos.legend.engine.ide.session.PureSession;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -28,7 +28,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import java.io.PrintWriter;
 
-@Api(tags = "Activities")
+@Tag(name = "Activities")
 @Path("/")
 public class Activities
 {

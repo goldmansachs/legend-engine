@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.find;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.RichIterable;
 import org.finos.legend.engine.ide.session.PureSession;
 import org.finos.legend.pure.m3.serialization.runtime.SourceCoordinates;
@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
-@Api(tags = "Find")
+@Tag(name = "Find")
 @Path("/")
 public class FindTextPreview
 {

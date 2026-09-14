@@ -17,9 +17,9 @@ package org.finos.legend.engine.query.pure.api;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function;
 import org.eclipse.collections.api.block.function.Function0;
@@ -100,7 +100,7 @@ import static org.finos.legend.engine.plan.execution.authorization.PlanExecution
 import static org.finos.legend.engine.plan.execution.nodes.helpers.ExecuteNodeParameterTransformationHelper.buildParameterToConstantResult;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
-@Api(tags = "Pure - Execution")
+@Tag(name = "Pure - Execution")
 @Path("pure/v1/execution")
 @Produces(MediaType.APPLICATION_JSON)
 public class Execute
@@ -174,10 +174,10 @@ public class Execute
     }
 
     @POST
-    @ApiOperation(value = "Execute a Pure query (function) in the context of a Mapping and a Runtime. Full Interactive and Semi Interactive modes are supported by giving the appropriate PureModelContext (respectively PureModelDataContext and PureModelContextComposite). Production executions need to use the Service interface.")
+    @Operation(summary = "Execute a Pure query (function) in the context of a Mapping and a Runtime. Full Interactive and Semi Interactive modes are supported by giving the appropriate PureModelContext (respectively PureModelDataContext and PureModelContextComposite). Production executions need to use the Service interface.")
     @Path("execute")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response execute(@Context HttpServletRequest request, ExecuteInput executeInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response execute(@Context HttpServletRequest request, ExecuteInput executeInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm, @Context UriInfo uriInfo)
     {
         long start = System.currentTimeMillis();
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
@@ -216,7 +216,7 @@ public class Execute
     @Path("generatePlan")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Prometheus(name = "generate plan")
-    public Response generatePlan(@Context HttpServletRequest request, ExecuteInput executeInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response generatePlan(@Context HttpServletRequest request, ExecuteInput executeInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -243,7 +243,7 @@ public class Execute
     @Path("generatePlan/debug")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Prometheus(name = "generate plan debug")
-    public Response generatePlanDebug(@Context HttpServletRequest request, ExecuteInput executeInput, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response generatePlanDebug(@Context HttpServletRequest request, ExecuteInput executeInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

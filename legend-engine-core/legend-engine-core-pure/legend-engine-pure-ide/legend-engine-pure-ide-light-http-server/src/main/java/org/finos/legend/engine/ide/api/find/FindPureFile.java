@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.ide.api.find;
 
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.procedure.Procedure;
 import org.finos.legend.engine.ide.session.PureSession;
@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.regex.Pattern;
 
-@Api(tags = "Find")
+@Tag(name = "Find")
 @Path("/")
 public class FindPureFile
 {

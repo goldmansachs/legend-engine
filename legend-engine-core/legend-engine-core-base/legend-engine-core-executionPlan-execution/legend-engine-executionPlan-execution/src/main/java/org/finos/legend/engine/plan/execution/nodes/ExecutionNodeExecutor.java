@@ -17,11 +17,12 @@ package org.finos.legend.engine.plan.execution.nodes;
 import io.opentracing.Scope;
 import io.opentracing.Span;
 import io.opentracing.util.GlobalTracer;
+import org.eclipse.collections.api.tuple.Pair;
 import org.eclipse.collections.impl.factory.Lists;
 import org.eclipse.collections.impl.factory.Maps;
 import org.eclipse.collections.impl.factory.Sets;
+import org.eclipse.collections.impl.tuple.Tuples;
 import org.eclipse.collections.impl.utility.ListIterate;
-import org.finos.legend.engine.identity.extensions.pac4j.Pac4jUtils;
 import org.finos.legend.engine.plan.dependencies.domain.dataQuality.Constrained;
 import org.finos.legend.engine.plan.dependencies.domain.dataQuality.IChecked;
 import org.finos.legend.engine.plan.dependencies.domain.graphFetch.IGraphInstance;
@@ -87,7 +88,7 @@ import org.finos.legend.engine.protocol.pure.m3.valuespecification.constant.clas
 import org.finos.legend.engine.protocol.pure.v1.model.valueSpecification.raw.classInstance.SerializationConfig;
 import org.finos.legend.engine.protocol.pure.dsl.graph.valuespecification.constant.classInstance.PropertyGraphFetchTree;
 import org.finos.legend.engine.shared.core.identity.Identity;
-import org.pac4j.core.profile.ProfileManager;
+import org.finos.legend.engine.shared.core.identity.factory.AuthenticationSourceProvider;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -95,6 +96,7 @@ import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -368,7 +370,20 @@ public class ExecutionNodeExecutor implements ExecutionNodeVisitor<Result>
                     String executionClassName = JavaHelper.getExecutionClassFullName(javaPlatformImpl);
                     String executionMethodName = JavaHelper.getExecutionMethodName(javaPlatformImpl);
 
-                    Stream<?> transformedResult = ExecutionNodeJavaPlatformHelper.executeStaticJavaMethod(graphFetchExecutionNode, executionClassName, executionMethodName, Arrays.asList(StreamingObjectResult.class, ExecutionNode.class, ExecutionState.class, ProfileManager.class), Arrays.asList(objectResult, graphFetchExecutionNode, this.executionState, Pac4jUtils.getProfilesFromIdentity(identity)), this.executionState, this.identity);
+                    // The generated method may or may not declare a trailing authentication parameter.
+                    // Its type is pac4j-specific, so it is contributed by an optional SPI rather than
+                    // compiled against here — the execution core stays Java 8. See ADR-003.
+                    List<Pair<List<Class<?>>, List<Object>>> alternatives = Lists.mutable.empty();
+                    for (AuthenticationSourceProvider provider : ServiceLoader.load(AuthenticationSourceProvider.class))
+                    {
+                        alternatives.add(Tuples.pair(
+                                Arrays.asList(StreamingObjectResult.class, ExecutionNode.class, ExecutionState.class, provider.parameterType()),
+                                Arrays.asList(objectResult, graphFetchExecutionNode, this.executionState, provider.valueFor(identity))));
+                    }
+                    alternatives.add(Tuples.pair(
+                            Arrays.asList(StreamingObjectResult.class, ExecutionNode.class, ExecutionState.class),
+                            Arrays.asList(objectResult, graphFetchExecutionNode, this.executionState)));
+                    Stream<?> transformedResult = ExecutionNodeJavaPlatformHelper.executeStaticJavaMethod(graphFetchExecutionNode, executionClassName, executionMethodName, alternatives, this.executionState, this.identity);
                     return new StreamingObjectResult<>(transformedResult, objectResult.getResultBuilder(), objectResult);
                 }
                 catch (Exception e)

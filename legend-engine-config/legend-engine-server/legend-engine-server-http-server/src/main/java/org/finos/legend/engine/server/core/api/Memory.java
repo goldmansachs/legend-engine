@@ -16,8 +16,8 @@ package org.finos.legend.engine.server.core.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 
 import javax.ws.rs.GET;
@@ -27,14 +27,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.Map;
 
-@Api(tags = "Server")
+@Tag(name = "Server")
 @Path("server/v1/memory")
 @Produces(MediaType.APPLICATION_JSON)
 public class Memory
 {
     @GET
     @Path("gc")
-    @ApiOperation(value = "Performs GC")
+    @Operation(summary = "Performs GC")
     public Response executeGC()
     {
         Runtime.getRuntime().gc();
@@ -43,7 +43,7 @@ public class Memory
 
     @GET
     @Path("info")
-    @ApiOperation(value = "Provides the server JVM memory information")
+    @Operation(summary = "Provides the server JVM memory information")
     public Response executeMemoryInfo()
     {
         try

@@ -15,8 +15,8 @@
 package org.finos.legend.engine.server.core.pct;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.apache.commons.io.IOUtils;
 import org.finos.legend.engine.shared.core.deployment.DeploymentStateAndVersions;
 
@@ -34,13 +34,13 @@ import java.io.OutputStream;
 import java.util.Objects;
 import java.util.Set;
 
-@Api(tags = "PCT")
+@Tag(name = "PCT")
 @Path("pct")
 public class PCT
 {
     @GET
     @Path("form")
-    @ApiOperation(value = "PCT report form")
+    @Operation(summary = "PCT report form")
     @Produces(MediaType.TEXT_HTML)
     public Response formPCT()
     {
@@ -78,7 +78,7 @@ public class PCT
 
     @GET
     @Path("git-info.json")
-    @ApiOperation(value = "Git info for PCT report")
+    @Operation(summary = "Git info for PCT report")
     @Produces(MediaType.APPLICATION_JSON)
     public Response gitInfoPct()
     {
@@ -87,7 +87,7 @@ public class PCT
 
     @GET
     @Path("html")
-    @ApiOperation(value = "PCT report in HTML")
+    @Operation(summary = "PCT report in HTML")
     @Produces(MediaType.TEXT_HTML)
     public Response htmlPCT(@QueryParam("adapter") Set<String> adapterKeys, @QueryParam("qualifier") Set<String> adapterQualifiers, @QueryParam("skipFunctionsWithoutTest") @DefaultValue("true") boolean skipFunctionsWithoutTest)
     {
@@ -96,7 +96,7 @@ public class PCT
 
     @GET
     @Path("pct-docs.json")
-    @ApiOperation(value = "PCT report in JSON")
+    @Operation(summary = "PCT report in JSON")
     @Produces(MediaType.APPLICATION_JSON)
     public Response jsonPCT() throws JsonProcessingException
     {

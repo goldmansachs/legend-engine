@@ -17,7 +17,8 @@ package org.finos.legend.engine.query.sql.api.execute;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.list.mutable.FastList;
@@ -31,8 +32,7 @@ import org.finos.legend.engine.query.sql.api.TestSQLSourceProvider;
 import org.finos.legend.engine.shared.core.deployment.DeploymentMode;
 import org.glassfish.jersey.test.TestProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,10 +42,10 @@ import java.util.Set;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression tests for SELECT * Query Optimization.
@@ -61,6 +61,7 @@ import static org.junit.Assert.assertTrue;
  *   Curtis:   id=103, ratings=9.3, salary=75000.75, type=Type2, start_date=2022-07-24
  *   Danielle: id=104, ratings=9.4, salary=80000.25, type=Type1, start_date=2022-07-23
  */
+@org.junit.jupiter.api.extension.ExtendWith(DropwizardExtensionsSupport.class)
 public class SelectStarExecutionRegressionTest
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectStarExecutionRegressionTest.class);
@@ -70,11 +71,9 @@ public class SelectStarExecutionRegressionTest
     {
         System.setProperty(TestProperties.CONTAINER_PORT, "0");
     }
+    public static final ResourceExtension resources = buildResources(true);
 
-    @ClassRule
-    public static final ResourceTestRule resources = buildResources(true);
-
-    public static ResourceTestRule buildResources(boolean enablePreGeneratedPlans)
+    public static ResourceExtension buildResources(boolean enablePreGeneratedPlans)
     {
         ModelManager modelManager = new ModelManager(DeploymentMode.TEST);
         PlanExecutor executor = PlanExecutor.newPlanExecutorWithAvailableStoreExecutors();
@@ -85,7 +84,7 @@ public class SelectStarExecutionRegressionTest
 
         SqlExecute sqlExecute = new SqlExecute(modelManager, executor, (pm) -> PureCoreExtensionLoader.extensions().flatCollect(g -> g.extraPureCoreExtensions(pm.getExecutionSupport())), FastList.newListWith(testSQLSourceProvider), generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers));
 
-        return ResourceTestRule.builder()
+        return ResourceExtension.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                 .addResource(sqlExecute)
                 .addResource(new MockPac4jFeature())

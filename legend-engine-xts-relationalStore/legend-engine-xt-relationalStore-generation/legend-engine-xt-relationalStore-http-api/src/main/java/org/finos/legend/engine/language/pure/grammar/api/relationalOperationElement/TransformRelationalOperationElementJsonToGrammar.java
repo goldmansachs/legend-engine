@@ -16,9 +16,9 @@ package org.finos.legend.engine.language.pure.grammar.api.relationalOperationEle
 
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.eclipse.collections.api.block.procedure.Procedure;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.map.MutableMap;
@@ -48,7 +48,7 @@ import static org.finos.legend.engine.shared.core.operational.http.InflateInterc
 
 
 @Deprecated
-@Api(tags = "Pure - Grammar")
+@Tag(name = "Pure - Grammar")
 @Path("pure/v1/grammar")
 @Produces(MediaType.APPLICATION_JSON)
 public class TransformRelationalOperationElementJsonToGrammar
@@ -56,9 +56,9 @@ public class TransformRelationalOperationElementJsonToGrammar
     @Deprecated
     @POST
     @Path("transformRelationalOperationElementJsonToGrammar")
-    @ApiOperation(value = "Generates Pure language text from Pure protocol JSON for relational operation elements")
+    @Operation(summary = "Generates Pure language text from Pure protocol JSON for relational operation elements")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response transformRelationalOperationElementJsonToGrammar(RelationalOperationElementJsonToGrammarInput input, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response transformRelationalOperationElementJsonToGrammar(RelationalOperationElementJsonToGrammarInput input, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

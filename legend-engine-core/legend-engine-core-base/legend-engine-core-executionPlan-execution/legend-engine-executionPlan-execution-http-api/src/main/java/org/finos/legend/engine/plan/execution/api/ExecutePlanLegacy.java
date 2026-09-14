@@ -14,8 +14,8 @@
 
 package org.finos.legend.engine.plan.execution.api;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.finos.legend.engine.plan.execution.PlanExecutor;
 import org.finos.legend.engine.plan.execution.api.request.ExecutionRequest;
 import org.finos.legend.engine.plan.execution.result.serialization.SerializationFormat;
@@ -38,7 +38,7 @@ import javax.ws.rs.core.Response;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
 @Deprecated
-@Api(tags = "Pure - Execution")
+@Tag(name = "Pure - Execution")
 @Path("pure/v1/execution")
 @Produces(MediaType.APPLICATION_JSON)
 public class ExecutePlanLegacy extends ExecutePlan
@@ -52,7 +52,7 @@ public class ExecutePlanLegacy extends ExecutePlan
     @POST
     @Path("executePlan")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
-    public Response executePlan(@Context HttpServletRequest request, ExecutionPlan execPlan, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+    public Response executePlan(@Context HttpServletRequest request, ExecutionPlan execPlan, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         return super.doExecutePlan(request, new ExecutionRequest(execPlan), format, pm);
     }

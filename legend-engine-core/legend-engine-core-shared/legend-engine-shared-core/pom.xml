@@ -81,8 +81,8 @@
 
         <!-- For Rest Result -->
         <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
         </dependency>
         <!-- For Rest Result -->
 
@@ -150,10 +150,6 @@
         <!-- Tracing HTTP implementation + SPNEGO Calls -->
 
         <!-- For ProfileManagerHelper - Extract Subject from ProfileManager -->
-        <dependency>
-            <groupId>org.pac4j</groupId>
-            <artifactId>pac4j-core</artifactId>
-        </dependency>
         <!-- For ProfileManagerHelper - Extract Subject from ProfileManager -->
 
         <!-- ECLIPSE COLLECTIONS -->
@@ -177,10 +173,6 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.finos.legend.engine</groupId>
-            <artifactId>legend-engine-xt-identity-pac4j</artifactId>
         </dependency>
         <!-- TEST -->
     </dependencies>

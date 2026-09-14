@@ -15,8 +15,8 @@
 package org.finos.legend.engine.server.core.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.finos.legend.engine.server.core.configuration.DeploymentConfiguration;
 import org.finos.legend.engine.server.core.configuration.OpenTracingConfiguration;
 import org.finos.legend.engine.shared.core.deployment.DeploymentStateAndVersions;
@@ -33,7 +33,7 @@ import java.net.InetAddress;
 import java.util.Date;
 import java.util.Map;
 
-@Api(tags = "Server")
+@Tag(name = "Server")
 @Path("server/v1")
 @Produces(MediaType.APPLICATION_JSON)
 public class Info
@@ -95,7 +95,7 @@ public class Info
 
     @GET
     @Path("info")
-    @ApiOperation(value = "Provides server build and dependency information")
+    @Operation(summary = "Provides server build and dependency information")
     public Response executePureGet()
     {
         return Response.status(200).type(MediaType.APPLICATION_JSON).entity(message).build();

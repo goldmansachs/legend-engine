@@ -28,8 +28,8 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.finos.legend.engine.identity.extensions.pac4j.Pac4jUtils;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
+import org.finos.legend.engine.shared.core.identity.factory.AuthenticationSourceProvider;
 import org.finos.legend.engine.language.pure.modelManager.sdlc.SDLCLoader;
 import org.finos.legend.engine.language.pure.modelManager.sdlc.configuration.MetadataServerPrivateAccessTokenConfiguration;
 import org.finos.legend.engine.language.pure.modelManager.sdlc.configuration.ServerConnectionConfiguration;
@@ -141,7 +141,7 @@ public class WorkspaceSDLCLoader
             //MutableList<GitlabPersonalAccessTokenProfile> patProfiles = pm.selectInstancesOf(GitlabPersonalAccessTokenProfile.class);
             if (identity != null)
             {
-                httpRequest = new HttpGet(String.format("%s?client_name=%s", url, Pac4jUtils.getProfilesFromIdentity(identity).get(0).getClientName()));
+                httpRequest = new HttpGet(String.format("%s?client_name=%s", url, resolveClientName(identity)));
                 //httpRequest.addHeader(new BasicHeader(patHeaderName, patProfiles.getFirst().getPersonalAccessToken()));
             }
         }
@@ -185,5 +185,22 @@ public class WorkspaceSDLCLoader
         {
             return versionId;
         }
+    }
+
+    /**
+     * The authenticating client name comes from pac4j, which is Java 11 from 5.x on. It is resolved
+     * through an optional SPI so this module stays on the Java 8 side of the boundary. See ADR-003.
+     */
+    private static String resolveClientName(Identity identity)
+    {
+        for (AuthenticationSourceProvider provider : java.util.ServiceLoader.load(AuthenticationSourceProvider.class))
+        {
+            String clientName = provider.clientName(identity);
+            if (clientName != null)
+            {
+                return clientName;
+            }
+        }
+        return null;
     }
 }
