@@ -21,8 +21,6 @@ import javax.servlet.http.HttpServletRequest;
 import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
 import org.finos.legend.engine.language.pure.modelManager.sdlc.configuration.MetaDataServerConfiguration;
-import org.finos.legend.engine.protocol.graphQL.metamodel.Document;
-import org.finos.legend.engine.protocol.graphQL.metamodel.ProtocolToMetamodelTranslator;
 import org.finos.legend.engine.protocol.pure.PureClientVersions;
 import org.finos.legend.engine.protocol.pure.v1.model.context.AlloySDLC;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextPointer;
@@ -38,11 +36,6 @@ public abstract class GraphQL
     public GraphQL(ModelManager modelManager, MetaDataServerConfiguration metadataserver)
     {
         this.modelManager = modelManager;
-    }
-
-    public static org.finos.legend.pure.generated.Root_meta_external_query_graphQL_metamodel_sdl_Document toPureModel(Document document, PureModel pureModel)
-    {
-        return new ProtocolToMetamodelTranslator().translate(document, pureModel);
     }
 
     protected PureModel loadSDLCProjectModel(Identity identity, HttpServletRequest request, String projectId, String workspaceId, boolean isGroupWorkspace) throws PrivilegedActionException

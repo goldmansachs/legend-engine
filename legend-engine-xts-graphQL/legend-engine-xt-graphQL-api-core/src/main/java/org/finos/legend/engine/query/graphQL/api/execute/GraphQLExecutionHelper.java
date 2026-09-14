@@ -20,7 +20,9 @@ import org.finos.legend.engine.plan.execution.result.Result;
 import org.finos.legend.engine.protocol.graphQL.metamodel.Definition;
 import org.finos.legend.engine.protocol.graphQL.metamodel.DefinitionVisitor;
 import org.finos.legend.engine.protocol.graphQL.metamodel.Directive;
+import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.protocol.graphQL.metamodel.Document;
+import org.finos.legend.engine.protocol.graphQL.metamodel.ProtocolToMetamodelTranslator;
 import org.finos.legend.engine.protocol.graphQL.metamodel.executable.ExecutableDefinition;
 import org.finos.legend.engine.protocol.graphQL.metamodel.executable.Field;
 import org.finos.legend.engine.protocol.graphQL.metamodel.executable.FragmentDefinition;
@@ -63,6 +65,11 @@ import java.util.Objects;
 
 public class GraphQLExecutionHelper
 {
+    public static org.finos.legend.pure.generated.Root_meta_external_query_graphQL_metamodel_sdl_Document toPureModel(Document document, PureModel pureModel)
+    {
+        return new ProtocolToMetamodelTranslator().translate(document, pureModel);
+    }
+
     static Object argumentValueToObject(Value value)
     {
         return value.accept(new ValueVisitor<Object>()

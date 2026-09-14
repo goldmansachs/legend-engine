@@ -26,6 +26,35 @@
     <packaging>jar</packaging>
     <name>Legend Engine - XT - BigQuery Function - API</name>
 
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <!-- 2.10 bundles an ASM that cannot read Java 11 class files -->
+        <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>dependency-analyze</id>
+                        <configuration>
+                            <!-- Reached only through google-cloud-bigquery's own API types. Declaring it
+                                 directly pulls a second google-http-client line and breaks convergence. -->
+                            <ignoredUsedUndeclaredDependencies>
+                                <dependency>com.google.cloud:google-cloud-core</dependency>
+                            </ignoredUsedUndeclaredDependencies>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <!-- Pure -->
         <dependency>

@@ -27,6 +27,11 @@
     <name>Legend Engine - Pure IDE Light - HTTP - Server</name>
 
     <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <!-- 2.10 bundles an ASM that cannot read Java 11 class files -->
+        <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
         <skip.yarn>false</skip.yarn>
         <pure-ide.web-application.version>${legend.web-application.version}</pure-ide.web-application.version>
         <pure-ide.web-application.url>${npm.registry.url}/@finos/legend-application-pure-ide-deployment/-/legend-application-pure-ide-deployment-${pure-ide.web-application.version}.tgz</pure-ide.web-application.url>

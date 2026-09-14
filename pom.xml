@@ -496,6 +496,9 @@
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
+                    <!-- release governs: when set, the compiler ignores source/target. Keep all three in
+                         sync in any module that overrides them, or the override is silently ignored. -->
+                    <release>${maven.compiler.release}</release>
                 </configuration>
             </plugin>
 
@@ -588,7 +591,15 @@
                         <configuration>
                             <rules>
                                 <enforceBytecodeVersion>
-                                    <maxJdkVersion>1.8</maxJdkVersion>
+                                    <!-- Tracks the module's own compile target, so a module that moves to
+                                         Java 11 raises its own ceiling and every module still on 1.8 keeps
+                                         rejecting Java 11 dependencies. -->
+                                    <maxJdkVersion>${maven.compiler.target}</maxJdkVersion>
+                                    <!-- Test bytecode is never published to clients, and both CI and the
+                                         supported dev JDKs are 11+. -->
+                                    <ignoredScopes>
+                                        <ignoredScope>test</ignoredScope>
+                                    </ignoredScopes>
                                     <excludes>
 <!--                                        <exclude>io.deephaven:deephaven-proto-backplane-grpc-flight</exclude>-->
 <!--                                        <exclude>io.deephaven:deephaven-java-client-session</exclude>-->
@@ -1064,6 +1075,11 @@
             <dependency>
                 <groupId>org.finos.legend.engine</groupId>
                 <artifactId>legend-engine-xt-authentication-implementation-gcp-federation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.finos.legend.engine</groupId>
+                <artifactId>legend-engine-xt-graphQL-api-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -2166,6 +2182,11 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.finos.legend.engine</groupId>
+                <artifactId>legend-engine-xt-analytics-lineage-protocol</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.finos.legend.engine</groupId>
                 <artifactId>legend-engine-xt-analytics-lineage-http-api</artifactId>

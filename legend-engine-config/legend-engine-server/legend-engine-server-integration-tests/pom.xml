@@ -26,6 +26,11 @@
     <name>Legend Engine - Server - Integration Tests</name>
 
     <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <!-- 2.10 bundles an ASM that cannot read Java 11 class files -->
+        <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
         <top.project>${project.basedir}/../</top.project>
     </properties>
 
@@ -173,6 +178,11 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>

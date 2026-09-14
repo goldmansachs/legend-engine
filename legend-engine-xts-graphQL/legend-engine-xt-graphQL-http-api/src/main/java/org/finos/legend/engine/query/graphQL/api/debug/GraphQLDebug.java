@@ -30,6 +30,7 @@ import org.finos.legend.engine.language.pure.compiler.toPureGraph.PureModel;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
 import org.finos.legend.engine.language.pure.modelManager.sdlc.configuration.MetaDataServerConfiguration;
 import org.finos.legend.engine.protocol.graphQL.metamodel.Document;
+import org.finos.legend.engine.query.graphQL.api.execute.GraphQLExecutionHelper;
 import org.finos.legend.engine.protocol.graphQL.metamodel.ExecutableDocument;
 import org.finos.legend.engine.protocol.pure.PureClientVersions;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
@@ -89,7 +90,7 @@ public class GraphQLDebug extends GraphQL
     {
         RichIterable<? extends Root_meta_pure_extension_Extension> extensions = this.extensionsFunc.apply(pureModel);
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Class<?> _class = pureModel.getClass(queryClassPath);
-        Root_meta_external_query_graphQL_transformation_queryToPure_GraphFetchResult graphFetch = buildGraphFetch(_class, toPureModel(GraphQLGrammarParser.newInstance().parseDocument(query.query), pureModel), pureModel);
+        Root_meta_external_query_graphQL_transformation_queryToPure_GraphFetchResult graphFetch = buildGraphFetch(_class, GraphQLExecutionHelper.toPureModel(GraphQLGrammarParser.newInstance().parseDocument(query.query), pureModel), pureModel);
        return generateGraphFetchResult(graphFetch, extensions, pureModel);
     }
 
@@ -97,7 +98,7 @@ public class GraphQLDebug extends GraphQL
     {
         RichIterable<? extends Root_meta_pure_extension_Extension> extensions = this.extensionsFunc.apply(pureModel);
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.type.Class<?> _class = pureModel.getClass(queryClassPath);
-        Root_meta_external_query_graphQL_transformation_queryToPure_GraphFetchResult graphFetch = buildGraphFetch(_class, toPureModel(GraphQLGrammarParser.newInstance().parseDocument(query.query), pureModel), pureModel, mappingPath, runtimePath, bindingPath);
+        Root_meta_external_query_graphQL_transformation_queryToPure_GraphFetchResult graphFetch = buildGraphFetch(_class, GraphQLExecutionHelper.toPureModel(GraphQLGrammarParser.newInstance().parseDocument(query.query), pureModel), pureModel, mappingPath, runtimePath, bindingPath);
         return generateGraphFetchResult(graphFetch, extensions, pureModel);
     }
     
@@ -245,7 +246,7 @@ public class GraphQLDebug extends GraphQL
         {
             Document document = new ObjectMapper().readValue(json, ExecutableDocument.class);
             PureModel pureModel = new PureModel(PureModelContextData.newBuilder().build(), identity.getName(), DeploymentMode.TEST);
-            return Response.ok(buildPureInstanceGeneration(toPureModel(document, pureModel), pureModel)).build();
+            return Response.ok(buildPureInstanceGeneration(GraphQLExecutionHelper.toPureModel(document, pureModel), pureModel)).build();
         }
         catch (Exception e)
         {
