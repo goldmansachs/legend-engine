@@ -42,9 +42,10 @@ properties that the root pom would otherwise supply. `legend-shared` must now be
 lockstep for any Dropwizard change. And the repository carries a vendored copy of
 `dropwizard-pac4j` (see D-13), which must be re-synced if upstream fixes anything material.
 
-**Deferred.** pac4j stays on 4.5.8, and Jetty on the 10.x line whose final release has already
-shipped. Both will be forced eventually by Dropwizard 4/5, which additionally require the
-`jakarta.*` migration and Java 17.
+**Deferred.** Jetty stays on the 10.x line, whose final release has already shipped. That deferral
+is now contested: CVE-2026-10050 genuinely requires Jetty 12, so D-15's reasoning no longer holds.
+Moving to Jetty 12 forces Dropwizard 5, the `jakarta.*` migration and Java 17.
+[ADR-004](ADR-004-jetty-12-java-17-options.md) records the options and trade-offs.
 
 ---
 
@@ -87,7 +88,7 @@ measured in the repo or in published artifacts, not a judgement call, unless sta
 | D-27 | slf4j 1.7.36 → 2.0.17 and `javax.servlet:javax.servlet-api:3.1.0` → `jakarta.servlet:jakarta.servlet-api:4.0.4` | Both surfaced as runtime failures, not compile errors. DW 3.0 ships logback 1.3.16, which needs the slf4j 2.x binding — with 1.7 on the classpath every server test failed with "Unable to acquire the logger context". And DW 3.0's filters rely on `Filter#init`/`#destroy` being *default* methods, which they only are from Servlet 4.0; Servlet 3.1 gave `AbstractMethodError` on `AllowedMethodsFilter`. `jakarta.servlet-api` 4.0.4 still uses the `javax.servlet` package names, so this is not the jakarta migration. Both artifacts verified as Java 8 bytecode. |
 | D-28 | Read cookies from the `Set-Cookie` header in session-store tests | pac4j 5's `JEEContext.addResponseCookie` writes a raw header instead of calling `HttpServletResponse.addCookie`, so Spring's `MockHttpServletResponse.getCookies()` stopped seeing them. The product behaviour is unchanged — only the mock's accounting — so the assertions were repointed at the header rather than the behaviour being altered. |
 | D-14 | Target Dropwizard **3.0.17** | Fetched the DW dependency BOMs: 2.1.12 is Java 8 but ships Jetty 9.4.53 (does not clear the finding); 3.0.17 is Java 11, Jetty 10.0.26, Jersey 2.47 and `jakarta.ws.rs-api` 2.1.6 — still the `javax.*` package names, so the 35 http-api modules need no namespace migration; 4.0.17 is Jetty 11 with the real `jakarta.*` migration; 5.0.2 requires Java 17. |
-| D-15 | Accept Jetty 10 despite two findings naming 12.0.36 | The five findings are internally inconsistent — `jetty-http` is listed as fixed at ≥10.0.0 while `jetty-security` and `jetty-client` name 12.0.36. Jetty 12 means DW 5 and Java 17, contradicting the Java 11 goal. Flagged to the user, who accepted Jetty 10. Noted as out of scope that 10.0.26/11.0.26 are the final releases of those lines. |
+| ~~D-15~~ | ~~Accept Jetty 10 despite two findings naming 12.0.36~~ **SUPERSEDED — see [ADR-004](ADR-004-jetty-12-java-17-options.md)** | The five findings are internally inconsistent — `jetty-http` is listed as fixed at ≥10.0.0 while `jetty-security` and `jetty-client` name 12.0.36. Jetty 12 means DW 5 and Java 17, contradicting the Java 11 goal. Flagged to the user, who accepted Jetty 10. Noted as out of scope that 10.0.26/11.0.26 are the final releases of those lines. |
 | D-16 | Jackson **2.19.4**, not the recommended 2.18.10 | Downloading and reading class-file headers showed `jackson-dataformat-xml:2.18.10` is major **61** (Java 17) and `jackson-databind:2.19.3` is major **55** — Jackson has shipped individually mis-targeted artifacts. 2.19.4 is major 52 across all ten artifacts this repo uses and satisfies the ≥2.18.8 recommendation. The lesson, recorded in the pom: verify majors, do not trust the line. |
 | D-17 | Pin `javax.xml.bind:jaxb-api` to 2.3.1 | The Jackson bump surfaced a `dependencyConvergence` failure: `jackson-module-jaxb-annotations` 2.19.4 pulls 2.2.12 while `dropwizard-jersey` and `dropwizard-swagger` pull 2.3.1. Pinning the higher version in root `dependencyManagement` matches the repo's existing idiom. |
 | D-18 | Sequence Jackson (3a) ahead of Dropwizard (3b) | Jackson is Java-8-safe and clears its finding independently, so it can land without waiting on the cross-repo Dropwizard work. |
