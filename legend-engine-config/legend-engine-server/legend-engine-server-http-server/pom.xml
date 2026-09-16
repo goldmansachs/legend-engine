@@ -1065,6 +1065,11 @@
             <artifactId>pac4j-core</artifactId>
         </dependency>
         <dependency>
+            <!-- SessionAttributeBundle uses JEEContext / JEESessionStore, which pac4j 5 moved here. -->
+            <groupId>org.pac4j</groupId>
+            <artifactId>pac4j-javaee</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.finos.legend.shared</groupId>
             <artifactId>legend-shared-pac4j-gitlab</artifactId>
             <scope>runtime</scope>

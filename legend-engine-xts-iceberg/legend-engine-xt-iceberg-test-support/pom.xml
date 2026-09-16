@@ -25,6 +25,20 @@
     <name>Legend Engine - XT - Table Format - Iceberg - Test Support</name>
     <artifactId>legend-engine-xt-iceberg-test-support</artifactId>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- dropwizard-dependencies pins caffeine to 3.2.3, which is Java 11 bytecode. This
+                 module is Java 8 and picks caffeine up transitively from iceberg-core, which was
+                 built against 2.9.3. Restore that version here so the Dropwizard pin stays confined
+                 to the Java 11 server modules that actually need it. -->
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>2.9.3</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
 
         <dependency>

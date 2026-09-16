@@ -39,6 +39,7 @@ public class SqlGrammarTest
     {
         System.setProperty(TestProperties.CONTAINER_PORT, "0");
     }
+
     public static final ResourceExtension resources = ResourceExtension.builder()
             .addResource(new SqlGrammar())
             .addResource(new MockPac4jFeature())

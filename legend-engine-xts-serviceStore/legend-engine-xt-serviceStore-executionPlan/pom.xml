@@ -181,9 +181,12 @@
         </dependency>
 
         <!-- WIREMOCK -->
+        <!-- Standalone (shaded, dependency-free) rather than wiremock-jre8: this module is Java 8
+             and reachable from legend-engine-extensions-collection-execution, so the Jetty 10 that
+             plain wiremock would drag in cannot be allowed onto its compile classpath. -->
         <dependency>
             <groupId>com.github.tomakehurst</groupId>
-            <artifactId>wiremock-jre8</artifactId>
+            <artifactId>wiremock-jre8-standalone</artifactId>
         </dependency>
         <!-- WIREMOCK -->
 

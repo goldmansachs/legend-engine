@@ -71,6 +71,7 @@ public class SelectStarExecutionRegressionTest
     {
         System.setProperty(TestProperties.CONTAINER_PORT, "0");
     }
+
     public static final ResourceExtension resources = buildResources(true);
 
     public static ResourceExtension buildResources(boolean enablePreGeneratedPlans)
@@ -102,15 +103,15 @@ public class SelectStarExecutionRegressionTest
                 .post(Entity.json(new SQLQueryInput(null, sql, FastList.newList())))
                 .readEntity(String.class);
         TDSExecuteResult result = OM.readValue(response, TDSExecuteResult.class);
-        assertNotNull("Result should not be null for: " + sql, result);
-        assertNotNull("Result.result should not be null for: " + sql + "\nRaw response: " + response, result.result);
+        assertNotNull(result, "Result should not be null for: " + sql);
+        assertNotNull(result.result, "Result.result should not be null for: " + sql + "\nRaw response: " + response);
         return result;
     }
 
     private int getColumnIndex(TDSExecuteResult result, String columnName)
     {
         int index = result.result.columns.indexOf(columnName);
-        assertTrue("Column '" + columnName + "' not found. Available: " + result.result.columns, index >= 0);
+        assertTrue(index >= 0, "Column '" + columnName + "' not found. Available: " + result.result.columns);
         return index;
     }
 
@@ -125,26 +126,26 @@ public class SelectStarExecutionRegressionTest
     private void assertReturnsNames(String sql, String... expectedNames) throws JsonProcessingException
     {
         TDSExecuteResult result = execute(sql);
-        assertEquals("Row count mismatch for: " + sql, expectedNames.length, result.result.rows.size());
+        assertEquals(expectedNames.length, result.result.rows.size(), "Row count mismatch for: " + sql);
         Set<Object> actualNames = getColumnValues(result, "Name");
         Set<Object> expected = new HashSet<>();
         for (String name : expectedNames)
         {
             expected.add(name);
         }
-        assertEquals("Names mismatch for: " + sql, expected, actualNames);
+        assertEquals(expected, actualNames, "Names mismatch for: " + sql);
     }
 
     private void assertReturnsEmpty(String sql) throws JsonProcessingException
     {
         TDSExecuteResult result = execute(sql);
-        assertTrue("Expected no rows for: " + sql, result.result.rows.isEmpty());
+        assertTrue(result.result.rows.isEmpty(), "Expected no rows for: " + sql);
     }
 
     private void assertReturnsRows(String sql) throws JsonProcessingException
     {
         TDSExecuteResult result = execute(sql);
-        assertFalse("Expected rows for: " + sql, result.result.rows.isEmpty());
+        assertFalse(result.result.rows.isEmpty(), "Expected rows for: " + sql);
     }
 
     private void assertOptimizedMatchesStandard(String selectStarSql, String standardSql) throws JsonProcessingException
@@ -152,21 +153,18 @@ public class SelectStarExecutionRegressionTest
         TDSExecuteResult selectStarResult = execute(selectStarSql);
         TDSExecuteResult standardResult = execute(standardSql);
 
-        assertEquals("Row count should match between optimized and standard paths",
-                selectStarResult.result.rows.size(),
-                standardResult.result.rows.size());
+        assertEquals(selectStarResult.result.rows.size(), standardResult.result.rows.size(), "Row count should match between optimized and standard paths");
 
         for (String col : standardResult.result.columns)
         {
-            assertTrue("SELECT * should contain column '" + col + "'",
-                    selectStarResult.result.columns.contains(col));
+            assertTrue(selectStarResult.result.columns.contains(col), "SELECT * should contain column '" + col + "'");
         }
 
         if (standardResult.result.columns.contains("Name") && selectStarResult.result.columns.contains("Name"))
         {
             Set<Object> starNames = getColumnValues(selectStarResult, "Name");
             Set<Object> stdNames = getColumnValues(standardResult, "Name");
-            assertEquals("Names should match between optimized and standard paths", starNames, stdNames);
+            assertEquals(starNames, stdNames, "Names should match between optimized and standard paths");
         }
     }
 
@@ -240,21 +238,18 @@ public class SelectStarExecutionRegressionTest
         TDSExecuteResult isoWithMs = execute("SELECT * FROM service('/personServiceByDateTimeRange', sinceDateTime => '2022-07-24T09:15:30.000')");
         TDSExecuteResult spaceWithMs = execute("SELECT * FROM service('/personServiceByDateTimeRange', sinceDateTime => '2022-07-24 09:15:30.000')");
 
-        assertEquals("ISO with T and space separator must return same row count",
-                isoWithT.result.rows.size(), spaceNoMs.result.rows.size());
-        assertEquals("ISO with T and ISO with millis must return same row count",
-                isoWithT.result.rows.size(), isoWithMs.result.rows.size());
-        assertEquals("ISO with T and space with millis must return same row count",
-                isoWithT.result.rows.size(), spaceWithMs.result.rows.size());
+        assertEquals(isoWithT.result.rows.size(), spaceNoMs.result.rows.size(), "ISO with T and space separator must return same row count");
+        assertEquals(isoWithT.result.rows.size(), isoWithMs.result.rows.size(), "ISO with T and ISO with millis must return same row count");
+        assertEquals(isoWithT.result.rows.size(), spaceWithMs.result.rows.size(), "ISO with T and space with millis must return same row count");
 
         Set<Object> namesT = getColumnValues(isoWithT, "Name");
         Set<Object> namesSpace = getColumnValues(spaceNoMs, "Name");
         Set<Object> namesMs = getColumnValues(isoWithMs, "Name");
         Set<Object> namesSpaceMs = getColumnValues(spaceWithMs, "Name");
 
-        assertEquals("All four DateTime formats must produce identical results", namesT, namesSpace);
-        assertEquals("All four DateTime formats must produce identical results", namesT, namesMs);
-        assertEquals("All four DateTime formats must produce identical results", namesT, namesSpaceMs);
+        assertEquals(namesT, namesSpace, "All four DateTime formats must produce identical results");
+        assertEquals(namesT, namesMs, "All four DateTime formats must produce identical results");
+        assertEquals(namesT, namesSpaceMs, "All four DateTime formats must produce identical results");
     }
 
     // ---- Other datatype parameter tests ----
@@ -369,12 +364,11 @@ public class SelectStarExecutionRegressionTest
         TDSExecuteResult env1Result = execute("SELECT * FROM service('/personServiceMultiExec/{env}', env => 'env1', minId => 102)");
         TDSExecuteResult env2Result = execute("SELECT * FROM service('/personServiceMultiExec/{env}', env => 'env2', minId => 102)");
 
-        assertEquals("Both execution keys should return same row count",
-                env1Result.result.rows.size(), env2Result.result.rows.size());
+        assertEquals(env1Result.result.rows.size(), env2Result.result.rows.size(), "Both execution keys should return same row count");
 
         Set<Object> env1Names = getColumnValues(env1Result, "Name");
         Set<Object> env2Names = getColumnValues(env2Result, "Name");
-        assertEquals("Both execution keys should return same names", env1Names, env2Names);
+        assertEquals(env1Names, env2Names, "Both execution keys should return same names");
     }
 
     // ==================== BASIC SERVICE (NO PARAMETERS) ====================
@@ -386,7 +380,7 @@ public class SelectStarExecutionRegressionTest
 
         // Schema validation
         TDSExecuteResult result = execute("SELECT * FROM service('/personServiceById', minId => 101)");
-        assertFalse("Columns should not be empty", result.result.columns.isEmpty());
+        assertFalse(result.result.columns.isEmpty(), "Columns should not be empty");
     }
 
     // ==================== STANDARD PATH FALLBACK ====================

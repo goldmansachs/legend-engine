@@ -14,7 +14,6 @@
 
 package org.finos.legend.engine.postgres.e2e;
 
-import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
@@ -87,7 +86,6 @@ import java.util.Set;
  */
 
 @Testcontainers
-@org.junit.jupiter.api.extension.ExtendWith(DropwizardExtensionsSupport.class)
 public class TestPostgresParity
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestPostgresParity.class);
@@ -188,7 +186,7 @@ public class TestPostgresParity
     };
 
     @BeforeAll
-    static void setUp() throws Exception
+    static void setUp() throws Throwable
     {
         PGSimpleDataSource pgDataSource = new PGSimpleDataSource();
         pgDataSource.setUrl(postgres.getJdbcUrl());
@@ -262,9 +260,9 @@ public class TestPostgresParity
                 .addResource(new CatchAllExceptionMapper())
                 .bootstrapLogging(false)
                 .build();
-        // Dropwizard 1.3.x only provides ResourceExtension (JUnit 4 @Rule).
-        // Since we use JUnit 5, we must reflectively invoke the lifecycle methods.
-        startResourceTestRule(resourceTestRule);
+        // Driven manually rather than by DropwizardExtensionsSupport: the extension's beforeAll
+        // runs before this @BeforeAll, and the builder above needs sqlExecute, which is built here.
+        resourceTestRule.before();
         ServerConfig serverConfig = new ServerConfig();
         serverConfig.setPort(0);
         serverConfig.setHttpPort(0);
@@ -330,7 +328,17 @@ public class TestPostgresParity
         {
             legendServer.shutDown();
         }
-        stopResourceTestRule(resourceTestRule);
+        if (resourceTestRule != null)
+        {
+            try
+            {
+                resourceTestRule.after();
+            }
+            catch (Throwable e)
+            {
+                LOGGER.debug("Error stopping ResourceExtension", e);
+            }
+        }
         if (Boolean.getBoolean("parity.failOnError") && report.hasFailures())
         {
             throw new AssertionError("Parity tests have failures. See target/parity-report.json for details.");
@@ -728,36 +736,6 @@ public class TestPostgresParity
         Vault.INSTANCE.registerImplementation(new PropertiesVaultImplementation(vaultProps));
     }
 
-    /**
-     * Starts a Dropwizard 1.3.x ResourceExtension in a JUnit 5 context.
-     * ResourceExtension is a JUnit 4 @Rule; its lifecycle must be driven reflectively.
-     */
-    private static void startResourceTestRule(ResourceExtension rule) throws Exception
-    {
-        java.lang.reflect.Field resourceField = ResourceExtension.class.getDeclaredField("resource");
-        resourceField.setAccessible(true);
-        Object resource = resourceField.get(rule);
-        resource.getClass().getMethod("before").invoke(resource);
-    }
-
-    private static void stopResourceTestRule(ResourceExtension rule)
-    {
-        if (rule == null)
-        {
-            return;
-        }
-        try
-        {
-            java.lang.reflect.Field resourceField = ResourceExtension.class.getDeclaredField("resource");
-            resourceField.setAccessible(true);
-            Object resource = resourceField.get(rule);
-            resource.getClass().getMethod("after").invoke(resource);
-        }
-        catch (Exception e)
-        {
-            LOGGER.debug("Error stopping ResourceExtension", e);
-        }
-    }
 
     private static void generateFunctionCoverageReport()
     {

@@ -18,6 +18,7 @@ package org.finos.legend.engine.api.analytics;
 
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.eclipse.collections.api.list.MutableList;
@@ -79,7 +80,7 @@ public class LineageAnalytics
     @Operation(summary = "Analyze the function to get property path tree")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response functionTree(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
+    public Response functionTree(LineageAnalyticsInput lineageAnalyticsInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -106,7 +107,7 @@ public class LineageAnalytics
     @Operation(summary = "Analyze the function to get referenced model classes")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response classLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
+    public Response classLineage(LineageAnalyticsInput lineageAnalyticsInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -136,7 +137,7 @@ public class LineageAnalytics
     @Operation(summary = "Analyze the function and mapping to get referenced databases and tables")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response databaseLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
+    public Response databaseLineage(LineageAnalyticsInput lineageAnalyticsInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -169,7 +170,7 @@ public class LineageAnalytics
     @Operation(summary = "Analyze the function and mapping to get referenced database columns for projected columns")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response reportLineage(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
+    public Response reportLineage(LineageAnalyticsInput lineageAnalyticsInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -199,7 +200,7 @@ public class LineageAnalytics
     @Operation(summary = "Analyze the function and mapping to get relation join tree")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response relationTree(LineageAnalyticsInput lineageAnalyticsInput, @Pac4JProfileManager ProfileManager pm)
+    public Response relationTree(LineageAnalyticsInput lineageAnalyticsInput, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

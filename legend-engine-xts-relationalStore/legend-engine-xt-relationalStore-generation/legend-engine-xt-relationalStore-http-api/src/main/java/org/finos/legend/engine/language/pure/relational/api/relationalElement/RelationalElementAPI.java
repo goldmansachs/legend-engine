@@ -99,7 +99,7 @@ public class RelationalElementAPI
     @Path("connection/supportedDbAuthenticationFlows")
     @Operation(summary = "Get all available Database Authentication Flows")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getDbDataSourceAuthComb(@Pac4JProfileManager ProfileManager pm)
+    public Response getDbDataSourceAuthComb(@Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);

@@ -222,7 +222,11 @@
         <junit.version>4.13.1</junit.version>
         <reload4j.version>1.2.19</reload4j.version>
         <logback-contrib.version>0.1.5</logback-contrib.version>
-        <logback.version>1.2.3</logback.version>
+        <!-- Must stay on the version Dropwizard 3.0.17 ships. 1.2.3 only implements the slf4j 1.7
+             StaticLoggerBinder, so with slf4j 2.0.17 nothing provides SLF4JServiceProvider and
+             Dropwizard's bootstrapLogging fails with "Unable to acquire the logger context".
+             1.3.16 is still Java 8 bytecode. -->
+        <logback.version>1.3.16</logback.version>
         <minio.version>8.5.5</minio.version>
         <mockito-core.version>4.4.0</mockito-core.version>
         <mockito-inline.version>5.2.0</mockito-inline.version>
@@ -611,6 +615,15 @@
                                     <ignoredScopes>
                                         <ignoredScope>test</ignoredScope>
                                     </ignoredScopes>
+                                    <!-- wiremock-jre8-standalone shades Jetty, and six of the shaded classes
+                                         are the JDK9 ALPN processors Jetty loads reflectively for
+                                         HTTP/2-over-TLS. They are major 53; the rest of the jar is 52. The
+                                         jar reaches every consumer of legend-engine-xt-serviceStore-executionPlan,
+                                         so the carve-out has to be global. It names one shaded package, so it
+                                         cannot mask a Java 11 leak anywhere else. -->
+                                    <ignoreClasses>
+                                        <ignoreClass>wiremock.org.eclipse.jetty.alpn.java.**</ignoreClass>
+                                    </ignoreClasses>
                                     <excludes>
 <!--                                        <exclude>io.deephaven:deephaven-proto-backplane-grpc-flight</exclude>-->
 <!--                                        <exclude>io.deephaven:deephaven-java-client-session</exclude>-->
@@ -3832,6 +3845,15 @@
                 <version>${pac4j.jaxrs.version}</version>
             </dependency>
             <dependency>
+                <!-- pac4j 5 moved JEEContext / JEESessionStore out of pac4j-core into this artifact.
+                     Held at the version legend-shared resolves rather than ${pac4j.version}, so the
+                     graph stays identical to the one legend-shared was tested against. Aligning both
+                     repos on 5.7.1 is a follow-up. -->
+                <groupId>org.pac4j</groupId>
+                <artifactId>pac4j-javaee</artifactId>
+                <version>5.6.0</version>
+            </dependency>
+            <dependency>
                 <groupId>org.pac4j</groupId>
                 <artifactId>pac4j-core</artifactId>
                 <version>${pac4j.version}</version>
@@ -3953,12 +3975,6 @@
                 <groupId>io.dropwizard</groupId>
                 <artifactId>dropwizard-jersey</artifactId>
                 <version>${dropwizard.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.javassist</groupId>
-                        <artifactId>javassist</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -3970,22 +3986,23 @@
                         <groupId>com.google.guava</groupId>
                         <artifactId>guava</artifactId>
                     </exclusion>
-                    <exclusion>
-                        <groupId>org.javassist</groupId>
-                        <artifactId>javassist</artifactId>
-                    </exclusion>
                 </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.hk2</groupId>
                 <artifactId>hk2-locator</artifactId>
                 <version>${hk2.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.javassist</groupId>
-                        <artifactId>javassist</artifactId>
-                    </exclusion>
-                </exclusions>
+            </dependency>
+            <dependency>
+                <!-- hk2-locator uses javassist for proxying. It used to be excluded from
+                     hk2-locator, dropwizard-jersey and dropwizard-swagger; Jersey 2.25 never
+                     reached the proxying path so nothing noticed, but Jersey 2.47 does, and the
+                     engine server died on ClassNotFoundException: javassist.ClassPath while
+                     starting. The exclusions are gone; this pin keeps hk2 off its own
+                     3.20.0-GA default and on a current release. -->
+                <groupId>org.javassist</groupId>
+                <artifactId>javassist</artifactId>
+                <version>3.30.2-GA</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.hk2</groupId>
@@ -4467,6 +4484,19 @@
                         <artifactId>jaxb-api</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+            <!-- Every wiremock consumer uses the standalone jar. It shades both its Jetty 9 and its
+                 servlet API and declares no transitive dependencies, which is what makes it work at
+                 all now that dependencyManagement pins org.eclipse.jetty:* to 10.0.26: the slim
+                 wiremock-jre8 would have its jetty9 server factory loaded against Jetty 10 jars,
+                 and fails first with NoClassDefFoundError: javax/servlet/DispatcherType because the
+                 managed Jetty artifacts also exclude jetty-servlet-api. It additionally keeps Java
+                 11 Jetty off the compile classpath of the one Java 8 module that needs wiremock at
+                 compile scope (legend-engine-xt-serviceStore-executionPlan). -->
+            <dependency>
+                <groupId>com.github.tomakehurst</groupId>
+                <artifactId>wiremock-jre8-standalone</artifactId>
+                <version>${wiremock.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.protobuf</groupId>

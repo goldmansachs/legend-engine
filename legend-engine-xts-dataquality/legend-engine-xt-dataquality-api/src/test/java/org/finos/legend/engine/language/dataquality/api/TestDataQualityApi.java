@@ -361,14 +361,14 @@ public class TestDataQualityApi
         if (columns.isMissingNode())
         {
             // Fallback: result may be wrapped differently — just check the raw result contains the expected column names
-            assertTrue("Response should contain column_name", resultAsString.contains("column_name"));
-            assertTrue("Response should contain column_data_type", resultAsString.contains("column_data_type"));
-            assertTrue("Response should contain count", resultAsString.contains("count"));
-            assertTrue("Response should contain string_value", resultAsString.contains("string_value"));
-            assertTrue("Response should contain int_value", resultAsString.contains("int_value"));
-            assertTrue("Response should contain float_value", resultAsString.contains("float_value"));
-            assertTrue("Response should contain date_value", resultAsString.contains("date_value"));
-            assertTrue("Response should contain boolean_value", resultAsString.contains("boolean_value"));
+            assertTrue(resultAsString.contains("column_name"), "Response should contain column_name");
+            assertTrue(resultAsString.contains("column_data_type"), "Response should contain column_data_type");
+            assertTrue(resultAsString.contains("count"), "Response should contain count");
+            assertTrue(resultAsString.contains("string_value"), "Response should contain string_value");
+            assertTrue(resultAsString.contains("int_value"), "Response should contain int_value");
+            assertTrue(resultAsString.contains("float_value"), "Response should contain float_value");
+            assertTrue(resultAsString.contains("date_value"), "Response should contain date_value");
+            assertTrue(resultAsString.contains("boolean_value"), "Response should contain boolean_value");
         }
         else
         {
@@ -405,7 +405,7 @@ public class TestDataQualityApi
         JsonNode rows = result.path("result").path("rows");
         if (!rows.isMissingNode() && rows.isArray())
         {
-            assertTrue("At most 2 rows per column when maxNumberOfSampleValues=2", rows.size() <= 2);
+            assertTrue(rows.size() <= 2, "At most 2 rows per column when maxNumberOfSampleValues=2");
         }
     }
 
@@ -428,7 +428,7 @@ public class TestDataQualityApi
         JsonNode rows = result.path("result").path("rows");
         if (!rows.isMissingNode() && rows.isArray())
         {
-            assertTrue("Rows should be <= 20 (default max)", rows.size() <= 20);
+            assertTrue(rows.size() <= 20, "Rows should be <= 20 (default max)");
         }
     }
 
@@ -446,7 +446,7 @@ public class TestDataQualityApi
         assertEquals(200, response.getStatus());
         String resultAsString = response.readEntity(String.class);
         // Verify column_data_type says "String"
-        assertTrue("String column should report data type as String", resultAsString.contains("String"));
+        assertTrue(resultAsString.contains("String"), "String column should report data type as String");
     }
 
     @Test
@@ -463,7 +463,7 @@ public class TestDataQualityApi
         assertEquals(200, response.getStatus());
         String resultAsString = response.readEntity(String.class);
         // Verify column_data_type says "Integer"
-        assertTrue("Integer column should report data type as Integer", resultAsString.contains("Integer"));
+        assertTrue(resultAsString.contains("Integer"), "Integer column should report data type as Integer");
     }
 
     @Test
@@ -485,7 +485,7 @@ public class TestDataQualityApi
         int fullNamePos = resultAsString.indexOf("\"fullName\"");
         if (idPos >= 0 && fullNamePos >= 0)
         {
-            assertTrue("id block should appear before fullName block", idPos < fullNamePos);
+            assertTrue(idPos < fullNamePos, "id block should appear before fullName block");
         }
     }
 
@@ -524,12 +524,12 @@ public class TestDataQualityApi
                 .post(Entity.json(input));
 
         String resultAsString = response.readEntity(String.class);
-        assertEquals(resultAsString, 200, response.getStatus());
+        assertEquals(200, response.getStatus(), resultAsString);
 
         JsonNode result = objectMapper.readTree(resultAsString);
         JsonNode columns = result.path("builder").path("columns");
         JsonNode rows = result.path("result").path("rows");
-        assertTrue(resultAsString, rows.isArray());
+        assertTrue(rows.isArray(), resultAsString);
 
         int nameIndex = -1;
         for (int i = 0; i < columns.size(); i++)
@@ -539,13 +539,13 @@ public class TestDataQualityApi
                 nameIndex = i;
             }
         }
-        assertTrue("FULL_NAME column not found in " + columns, nameIndex >= 0);
+        assertTrue(nameIndex >= 0, "FULL_NAME column not found in " + columns);
 
         Set<String> actual = new LinkedHashSet<>();
         for (JsonNode row : rows)
         {
             actual.add(row.path("values").get(nameIndex).asText());
         }
-        assertEquals(resultAsString, expectedNames, actual);
+        assertEquals(expectedNames, actual, resultAsString);
     }
 }

@@ -105,6 +105,10 @@
 
         <!-- ANNOTATIONS -->
         <dependency>
+            <groupId>org.finos.legend.engine</groupId>
+            <artifactId>legend-engine-xt-identity-pac4j</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.pac4j.jax-rs</groupId>
             <artifactId>core</artifactId>
         </dependency>

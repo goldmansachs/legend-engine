@@ -59,7 +59,7 @@ public class PCT
 
     @GET
     @Path("functions")
-    @ApiOperation(value = "PCT function reference")
+    @Operation(summary = "PCT function reference")
     @Produces(MediaType.TEXT_HTML)
     public Response functionsPCT()
     {

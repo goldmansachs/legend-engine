@@ -19,6 +19,33 @@
         <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
     </properties>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>dependency-analyze</id>
+                        <configuration>
+                            <!-- Four artifacts on this module's test classpath supply the
+                                 javax.inject package - jakarta.inject-api, javax.inject,
+                                 hk2.external:javax.inject and hk2.external:jakarta.inject - so the
+                                 analyzer attributes the classes to whichever it sees first and
+                                 reports the rest. Declaring one only moves the complaint to
+                                 another. Ignore the set rather than churn the resolved graph. -->
+                            <ignoredUsedUndeclaredDependencies>
+                                <dependency>jakarta.inject:jakarta.inject-api</dependency>
+                                <dependency>org.glassfish.hk2.external:jakarta.inject</dependency>
+                                <dependency>org.glassfish.hk2.external:javax.inject</dependency>
+                            </ignoredUsedUndeclaredDependencies>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
 
         <!-- PURE -->
@@ -283,7 +310,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.tomakehurst</groupId>
-            <artifactId>wiremock-jre8</artifactId>
+            <artifactId>wiremock-jre8-standalone</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -350,6 +377,11 @@
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

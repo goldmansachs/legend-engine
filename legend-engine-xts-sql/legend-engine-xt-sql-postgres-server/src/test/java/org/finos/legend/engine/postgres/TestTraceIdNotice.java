@@ -58,6 +58,7 @@ public class TestTraceIdNotice
                 .setTracerProvider(SdkTracerProvider.builder().build())
                 .buildAndRegisterGlobal();
     }
+
     public static final ResourceExtension resources = SqlExecuteTest.getResourceTestRule();
     private static TestPostgresServer testPostgresServer;
 
@@ -112,9 +113,8 @@ public class TestTraceIdNotice
             }
 
             SQLWarning warning = statement.getWarnings();
-            Assertions.assertNotNull("Expected a notice with the trace id", warning);
-            Assertions.assertTrue("Notice should contain traceId",
-                    warning.getMessage().contains("traceId:"));
+            Assertions.assertNotNull(warning, "Expected a notice with the trace id");
+            Assertions.assertTrue(warning.getMessage().contains("traceId:"), "Notice should contain traceId");
         }
     }
 
@@ -135,9 +135,8 @@ public class TestTraceIdNotice
             }
 
             SQLWarning warning = statement.getWarnings();
-            Assertions.assertNotNull("Expected a notice with the trace id", warning);
-            Assertions.assertTrue("Notice should contain traceId",
-                    warning.getMessage().contains("traceId:"));
+            Assertions.assertNotNull(warning, "Expected a notice with the trace id");
+            Assertions.assertTrue(warning.getMessage().contains("traceId:"), "Notice should contain traceId");
         }
     }
 
@@ -167,9 +166,8 @@ public class TestTraceIdNotice
             }
 
             SQLWarning warning = statement.getWarnings();
-            Assertions.assertNotNull("Expected a notice with trace id even on failure", warning);
-            Assertions.assertTrue("Notice should contain traceId",
-                    warning.getMessage().contains("traceId:"));
+            Assertions.assertNotNull(warning, "Expected a notice with trace id even on failure");
+            Assertions.assertTrue(warning.getMessage().contains("traceId:"), "Notice should contain traceId");
         }
     }
 }

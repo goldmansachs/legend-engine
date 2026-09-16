@@ -58,6 +58,7 @@ public class SqlExecuteTest
     {
         System.setProperty(TestProperties.CONTAINER_PORT, "0");
     }
+
     public static final ResourceExtension resources = getResourceTestRule();
     private static final ObjectMapper OM = new ObjectMapper();
     private static final SQLGrammarParser PARSER = SQLGrammarParser.newInstance();

@@ -15,6 +15,7 @@
 package org.finos.legend.engine.application.query.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.finos.legend.engine.application.query.api.ApplicationQueryException;
 import org.finos.legend.engine.shared.mongo.model.StoredAuditInformation;
 
@@ -28,6 +29,13 @@ import java.time.ZoneId;
  */
 public class QueryModelConverter
 {
+    // StoredAuditInformation carries java.time.LocalDateTime. Jackson 2.19 turns
+    // MapperFeature.REQUIRE_HANDLERS_FOR_JAVA8_TIMES on by default, so a bare mapper now fails on
+    // those fields instead of bean-serialising them. JavaTimeModule is what the persistence layer
+    // already uses (BaseStoredVersionedAssetDao), and matches the @JsonFormat(Shape.STRING) on
+    // StoredAuditInformation.
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+
     private QueryModelConverter()
     {
     }
@@ -45,7 +53,7 @@ public class QueryModelConverter
         Query query;
         try
         {
-            query = new ObjectMapper().convertValue(stored, Query.class);
+            query = OBJECT_MAPPER.convertValue(stored, Query.class);
         }
         catch (Exception e)
         {

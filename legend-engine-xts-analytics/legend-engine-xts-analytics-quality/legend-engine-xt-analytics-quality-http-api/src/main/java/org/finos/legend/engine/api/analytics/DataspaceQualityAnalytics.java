@@ -53,8 +53,7 @@ public class DataspaceQualityAnalytics
     @Operation(summary = "Checks the quality of provided Data space using PMCD")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response checkDataSpaceConstraints(DataspaceQualityCheckInput input, @Parameter(hidden = true)
-                                              @Pac4JProfileManager ProfileManager pm)
+    public Response checkDataSpaceConstraints(DataspaceQualityCheckInput input, @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
