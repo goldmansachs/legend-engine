@@ -38,7 +38,7 @@ Measured, not assumed:
 
 1. **`maven.compiler.release=8` in the root pom silently overrode every module-level
    `source`/`target`.** `maven-compiler-plugin` binds `release` to the `maven.compiler.release`
-   property, and when `release` is set the plugin ignores `source`/`target`. 31 modules declared
+   property, and when `release` is set the plugin ignores `source`/`target`. 28 modules declared
    `<maven.compiler.source>11</maven.compiler.source>` — every one of them emitted major 52. Dead,
    misleading configuration.
 2. **The Dropwizard/Jetty blast radius was tiny.** Exactly six modules carried Dropwizard or Jetty
@@ -64,7 +64,7 @@ Root `pom.xml`:
 - Make `release` explicit in the `maven-compiler-plugin` configuration next to `source`/`target`, so
   the governing knob is visible rather than implied by a property default.
 
-Then **delete the 31 inert `source`/`target` overrides** so each pom tells the truth about what it
+Then **delete the 28 inert `source`/`target` overrides** so each pom tells the truth about what it
 emits, and fix `legend-engine-xt-dataquality-api`, which declared `dropwizard-testing` at compile
 scope.
 
