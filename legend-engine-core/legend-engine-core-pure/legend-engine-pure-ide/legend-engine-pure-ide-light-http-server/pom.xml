@@ -484,11 +484,41 @@
             <groupId>org.finos.legend.engine</groupId>
             <artifactId>legend-engine-xt-sql-e2e-pure</artifactId>
             <version>${project.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-exporter-zipkin</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry.instrumentation</groupId>
+                    <artifactId>opentelemetry-logback-mdc-1.0</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.docker-java</groupId>
+                    <artifactId>docker-java-transport-httpclient5</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.finos.legend.engine</groupId>
             <artifactId>legend-engine-xt-sql-e2e-tests</artifactId>
             <version>${project.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-exporter-zipkin</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry.instrumentation</groupId>
+                    <artifactId>opentelemetry-logback-mdc-1.0</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.docker-java</groupId>
+                    <artifactId>docker-java-transport-httpclient5</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
     </dependencies>
