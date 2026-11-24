@@ -1,0 +1,99 @@
+// Copyright 2026 Goldman Sachs
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+###Pure
+import meta::pure::graphFetch::*;
+import meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::*;
+import meta::pure::lineage::scanProperties::test::unfetched::*;
+
+Class meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::Leaf
+{
+  c : String[0..1];
+}
+
+Class meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::Holder
+{
+  leaf : Leaf[0..1];
+}
+
+Class meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::Src
+{
+  code : String[1];
+}
+
+Class meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::SrcWithHolder
+{
+  code   : String[1];
+  holder : Holder[0..1];
+}
+
+Class meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::Tgt
+{
+  c : String[0..1];
+}
+
+// scanProperties only follows functions under meta in its own test package.
+function meta::pure::lineage::scanProperties::test::unfetched::leafCode(holder:Holder[1]):String[0..1]
+{
+  $holder.leaf.c
+}
+
+function meta::pure::lineage::scanProperties::test::unfetched::leafCodeOr(code:String[1], holder:Holder[0..1]):String[0..1]
+{
+  if($holder->isNotEmpty(), | $holder->toOne()->leafCode(), | $code)
+}
+
+function <<access.private>> meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::unfetchedPropertyNames(tree:RootGraphFetchTree<Any>[1]):String[*]
+{
+  $tree->match([
+    e:ExtendedRootGraphFetchTree<Any>[1] | $e.requiredUnfetchedProperties->map(p | $p->meta::pure::functions::meta::ownerClass().name->toOne() + '.' + $p.name->toOne())->sort(),
+    r:RootGraphFetchTree<Any>[1]         | []
+  ]);
+}
+
+function <<test.Test>> meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::testReadOnHelperParameterPassedEmptyIsRequiredButNotFetched():Boolean[1]
+{
+  let actual = calculateSourceTree(#{Tgt {c}}#, emptyHolderMapping, meta::pure::extension::defaultExtensions());
+  assertEquals(#{Src {code}}#->treeToString(), $actual->treeToString());
+  assertEquals(['Holder.leaf', 'Leaf.c'], $actual->unfetchedPropertyNames());
+}
+
+function <<test.Test>> meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::testReadOnHelperParameterFromSourceIsFetched():Boolean[1]
+{
+  let actual = calculateSourceTree(#{Tgt {c}}#, sourceHolderMapping, meta::pure::extension::defaultExtensions());
+  assertEquals(#{SrcWithHolder {code, holder {leaf {c}}}}#->sortTree()->treeToString(), $actual->treeToString());
+  assertEmpty($actual->unfetchedPropertyNames());
+}
+
+###Mapping
+import meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::*;
+import meta::pure::lineage::scanProperties::test::unfetched::*;
+
+Mapping meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::emptyHolderMapping
+(
+  *Tgt: Pure
+  {
+    ~src Src
+    c: leafCodeOr($src.code, [])
+  }
+)
+
+Mapping meta::pure::graphFetch::tests::sourceTreeCalc::unfetched::sourceHolderMapping
+(
+  *Tgt: Pure
+  {
+    ~src SrcWithHolder
+    c: leafCodeOr($src.code, $src.holder)
+  }
+)

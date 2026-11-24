@@ -30,12 +30,20 @@ Class meta::pure::graphFetch::ExtendedRootGraphFetchTree<T> extends RootGraphFet
 {
    requiredQualifiedProperties: QualifiedProperty<Any>[*];
    constraintsExclusions: String[*];
+   {doc.doc = 'Properties the mapping code reads on instances that do not come from this tree, e.g. a helper parameter passed []. Generated code needs them, but the tree must not fetch them.'}
+   requiredUnfetchedProperties: AbstractProperty<Any>[*];
 }
 
 Class meta::pure::graphFetch::ExtendedPropertyGraphFetchTree extends PropertyGraphFetchTree
 {
    requiredQualifiedProperties: QualifiedProperty<Any>[*];
    constraintsExclusions: String[*];
+}
+
+Class meta::pure::graphFetch::SourceTreeScan
+{
+   visitedFunctions: Map<String, ScanPropertiesState>[1];
+   unfetchedProperties: AbstractProperty<Any>[*];
 }
 
 Class {doc.doc = 'Nodes that were added by the system to meet e.g. constraints requirements'} meta::pure::graphFetch::SystemGeneratedPropertyGraphFetchTree extends PropertyGraphFetchTree
@@ -520,7 +528,7 @@ function <<access.private>> meta::pure::graphFetch::m2mPassThroughPaths(property
    );
 }
 
-function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForProperty(srcNode:GraphFetchTree[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtPgft:PropertyGraphFetchTree[1], extensions:meta::pure::extension::Extension[*], visitedFunctions:Map<String,ScanPropertiesState>[1], srcBinding:List<PropertyPathNode>[0..1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, Map<String, ScanPropertiesState>>[1]
+function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForProperty(srcNode:GraphFetchTree[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtPgft:PropertyGraphFetchTree[1], extensions:meta::pure::extension::Extension[*], scan:SourceTreeScan[1], srcBinding:List<PropertyPathNode>[0..1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, SourceTreeScan>[1]
 {
    let srcNodeOwner = $srcNode->match([
       r:RootGraphFetchTree<Any>[1] | $r.class,
@@ -588,7 +596,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForPrope
                         class    = $setImplementation.srcClass->toOne()->cast(@Class<Any>),
                         property = $setImplementation->noMappingPassThruSourceProperty($requiredProperty->toOne())->toOne()
                      );
-                  ^ScanPropertiesState(current=list($path), result=list($path), visitedFunctions = $visitedFunctions);
+                  ^ScanPropertiesState(current=list($path), result=list($path), visitedFunctions = $scan.visitedFunctions);
                   },
                   {|
                     assert($setImplementation->isNoMappingDefaultToEmpty($requiredProperty->toOne()) || $setImplementation->isPartOfMerge(), |'No mapping found for property \'' + $tgtPgft.property.name->toOne() + '\'');
@@ -600,7 +608,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForPrope
               let result = $pms->fold({pm, prevRes | let result = $pm.transform.expressionSequence->at(0)->evaluateAndDeactivate()->scanProperties(noDebug(), ^ScanConfig(scanClasses=true, explodeMilestonedProperties=false, captureConditionalTerminals=true, resolveConstructedInstances=true), $prevRes->last()->getVisitedFunctions(), $pm.transform->sourceBindingVars($srcBinding));
                                                      $prevRes->concatenate($result);
                                       },
-                                      [^ScanPropertiesState(current = emptyPath(), result = [], visitedFunctions = $visitedFunctions)]
+                                      [^ScanPropertiesState(current = emptyPath(), result = [], visitedFunctions = $scan.visitedFunctions)]
                                     );
 
               $result->slice(1, $result->size());
@@ -610,7 +618,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForPrope
          // get visitedFunctions map from last element in ScanPropertiesState
          let visitedFunctionsFromScanProperties = if($propertyPaths->isNotEmpty(),
                                                     | $propertyPaths->last()->getVisitedFunctions(),
-                                                    | $visitedFunctions
+                                                    | $scan.visitedFunctions
                                                   );
 
          let inlinedPropertyTree = $propertyPaths.result->buildPropertyTree()->inlineQualifiedPropertyNodes();
@@ -662,6 +670,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForPrope
                                                               && !$c->getAllTypeGeneralisations()->map(t | $t->elementToPath())->contains($ownerPath););
          let setImplSrcClassMatchesOwner = $setImplementation.srcClass->isNotEmpty()
                                               && $setImplementation.srcClass->toOne()->elementToPath() == $ownerPath;
+         let unfetchedProperties = if($setImplSrcClassMatchesOwner, | $inlinedPropertyTree->propertiesUnreachableFromOwner($owner, $childPropertiesMap), | []);
          // Only needed when the cheaper disjuncts of the assert below do not already hold.
          let needsOwnerReachabilityCheck = $setImplSrcClassMatchesOwner
                                               && $propertyTreesBelongingToOwner->isEmpty()
@@ -756,10 +765,10 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForPrope
                                                                                     $res)
                                                           );
                                                         },
-                                                        pair($withSubTypeTrees, $visitedFunctionsFromScanProperties)
+                                                        pair($withSubTypeTrees, ^$scan(visitedFunctions = $visitedFunctionsFromScanProperties, unfetchedProperties += $unfetchedProperties))
                                                       );
 
-         let visitedFunctionsFromEnrichedPaths = $withNextSetImpl.second;
+         let scanFromEnrichedPaths = $withNextSetImpl.second;
 
          let withPassThruSubTrees = if($childSetImpls->isEmpty() && $returnType->instanceOf(Class) && $requiredProperty->toOne()->isPropertyAutoMapped($setImplementation),
                                       | let appendAtPaths = $propertyPaths->m2mPassThroughPaths()->filter(path| $path.values->isNotEmpty());
@@ -776,11 +785,11 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeForPrope
 
          
          if($isPropertyTemporalMilestoned,
-            | pair(^$withQPsRecorded(subTrees=$withQPsRecorded.subTrees->map(st| $st->switchToMilestoneProperties($tgtPgft.parameters->evaluateAndDeactivate()))), $visitedFunctionsFromEnrichedPaths),
-            | pair($withQPsRecorded, $visitedFunctionsFromEnrichedPaths);
+            | pair(^$withQPsRecorded(subTrees=$withQPsRecorded.subTrees->map(st| $st->switchToMilestoneProperties($tgtPgft.parameters->evaluateAndDeactivate()))), $scanFromEnrichedPaths),
+            | pair($withQPsRecorded, $scanFromEnrichedPaths);
          );
       },
-      | pair($srcNode, $visitedFunctions)
+      | pair($srcNode, $scan)
    );
 }
 
@@ -837,10 +846,53 @@ function <<access.private>> meta::pure::graphFetch::sourceBindingVars(transform:
 
 function meta::pure::graphFetch::enrichSourceTreeNode(srcNode:GraphFetchTree[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtNode:GraphFetchTree[1], extensions:meta::pure::extension::Extension[*], visitedFunctions:Map<String,ScanPropertiesState>[1], srcBinding:List<PropertyPathNode>[0..1]): Pair<GraphFetchTree, Map<String, ScanPropertiesState>>[1]
 {
-   $srcNode->enrichSourceTreeNode($mapping, $setImplementation, $tgtNode, $extensions, $visitedFunctions, $srcBinding, ^Map<String, List<AbstractProperty<Any>>>());
+   let enriched = $srcNode->enrichSourceTreeNode($mapping, $setImplementation, $tgtNode, $extensions, ^SourceTreeScan(visitedFunctions = $visitedFunctions), $srcBinding, ^Map<String, List<AbstractProperty<Any>>>());
+   pair($enriched.first->recordUnfetchedProperties($enriched.second.unfetchedProperties), $enriched.second.visitedFunctions);
 }
 
-function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNode(srcNode:GraphFetchTree[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtNode:GraphFetchTree[1], extensions:meta::pure::extension::Extension[*], visitedFunctions:Map<String,ScanPropertiesState>[1], srcBinding:List<PropertyPathNode>[0..1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, Map<String, ScanPropertiesState>>[1]
+function <<access.private>> meta::pure::graphFetch::recordUnfetchedProperties(tree:GraphFetchTree[1], properties:AbstractProperty<Any>[*]): GraphFetchTree[1]
+{
+   if($properties->isEmpty(),
+      | $tree,
+      | $tree->match([
+           ergft: ExtendedRootGraphFetchTree<Any>[1] | ^$ergft(requiredUnfetchedProperties = $ergft.requiredUnfetchedProperties->concatenate($properties)->removeDuplicates()),
+           rgft : RootGraphFetchTree<Any>[1]         | ^ExtendedRootGraphFetchTree<Any>(class = $rgft.class, subTrees = $rgft.subTrees, subTypeTrees = $rgft.subTypeTrees, requiredUnfetchedProperties = $properties->removeDuplicates()),
+           other: GraphFetchTree[1]                  | $other
+        ])
+   );
+}
+
+// Reads on instances that never come from the source. A subtree that owner reaches part of is rebuilt from owner
+// by buildPropertyPathUptoOwner instead, so only subtrees owner reaches none of count.
+function <<access.private>> meta::pure::graphFetch::propertiesUnreachableFromOwner(pTree:PropertyPathTree[1], ownerClass:Class<Any>[1], t:Map<Type, List<AbstractProperty<Any>>>[1]): AbstractProperty<Any>[*]
+{
+   if($pTree->findSubTreeWithOwnerOrPropertyTreesFromOwner($ownerClass, $t)->isEmpty(),
+      | $pTree->propertiesInPropertyTree(),
+      | $pTree.value->match([
+           node:PropertyPathNode[1] | if($ownerClass->reachesFromOwner($node.class, $t), | [], | $pTree.children->map(ch | $ch->propertiesUnreachableFromOwner($ownerClass, $t))),
+           clz : Class<Any>[1]      | if($ownerClass->reachesFromOwner($clz, $t), | [], | $pTree.children->map(ch | $ch->propertiesUnreachableFromOwner($ownerClass, $t))),
+           any : Any[1]             | $pTree.children->map(ch | $ch->propertiesUnreachableFromOwner($ownerClass, $t))
+        ])
+   );
+}
+
+function <<access.private>> meta::pure::graphFetch::propertiesInPropertyTree(pTree:PropertyPathTree[1]): AbstractProperty<Any>[*]
+{
+   $pTree.value->match([
+      node:PropertyPathNode[1] | $node.property->filter(p | $p != getDummyProperty()),
+      any : Any[1]             | []
+   ])->concatenate($pTree.children->map(ch | $ch->propertiesInPropertyTree()));
+}
+
+function <<access.private>> meta::pure::graphFetch::reachesFromOwner(ownerClass:Class<Any>[1], class:Class<Any>[1], t:Map<Type, List<AbstractProperty<Any>>>[1]): Boolean[1]
+{
+   $ownerClass == $class
+      || $class->isStrictSubType($ownerClass)
+      || $ownerClass->isStrictSubType($class)
+      || meta::pure::graphFetch::lookupIntermediateCandidates($t, $class)->isNotEmpty()
+}
+
+function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNode(srcNode:GraphFetchTree[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtNode:GraphFetchTree[1], extensions:meta::pure::extension::Extension[*], scan:SourceTreeScan[1], srcBinding:List<PropertyPathNode>[0..1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, SourceTreeScan>[1]
 {
    let setContainsExplodeProperty = $setImplementation.propertyMappings->filter(pm|if($pm->instanceOf(PurePropertyMapping),| $pm->cast(@PurePropertyMapping).explodeProperty->isTrue(), |false))->isNotEmpty();
    let subTreeProperties          = $tgtNode.subTrees->cast(@PropertyGraphFetchTree).property.name;
@@ -852,7 +904,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNode(srcNode
    let subTrees = $requiredTgtSubTrees->fold({st,n 
                                               | $n.first->enrichSourceTreeNodeForProperty($mapping, $setImplementation, $st, $extensions, $n.second, $srcBinding, $nestedPropertiesCache);
                                               },
-                                              pair($srcNode, $visitedFunctions)
+                                              pair($srcNode, $scan)
                                             );
 
 
@@ -861,7 +913,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNode(srcNode
 
    let subTreesRefined =
    if($srcBinding->isNotEmpty() && $setImplementation.filter->isNotEmpty() && $srcNodeOwner->instanceOf(Class),
-      | $subTrees.first->enrichSourceTreeNodeForBoundFilter($srcNodeOwner->cast(@Class<Any>), $setImplementation.filter->toOne(), $srcBinding->toOne(), $subTrees.second),
+      | $subTrees.first->enrichSourceTreeNodeForBoundFilter($srcNodeOwner->cast(@Class<Any>), $setImplementation.filter->toOne(), $srcBinding->toOne(), $subTrees.second.visitedFunctions),
       | if($srcClass->instanceOf(Class) && $setImplementation.filter->isNotEmpty() && $srcClass == $srcNodeOwner,
            | $subTrees.first->enrichSourceTreeNodeForExpression($srcClass->cast(@Class<Any>), $setImplementation.filter.expressionSequence->at(0)),
            | $subTrees.first
@@ -870,12 +922,12 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNode(srcNode
    pair($subTreesRefined, $subTrees.second);
 }
 
-function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeAtPath(srcNode:GraphFetchTree[1], path:List<PropertyPathNode>[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtPgft:PropertyGraphFetchTree[1], extensions:meta::pure::extension::Extension[*], visitedFunctions:Map<String,ScanPropertiesState>[1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, Map<String, ScanPropertiesState>>[1]
+function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeAtPath(srcNode:GraphFetchTree[1], path:List<PropertyPathNode>[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtPgft:PropertyGraphFetchTree[1], extensions:meta::pure::extension::Extension[*], scan:SourceTreeScan[1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, SourceTreeScan>[1]
 {
    $path.values->match(
     [
       zero : PropertyPathNode[0]  | // If path is empty then we are enriching the source node rather than the subTrees
-                                    $srcNode->enrichSourceTreeNode($mapping, $setImplementation, $tgtPgft, $extensions, $visitedFunctions, [], $nestedPropertiesCache);,
+                                    $srcNode->enrichSourceTreeNode($mapping, $setImplementation, $tgtPgft, $extensions, $scan, [], $nestedPropertiesCache);,
 
       one : PropertyPathNode[1]   | // If path just has one node, enrich required subTrees
                                     let head = $one->at(0);
@@ -885,7 +937,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeAtPath(s
                                                               let enrichedSourceNode = $res.first->addSubTrees($enrichedSubTree.first->cast(@PropertyGraphFetchTree)->liftSubTypeTrees());
                                                               pair($enrichedSourceNode, $enrichedSubTree.second);
                                                             },
-                                                            pair($srcNode, $visitedFunctions)
+                                                            pair($srcNode, $scan)
                                                             );
                                     $withSubTrees.first->enrichSubTypeTreesAtPath($path, $mapping, $setImplementation, $tgtPgft, $extensions, $withSubTrees.second, $nestedPropertiesCache);,
 
@@ -898,7 +950,7 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeAtPath(s
                                                               let enrichedSourceNode = $res.first->addSubTrees($enrichedSubTree.first->cast(@PropertyGraphFetchTree)->liftSubTypeTrees());
                                                               pair($enrichedSourceNode, $enrichedSubTree.second);
                                                             },
-                                                            pair($srcNode, $visitedFunctions)
+                                                            pair($srcNode, $scan)
                                                             );
                                     $withSubTrees.first->enrichSubTypeTreesAtPath($path, $mapping, $setImplementation, $tgtPgft, $extensions, $withSubTrees.second, $nestedPropertiesCache);
     ]
@@ -907,13 +959,13 @@ function <<access.private>> meta::pure::graphFetch::enrichSourceTreeNodeAtPath(s
 
 // A property reached through $src->cast(@Sub) sits in a subtype tree of the source node, not in its subTrees,
 // so a child set mapped from that property has to be enriched inside the subtype tree.
-function <<access.private>> meta::pure::graphFetch::enrichSubTypeTreesAtPath(srcNode:GraphFetchTree[1], path:List<PropertyPathNode>[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtPgft:PropertyGraphFetchTree[1], extensions:meta::pure::extension::Extension[*], visitedFunctions:Map<String,ScanPropertiesState>[1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, Map<String, ScanPropertiesState>>[1]
+function <<access.private>> meta::pure::graphFetch::enrichSubTypeTreesAtPath(srcNode:GraphFetchTree[1], path:List<PropertyPathNode>[1], mapping:Mapping[1], setImplementation: PureInstanceSetImplementation[1], tgtPgft:PropertyGraphFetchTree[1], extensions:meta::pure::extension::Extension[*], scan:SourceTreeScan[1], nestedPropertiesCache:Map<String, List<AbstractProperty<Any>>>[1]): Pair<GraphFetchTree, SourceTreeScan>[1]
 {
    let enriched = $srcNode.subTypeTrees->fold({stt, res
                                               | let enrichedSubTypeTree = $stt->enrichSourceTreeNodeAtPath($path, $mapping, $setImplementation, $tgtPgft, $extensions, $res.second, $nestedPropertiesCache);
                                                 pair(list($res.first.values->concatenate($enrichedSubTypeTree.first->cast(@SubTypeGraphFetchTree))), $enrichedSubTypeTree.second);
                                               },
-                                              pair(list([]->cast(@SubTypeGraphFetchTree)), $visitedFunctions)
+                                              pair(list([]->cast(@SubTypeGraphFetchTree)), $scan)
                                             );
    pair(^$srcNode(subTypeTrees = $enriched.first.values), $enriched.second);
 }
@@ -1010,17 +1062,11 @@ function <<access.private>>
 function meta::pure::graphFetch::findSubTreeWithOwnerOrPropertyTreesFromOwner(pTree:PropertyPathTree[1], ownerClass:Class<Any>[1], t : Map<Type, List<AbstractProperty<Any>>>[1]) : PropertyPathTree[*]
 {
    $pTree.value->match([
-      node:PropertyPathNode[1] | if($ownerClass == $node.class
-                                       || $node.class->isStrictSubType($ownerClass)
-                                       || $ownerClass->isStrictSubType($node.class)
-                                       || meta::pure::graphFetch::lookupIntermediateCandidates($t, $node.class)->isNotEmpty(),
+      node:PropertyPathNode[1] | if($ownerClass->reachesFromOwner($node.class, $t),
                                     | $pTree;,
                                     | $pTree.children->map(ch | findSubTreeWithOwnerOrPropertyTreesFromOwner($ch, $ownerClass, $t))
                                 ),
-      clz : Class<Any>[1]      | if($clz == $ownerClass
-                                       || $clz->isStrictSubType($ownerClass)
-                                       || $ownerClass->isStrictSubType($clz)
-                                       || meta::pure::graphFetch::lookupIntermediateCandidates($t, $clz)->isNotEmpty(),
+      clz : Class<Any>[1]      | if($ownerClass->reachesFromOwner($clz, $t),
                                     | $pTree;,
                                     | $pTree.children->map(ch | findSubTreeWithOwnerOrPropertyTreesFromOwner($ch, $ownerClass, $t))
                                 );,

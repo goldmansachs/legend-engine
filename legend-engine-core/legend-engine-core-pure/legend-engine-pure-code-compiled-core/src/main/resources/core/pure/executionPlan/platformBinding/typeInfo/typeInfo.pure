@@ -339,6 +339,15 @@ function <<access.private>> meta::pure::executionPlan::platformBinding::typeInfo
    ]);
    let withRequiredQualifiers = $requiredQP->fold({qp,tis |$tis->addQualifiedPropertyForTypeIfMissing($qp)}, $withMilestoning);
 
+   let requiredUnfetched = $tree->match([
+      ergft: ExtendedRootGraphFetchTree<Any>[1] | $ergft.requiredUnfetchedProperties,
+      gft  : GraphFetchTree[1]                  | []
+   ]);
+   let withRequiredUnfetched = $requiredUnfetched->fold({p, tis | $p->match([
+                                                                     qp: QualifiedProperty<Any>[1]  | $tis->addQualifiedPropertyForTypeIfMissing($qp),
+                                                                     pp: Property<Nil,Any|*>[1]     | $tis->addPropertyForTypeIfMissing($pp)
+                                                                  ])}, $withRequiredQualifiers);
+
    let withPropertySubtrees= $tree.subTrees->map(x | $x->meta::pure::graphFetch::routing::byPassClusteringInfo())->cast(@PropertyGraphFetchTree)->fold(
       {pgft, tis|
          if($pgft.property->instanceOf(QualifiedProperty),
@@ -346,7 +355,7 @@ function <<access.private>> meta::pure::executionPlan::platformBinding::typeInfo
             | $classes->fold({c, tis2| $tis2->addPropertyForClassIfDefined($c, $pgft.property.name->toOne(), false)}, $tis)
          )->typeInfoFromTree($pgft);
       },
-      $withRequiredQualifiers
+      $withRequiredUnfetched
    );
 
    let withSubTypeTrees=if($tree->instanceOf(RootGraphFetchTree),

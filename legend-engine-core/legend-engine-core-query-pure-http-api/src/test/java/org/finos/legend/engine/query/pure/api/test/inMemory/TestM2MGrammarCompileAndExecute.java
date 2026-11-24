@@ -561,7 +561,40 @@ public class TestM2MGrammarCompileAndExecute
 
     private ExecuteInput untargetedUnionMemberInput(String queryTail)
     {
-        PureModelContextData contextData = PureGrammarParser.newInstance().parseModel(String.format(UNTARGETED_UNION_MEMBER_MODEL, queryTail));
+        return grammarInput(String.format(UNTARGETED_UNION_MEMBER_MODEL, queryTail), "test::Deal", "{\"a\":{\"v\":\"x\"}}");
+    }
+
+    private static final String HELPER_PARAMETER_PASSED_EMPTY_MODEL = "" +
+            "Class test::Leaf { c: String[0..1]; }\n" +
+            "Class test::Holder { leaf: test::Leaf[0..1]; }\n" +
+            "Class test::Src { code: String[1]; }\n" +
+            "Class test::Out { c: String[0..1]; }\n" +
+            "function test::leafCode(holder: test::Holder[1]): String[0..1] { $holder.leaf.c }\n" +
+            "function test::leafCodeOr(code: String[1], holder: test::Holder[0..1]): String[0..1]\n" +
+            "{\n" +
+            "   if($holder->isNotEmpty(), | test::leafCode($holder->toOne()), | $code)\n" +
+            "}\n" +
+            "function test::query(): String[*]\n" +
+            "{\n" +
+            "   test::Out.all()->graphFetch(#{test::Out{c}}#)->serialize(#{test::Out{c}}#)\n" +
+            "}\n" +
+            "\n" +
+            "###Mapping\n" +
+            "Mapping test::M\n" +
+            "(\n" +
+            "   test::Out : Pure { ~src test::Src  c : test::leafCodeOr($src.code, []) }\n" +
+            ")\n";
+
+    @Test
+    public void testClassReadOnlyThroughHelperParameterPassedEmptyIsGenerated() throws IOException
+    {
+        String json = responseAsString(runTest(grammarInput(HELPER_PARAMETER_PASSED_EMPTY_MODEL, "test::Src", "{\"code\":\"X\"}")));
+        assertEquals("{\"builder\":{\"_type\":\"json\"},\"values\":{\"c\":\"X\"}}", json);
+    }
+
+    private ExecuteInput grammarInput(String model, String sourceClass, String data)
+    {
+        PureModelContextData contextData = PureGrammarParser.newInstance().parseModel(model);
         Function query = contextData.getElementsOfType(Function.class).stream().filter(f -> f.name.startsWith("query")).findFirst()
                 .orElseThrow(() -> new IllegalStateException("No function starting with 'query' found in model"));
         LambdaFunction lambda = new LambdaFunction();
@@ -573,7 +606,7 @@ public class TestM2MGrammarCompileAndExecute
         input.model = contextData;
         input.mapping = "test::M";
         input.function = lambda;
-        input.runtime = runtimeValue(jsonModelConnection("test::Deal", "{\"a\":{\"v\":\"x\"}}"));
+        input.runtime = runtimeValue(jsonModelConnection(sourceClass, data));
         input.context = context();
         return input;
     }
