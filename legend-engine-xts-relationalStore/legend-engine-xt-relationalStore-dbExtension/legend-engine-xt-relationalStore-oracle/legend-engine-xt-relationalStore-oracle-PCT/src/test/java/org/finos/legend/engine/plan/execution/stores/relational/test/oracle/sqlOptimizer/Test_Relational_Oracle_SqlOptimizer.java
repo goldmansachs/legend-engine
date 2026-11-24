@@ -49,7 +49,12 @@ public class Test_Relational_Oracle_SqlOptimizer
                 .withKeyValue("meta::relational::tests::sqlOptimizer::semantics::trimming::testEveryRuleKeepsAColumnReadOnlyByTheSubSelectsOwnWhereClause_Connection_1__Boolean_1_",
                         "ORA-00904: \"Q\": invalid identifier")
                 .withKeyValue("meta::relational::tests::sqlOptimizer::semantics::trimming::testEveryRuleKeepsAColumnReadOnlyByAUnionBranchsOwnWhereClause_Connection_1__Boolean_1_",
-                        "ORA-00904: \"Q\": invalid identifier");
+                        "ORA-00904: \"Q\": invalid identifier")
+                // The setup inserts ISO date strings, which Oracle rejects for DATE columns (ORA-01861).
+                .withKeyValue("meta::relational::tests::sqlOptimizer::duckDbRefusals::testMilestonedTableKeepsTheJoinDespiteItsDeclaredKey_Connection_1__Boolean_1_",
+                        "Error while executing: insert into SQLOPT.DDR_RM (ID,NAME,FROM_Z,THRU_Z) values (1,'m1v1','2020-01-01'")
+                .withKeyValue("meta::relational::tests::sqlOptimizer::duckDbRefusals::testRepeatedLeftJoinRefusals_Connection_1__Boolean_1_",
+                        "Error while executing: insert into SQLOPT.DDR_RM (ID,NAME,FROM_Z,THRU_Z) values (1,'m1v1','2020-01-01'");
 
         Map<CoreInstance, String> failures = pathToReason.collect(
                 (k, v) -> Tuples.pair(executionSupport.getProcessorSupport().package_getByUserPath(k), v));
